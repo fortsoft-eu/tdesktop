@@ -250,18 +250,20 @@ void AwayMessage::setupContent(
 		(_1 < _2) || _3);
 
 	Ui::AddSkip(content);
-	const auto enabled = content->add(object_ptr<Ui::SettingsButton>(
+	const auto enabled = content->add(object_ptr<Ui::Checkbox>(
 		content,
 		tr::lng_away_enable(),
-		st::settingsButtonNoIcon
-	))->toggleOn(rpl::single(
-		!disabled
-	) | rpl::then(rpl::merge(
+		!disabled,
+		st::settingsCheckbox),
+		st::settingsCheckboxPadding);
+	rpl::merge(
 		_canHave.value() | rpl::filter(!_1),
 		_deactivateOnAttempt.events() | rpl::map_to(false)
-	)));
+	) | rpl::on_next([=](bool checked) {
+		enabled->setChecked(checked);
+	}, enabled->lifetime());
 
-	_enabled = enabled->toggledValue();
+	_enabled = enabled->checkedValue();
 	_enabled.value() | rpl::filter(_1) | rpl::on_next([=] {
 		if (!_canHave.current()) {
 			controller->showToast({
@@ -322,12 +324,13 @@ void AwayMessage::setupContent(
 	Ui::AddSkip(inner);
 
 	const auto offlineOnly = inner->add(
-		object_ptr<Ui::SettingsButton>(
+		object_ptr<Ui::Checkbox>(
 			inner,
-			tr::lng_away_offline_only(),
-			st::settingsButtonNoIcon)
-	)->toggleOn(rpl::single(current.offlineOnly));
-	_offlineOnly = offlineOnly->toggledValue();
+			tr::lng_away_offline_only(tr::now),
+			current.offlineOnly,
+			st::settingsCheckbox),
+		st::settingsCheckboxPadding);
+	_offlineOnly = offlineOnly->checkedValue();
 
 	Ui::AddSkip(inner);
 	Ui::AddDividerText(inner, tr::lng_away_offline_only_about());
@@ -341,9 +344,10 @@ void AwayMessage::setupContent(
 
 	Ui::AddSkip(inner, st::settingsChatbotsAccessSkip);
 
-	wrap->toggleOn(enabled->toggledValue());
+	wrap->toggleOn(enabled->checkedValue());
 	wrap->finishAnimating();
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 

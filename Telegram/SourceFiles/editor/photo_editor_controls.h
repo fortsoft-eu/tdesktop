@@ -72,7 +72,6 @@ private:
 
 	const QSize _imageSize;
 	const float64 _originalRatio = 0.;
-	const style::color &_bg;
 	const int _buttonHeight;
 	const base::unique_qptr<ButtonBar> _transformButtons;
 	const base::unique_qptr<ButtonBar> _paintTopButtons;

@@ -15,10 +15,10 @@ msgMaxWidth: 430px;
 msgFont: font(fsize);
 msgNameFont: semiboldFont;
 msgNameStyle: semiboldTextStyle;
-msgServiceFont: semiboldFont;
+msgServiceFont: classicSettingsFont;
 msgServiceNameFont: semiboldFont;
 msgServicePhotoWidth: 100px;
-msgDateFont: font(13px);
+msgDateFont: classicSettingsFont;
 msgMinWidth: 160px;
 msgPhotoSize: 33px;
 msgPhotoSkip: 40px;
@@ -43,9 +43,9 @@ tagInfoAdminsOnlyPadding: margins(0px, 8px, 0px, 0px);
 tagInfoAdminsOnlyLabel: FlatLabel(defaultFlatLabel) {
 	align: align(top);
 	minWidth: 40px;
-	textFg: windowSubTextFg;
+	textFg: classicMenuText;
 	style: TextStyle(defaultTextStyle) {
-		font: font(12px);
+		font: classicSettingsFont;
 	}
 }
 
@@ -107,7 +107,9 @@ messageTextStyle: historyTextStyle;
 historyPagePreview: QuoteStyle(messageQuoteStyle) {
 	padding: margins(10px, 5px, 7px, 7px);
 }
-msgDateTextStyle: defaultTextStyle;
+msgDateTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 serviceTextStyle: TextStyle(defaultTextStyle) {
 	font: msgServiceFont;
 }
@@ -149,7 +151,7 @@ nameRipplePadding: margins(3px, 1px, 3px, 1px);
 linkRippleRadius: 3px;
 linkRipplePadding: margins(3px, 0px, 3px, 0px);
 fwdTextStyle: TextStyle(semiboldTextStyle) {
-	linkUnderline: kLinkUnderlineNever;
+	linkUnderline: kLinkUnderlineActive;
 }
 
 mediaCaptionSkip: 5px;
@@ -211,8 +213,8 @@ historyPremiumToast: Toast(defaultToast) {
 }
 historyPremiumViewSet: RoundButton(defaultActiveButton) {
 	width: -24px;
-	height: 44px;
-	textTop: 13px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	textFg: mediaviewTextLinkFg;
 	textFgOver: mediaviewTextLinkFg;
 	textBg: transparent;
@@ -251,8 +253,8 @@ historyBotMenuSkip: 8px;
 historyBotMenuMaxWidth: 160px;
 historyBotMenuButton: RoundButton(defaultActiveButton) {
 	width: -24px;
-	height: 30px;
-	textTop: 6px;
+	height: historyCompactComposeButton.height;
+	textTop: classicProfileActionButton.textTop;
 }
 
 topicButtonSkip: 3px;
@@ -279,9 +281,12 @@ msgBotKbCopyIcon: icon {{ "inline_button_copy", msgBotKbIconFg }};
 msgBotKbButton: BotKeyboardButton {
 	margin: 2px;
 	padding: 10px;
-	height: 36px;
+	height: 30px;
 	textTop: 8px;
 	ripple: defaultRippleAnimation;
+}
+historyInlineBotButtonTextStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
 }
 
 botDescSkip: 8px;
@@ -319,7 +324,12 @@ historyInfoToast: Toast(defaultToast) {
 	maxWidth: 380px;
 	padding: margins(13px, 13px, 19px, 12px);
 }
-historyInfoToastIcon: icon {{ "toast/info", toastFg }};
+historyInfoToastIcon: icon {{ "toast/info", classicMenuText }};
+historyHiddenSenderTooltipLabel: FlatLabel(defaultImportantTooltipLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
 
 bubbleRadiusSmall: roundRadiusLarge;
 bubbleRadiusLarge: 16px;
@@ -344,13 +354,16 @@ historyEphemeralPlateStyle: TextStyle(semiboldTextStyle) {
 }
 historyEphemeralIconLeftSkip: 1px;
 
-historyStatusFg: windowSubTextFg;
+historyStatusFg: classicMenuText;
 historyStatusFgActive: windowActiveTextFg;
 historyStatusFgTyping: historyStatusFgActive;
+historySendActionTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 
 historyUnreadBarHeight: 32px;
 historyUnreadBarMargin: 8px;
-historyUnreadBarFont: semiboldFont;
+historyUnreadBarFont: classicActionFont;
 
 historyForwardChooseMargins: margins(30px, 10px, 30px, 10px);
 historyForwardChooseFont: font(16px);
@@ -552,6 +565,8 @@ historyPageEnlargeSkip: 4px;
 historyPageEnlargeRadius: 8px;
 
 historyCommentsButtonHeight: 40px;
+historyCommentsFont: classicSettingsFont;
+historyCommentsFontOver: font(11px underline "Tahoma");
 historyCommentsSkipLeft: 9px;
 historyCommentsSkipText: 10px;
 historyCommentsSkipRight: 8px;
@@ -646,7 +661,7 @@ popupMenuExpandedSeparator: PopupMenu(popupMenuWithIcons) {
 	}
 }
 
-menuTimecodeFont: font(7px semibold);
+menuTimecodeFont: classicSettingsFont;
 
 whoReadMenu: PopupMenu(popupMenuExpandedSeparator) {
 	scrollPadding: margins(0px, 6px, 0px, 4px);
@@ -654,6 +669,9 @@ whoReadMenu: PopupMenu(popupMenuExpandedSeparator) {
 }
 reactionPreviewInMenuSize: 120px;
 reactionPreviewInMenuSkip: 8px;
+whoReadNameStyle: TextStyle(defaultTextStyle) {
+	font: font(fsize "Unifont");
+}
 whoReadNameWithDateTop: 3px;
 whoReadDateTop: 20px;
 whoReadDateSkip: 15px;
@@ -667,7 +685,7 @@ whoForwardedDateHeart: icon{{ "statistics/mini_stats_share", groupCallMemberActi
 whoForwardedDateHeartOver: icon{{ "statistics/mini_stats_share", groupCallMemberActiveIcon, point(4px, 4px) }};
 whoReadDateChecksPosition: point(-7px, -4px);
 whoReadDateStyle: TextStyle(defaultTextStyle) {
-	font: font(12px);
+	font: classicSettingsFont;
 }
 whoReadChecks: icon{{ "menu/read_ticks", windowBoldFg }};
 whoReadChecksOver: icon{{ "menu/read_ticks", windowBoldFg }};
@@ -691,6 +709,13 @@ reactionsTabChecks: icon {{ "menu/read_ticks", windowFg }};
 reactionsTabChecksSelected: icon {{ "menu/read_ticks", activeButtonFg }};
 reactionsTabs: MultiSelect(defaultMultiSelect) {
 	padding: margins(12px, 10px, 12px, 10px);
+	item: MultiSelectItem(defaultMultiSelectItem) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
+		textFg: classicMenuText;
+		textActiveFg: windowFgActive;
+	}
 }
 reactionsTabIconSkip: 3px;
 
@@ -706,6 +731,7 @@ reactionInlineTagDot: 5px;
 reactionInlineTagDotSkip: 2px;
 reactionInlineEmptySkip: 2px;
 reactionInlineTagFont: font(12px);
+reactionInlineCountFont: classicSettingsFont;
 reactionInlineTagNamePosition: point(26px, 2px);
 reactionInlineTagPromoPosition: point(20px, 2px);
 reactionInlineBetween: 4px;
@@ -739,10 +765,15 @@ reactionMainAppearShift: 20px;
 reactionCollapseFadeThreshold: 40px;
 reactionFlyUp: 50px;
 
-replyCornerHeight: 20px;
-replyCornerShadow: margins(4px, 8px, 4px, 8px);
+replyCornerHeight: 24px;
+replyCornerWidth: 50px;
+replyCornerOffset: point(-1px, -1px);
+replyCornerShadow: margins(0px, 0px, 0px, 0px);
 replyCornerCenter: point(7px, -2px);
-replyCornerTextPadding: margins(6px, 0px, 6px, 0px);
+replyCornerTextPadding: margins(4px, 0px, 4px, 0px);
+replyCornerTextStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
+}
 
 effectInfoImage: 12px;
 
@@ -768,6 +799,15 @@ msgServiceGiftBoxButtonHeight: 30px;
 msgServiceGiftBoxButtonPadding: margins(1px, 0px, 1px, 0px);
 msgServiceGiftBoxButtonMargins: margins(0px, 10px, 0px, 20px);
 msgServiceGiftBoxTitlePadding: margins(0px, 24px, 0px, 7px);
+msgServicePremiumGiftTitleStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
+}
+msgServicePremiumGiftTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
+msgServicePremiumGiftButtonStyle: TextStyle(semiboldTextStyle) {
+	font: classicActionFont;
+}
 msgServiceGiftBoxBadgeFont: font(11px semibold);
 msgServiceGiftBoxBadgePadding: margins(3px, 2px, 3px, 2px);
 msgServiceGiftBoxStickerTop: -19px;
@@ -792,20 +832,21 @@ unsupportedTearPeriod: 20px;
 unsupportedNoticePlane: icon{{ "chat/unsupported_plane", msgServiceFg }};
 
 historySponsorInfoItem: FlatLabel(defaultFlatLabel) {
+	textFg: classicMenuText;
 	style: TextStyle(defaultTextStyle) {
-		font: font(12px);
+		font: classicSettingsFont;
 	}
 	minWidth: 136px;
 }
 historySponsorInfoItemDark: FlatLabel(historySponsorInfoItem) {
-	textFg: mediaviewControlFg;
+	textFg: classicMenuText;
 }
 historySponsorInfoMenu: PopupMenu(popupMenuExpandedSeparator) {
 	maxHeight: 420px;
 }
 historyHasCustomEmoji: FlatLabel(defaultFlatLabel) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(11px);
+		font: classicSettingsFont;
 	}
 	minWidth: 80px;
 }
@@ -813,15 +854,19 @@ historyHasCustomEmojiPosition: point(12px, 4px);
 historyBankCardMenuMultilinePosition: point(18px, 4px);
 
 historyTranslateLabel: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
-	textFg: windowActiveTextFg;
-	minWidth: 80px;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+	textFg: classicMenuText;
+	minWidth: 0px;
 }
-historyTranslateIcon: icon{{ "menu/translate", windowActiveTextFg }};
-historyTranslateBarHeight: 36px;
+historyTranslateIcon: icon{{ "menu/translate", classicMenuText }};
+historyTranslateBarHeight: 30px;
+historyTranslateButtonHeight: 28px;
+historyTranslateButtonMargin: 3px;
 historyTranslateSettings: IconButton(defaultIconButton) {
-	width: 46px;
-	height: 36px;
+	width: 30px;
+	height: 30px;
 	icon: icon{{ "menu/customize", windowActiveTextFg }};
 	iconOver: icon{{ "menu/customize", windowActiveTextFg }};
 	rippleAreaPosition: point(6px, 2px);
@@ -832,17 +877,21 @@ historyTranslateSettings: IconButton(defaultIconButton) {
 }
 historyTranslateMenuPosition: point(-6px, 30px);
 historyTranslateCocoonLabel: FlatLabel(historyHasCustomEmoji) {
+	textFg: classicMenuText;
 	style: TextStyle(defaultTextStyle) {
-		font: font(12px);
+		font: classicSettingsFont;
 	}
 	margin: margins(4px, 8px, 4px, 8px);
 }
 
 cocoonLogoTop: 32px;
 cocoonLogoSize: 96px;
-cocoonTitleFont: font(36px semibold);
+cocoonTitleFont: classicActionFont;
 cocoonTitleTop: 12px;
 cocoonSubtitle: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	minWidth: 120px;
 	align: align(top);
 }
@@ -851,11 +900,34 @@ cocoonSubtitleBottom: 16px;
 cocoonJoinSeparatorPadding: margins(24px, 4px, 24px, 12px);
 cocoonJoinLabel: FlatLabel(defaultFlatLabel) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(12px);
+		font: classicSettingsFont;
 	}
 	textFg: windowSubTextFg;
 	minWidth: 120px;
 	align: align(top);
+}
+cocoonFeatureTitle: FlatLabel(defaultFlatLabel) {
+	textFg: windowBoldFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	minWidth: 10px;
+	maxHeight: 20px;
+}
+cocoonFeatureAbout: FlatLabel(defaultFlatLabel) {
+	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	minWidth: 20px;
+}
+cocoonBox: Box(defaultBox) {
+	buttonPadding: margins(102px, 12px, 102px, 12px);
+	buttonHeight: 28px;
+	buttonWide: false;
+	button: RoundButton(classicProfileActionButton) {
+	}
+	shadowIgnoreTopSkip: true;
 }
 
 historySponsoredAboutMenuLabelPosition: point(54px, 4px);
@@ -916,7 +988,7 @@ chatGiveawayPeerSkip: 8px;
 chatGiveawayCreditsIconHeight: 19px;
 
 chatSimilarArrowSize: 6px;
-chatSimilarTitle: semiboldFont;
+chatSimilarTitle: classicSettingsFont;
 chatSimilarTitlePosition: point(15px, 9px);
 chatSimilarPadding: margins(8px, 32px, 8px, 4px);
 chatSimilarChannelPadding: margins(8px, 5px, 8px, 37px);
@@ -926,7 +998,7 @@ chatSimilarBadgeTop: 43px;
 chatSimilarBadgeIcon: icon{{ "chat/mini_subscribers", premiumButtonFg }};
 chatSimilarBadgeIconPosition: point(0px, 1px);
 chatSimilarLockedIconPosition: point(0px, 1px);
-chatSimilarBadgeFont: font(10px bold);
+chatSimilarBadgeFont: classicSettingsFont;
 chatSimilarNameTop: 59px;
 chatSimilarName: TextStyle(defaultTextStyle) {
 	font: font(12px);
@@ -964,6 +1036,9 @@ awayEmptyIcon: icon{{ "chat/large_away", msgServiceFg }};
 repliesEmptyWidth: 264px;
 repliesEmptySkip: 16px;
 repliesEmptyPadding: margins(10px, 20px, 10px, 16px);
+repliesEmptyTextStyle: TextStyle(messageTextStyle) {
+	font: classicSettingsFont;
+}
 
 welcomeEmptyWidth: repliesEmptyWidth;
 welcomeEmptyIcon: icon{{ "chat/large_welcome-80x76", msgServiceFg }};
@@ -1018,8 +1093,8 @@ previewTop: PeerListItem(defaultPeerListItem) {
 	photoSize: 40px;
 }
 previewMarkRead: FlatButton(historyComposeButton) {
-	height: 39px;
-	textTop: 10px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 }
 previewName: FlatLabel(defaultFlatLabel) {
 	style: semiboldTextStyle;
@@ -1264,25 +1339,75 @@ chatTabsOutlineHorizontal: ChatTabsOutline {
 chatTabsOutlineVertical: ChatTabsOutline(chatTabsOutlineHorizontal) {
 }
 
-messageSendingAnimationTextFromOffset: point(-6px, 9px);
+messageSendingAnimationTextFromOffset: point(-6px, 5px);
 
 suggestPriceBox: Box(defaultBox) {
+	buttonWide: true;
 	buttonPadding: margins(22px, 22px, 22px, 22px);
-	buttonHeight: 42px;
-	button: RoundButton(defaultActiveButton) {
-		height: 42px;
-		textTop: 12px;
-		style: semiboldTextStyle;
+	buttonHeight: classicWideBoxButtonHeight;
+	button: RoundButton(classicWideBoxButton) {
 	}
 	shadowIgnoreTopSkip: true;
 }
-suggestPriceEstimate: FlatLabel(defaultFlatLabel) {
-	textFg: windowSubTextFg;
+suggestPriceTitle: FlatLabel(defaultSubsectionTitle) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textFg: classicMenuText;
 }
-suggestPriceEstimateTop: 12px;
-starsFieldIconPosition: point(0px, 10px);
+suggestPriceDivider: DividerLabel(classicDividerLabel) {
+	bar: DividerBar(defaultDividerBar) {
+		bg: classicControlBg;
+	}
+	label: FlatLabel(boxDividerLabel) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+		textFg: classicMenuText;
+	}
+}
+suggestPriceSettingsButton: SettingsButton(defaultSettingsButton) {
+	padding: margins(16px, 4px, 16px, 4px);
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textFg: classicMenuText;
+	textFgOver: classicMenuText;
+	textBg: classicControlBg;
+	textBgOver: classicControlBg;
+	rightLabel: FlatLabel(defaultSettingsRightLabel) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
+}
+suggestBalanceTextStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
+}
+suggestStarsField: InputField(editTagField) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textBg: windowBg;
+	textBgActive: windowBg;
+	textFg: classicMenuText;
+	textMargins: classicSingleLineInputPadding;
+	textAlign: align(left);
+	heightMin: classicSingleLineInputHeight;
+	heightMax: classicSingleLineInputHeight;
+	placeholderFont: classicSettingsFont;
+	placeholderMargins: margins(0px, 0px, 0px, 0px);
+	placeholderAlign: align(left);
+}
+suggestPriceEstimate: FlatLabel(defaultFlatLabel) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+moneyInputIconSkip: 4px;
+moneyInputEstimateSkip: 6px;
 tonFieldIconSize: 16px;
-tonFieldIconPosition: point(2px, 11px);
 
 suggestBarTonIconSize: 14px;
 suggestBarTonIconMargins: margins(0px, 3px, 0px, 0px);
@@ -1291,6 +1416,10 @@ lowTonIconPadding: margins(12px, 20px, 12px, 0px);
 lowTonTitlePadding: margins(0px, 12px, 0px, 12px);
 lowTonTextPadding: margins(0px, 0px, 0px, 8px);
 lowTonText: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textFg: classicMenuText;
 	minWidth: 100px;
 	align: align(top);
 }
@@ -1313,9 +1442,21 @@ groupMembersWidgetList: PeerList(defaultPeerList) {
 }
 
 saveMusicInfoMenu: Menu(defaultMenu) {
-	itemBgOver: windowBg;
-	itemFgOver: windowFg;
+	itemStyle: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	itemBg: classicControlBg;
+	itemBgOver: classicControlBg;
+	itemFg: classicMenuText;
+	itemFgOver: classicMenuText;
+	itemFgDisabled: classicMenuSeparator;
 	itemPadding: margins(17px, 4px, 17px, 3px);
+}
+saveMusicInfoLabel: FlatLabel(defaultFlatLabel) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 
 
@@ -1338,12 +1479,9 @@ managedBotImageHeight: 140px;
 
 stakeBox: Box(defaultBox) {
 	buttonPadding: margins(24px, 12px, 24px, 24px);
-	buttonHeight: 42px;
+	buttonHeight: classicWideBoxButtonHeight;
 	buttonWide: true;
-	button: RoundButton(defaultActiveButton) {
-		height: 42px;
-		textTop: 12px;
-		style: semiboldTextStyle;
+	button: RoundButton(classicWideBoxButton) {
 	}
 	shadowIgnoreTopSkip: true;
 }
@@ -1368,7 +1506,7 @@ stateChangeBadgeMargin: margins(0px, 1px, 0px, 0px);
 historySummaryHeaderIconSize: 30px;
 historySummaryHeaderIconSizeInner: 5px;
 
-toastCheckIcon: icon {{ "toast/check-36x36", toastFg }};
+toastCheckIcon: icon {{ "toast/check-36x36", classicMenuText }};
 
 historySummaryStars: icon {{ "chat/summary_stars-24x24", msgServiceFg }};
 historySummaryArrows: icon {{ "chat/summary_arrows-24x24", msgServiceFg }};

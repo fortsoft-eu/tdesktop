@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/community_requests/info_community_requests_widget.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_communities.h"
 #include "apiwrap.h"
 #include "base/timer.h"
@@ -580,7 +581,7 @@ void Row::paintPill(Painter &p, QRect pill) const {
 	const auto radius = pill.height() / 2;
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::windowBgOver);
-	p.drawRoundedRect(pill, radius, radius);
+	p.drawRoundedRect(pill, style::CornerRadius(radius), style::CornerRadius(radius));
 }
 
 void Row::paintStatusText(

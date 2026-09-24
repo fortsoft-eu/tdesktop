@@ -31,9 +31,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/widgets/shadow.h"
+#include "ui/style/style_classic.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/effects/slide_animation.h"
-#include "ui/widgets/discrete_sliders.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/fields/special_fields.h"
 #include "ui/image/image.h"
@@ -42,10 +42,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/unread_badge_paint.h"
 #include "media/clip/media_clip_reader.h"
 #include "main/main_session.h"
+#include "window/window_session_controller.h"
 #include "styles/style_layers.h"
 #include "styles/style_boxes.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_stickers_box.h"
+
+#include <QtCore/QSignalBlocker>
+#include <QtWidgets/QTabBar>
 
 namespace {
 
@@ -63,10 +67,10 @@ constexpr auto kHandleMegagroupSetAddressChangeTimeout = crl::time(1000);
 		int maxNameWidth,
 		int *outTitleWidth) {
 	auto result = set->title;
-	auto titleWidth = st::contactsNameStyle.font->width(result);
+	auto titleWidth = st::stickersSetNameStyle.font->width(result);
 	if (titleWidth > maxNameWidth) {
-		result = st::contactsNameStyle.font->elided(result, maxNameWidth);
-		titleWidth = st::contactsNameStyle.font->width(result);
+		result = st::stickersSetNameStyle.font->elided(result, maxNameWidth);
+		titleWidth = st::stickersSetNameStyle.font->width(result);
 	}
 	if (outTitleWidth) {
 		*outTitleWidth = titleWidth;
@@ -228,7 +232,6 @@ private:
 	void checkGroupLevel(Fn<void()> done);
 
 	void checkLoadMore();
-	void updateScrollbarWidth();
 	int getRowIndex(uint64 setId) const;
 	void setRowRemoved(int index, bool removed);
 
@@ -250,6 +253,7 @@ private:
 	void clear();
 	void updateCursor();
 	void setActionSel(int32 actionSel);
+	void setNameSel(int nameSel);
 	float64 aboveShadowOpacity() const;
 	void validateLottieAnimation(not_null<Row*> row);
 	void validateWebmAnimation(not_null<Row*> row);
@@ -304,6 +308,7 @@ private:
 
 	int _actionSel = -1;
 	int _actionDown = -1;
+	int _nameSel = -1;
 
 	QString _addText;
 	int _addWidth = 0;
@@ -326,7 +331,6 @@ private:
 
 	int _minHeight = 0;
 
-	int _scrollbar = 0;
 	ChannelData *_megagroupSet = nullptr;
 	bool _megagroupSetEmoji = false;
 	bool _checkingGroupLevel = false;
@@ -418,7 +422,7 @@ StickersBox::StickersBox(
 : _show(std::move(show))
 , _session(&_show->session())
 , _api(&_session->mtp())
-, _tabs(this, st::stickersTabs)
+, _tabs(object_ptr<QTabBar>::fromRaw(Ui::CreateClassicTabBar(this)))
 , _unreadBadge(
 	this,
 	_session->data().stickers().featuredSetsUnreadCountValue())
@@ -429,7 +433,6 @@ StickersBox::StickersBox(
 , _masks(_isMasks ? Tab(0, this, _show, Section::Masks) : Tab())
 , _featured(_isMasks ? Tab() : Tab(1, this, _show, Section::Featured))
 , _archived((_isMasks ? 1 : 2), this, _show, Section::Archived) {
-	_tabs->setRippleTopRoundRadius(st::boxRadius);
 }
 
 StickersBox::StickersBox(
@@ -601,12 +604,15 @@ void StickersBox::prepare() {
 			preloadArchivedSets();
 		}
 		setNoContentMargin(true);
-		_tabs->sectionActivated(
-		) | rpl::filter([=] {
-			return !_ignoreTabActivation;
-		}) | rpl::on_next(
-			[this] { switchTab(); },
-			lifetime());
+		QObject::connect(
+			_tabs.data(),
+			&QTabBar::currentChanged,
+			this,
+			[=](int index) {
+				if (!_ignoreTabActivation && index >= 0) {
+					switchTab();
+				}
+			});
 		refreshTabs();
 	}
 	if (_installed.widget() && _section != Section::Installed) {
@@ -761,15 +767,19 @@ void StickersBox::refreshTabs() {
 		sections.push_back(tr::lng_stickers_archived_tab(tr::now));
 		_tabIndices.push_back(Section::Archived);
 	}
-	_tabs->setSections(sections);
+	const auto blocker = QSignalBlocker(_tabs.data());
+	while (_tabs->count()) {
+		_tabs->removeTab(_tabs->count() - 1);
+	}
+	for (const auto &section : sections) {
+		_tabs->addTab(section);
+	}
 	if ((_section == Section::Archived && !_tabIndices.contains(Section::Archived))
 		|| (_section == Section::Featured && !_tabIndices.contains(Section::Featured))
 		|| (_section == Section::Masks && !_tabIndices.contains(Section::Masks))) {
 		switchTab();
 	} else {
-		_ignoreTabActivation = true;
-		_tabs->setActiveSectionFast(_tabIndices.indexOf(_section));
-		_ignoreTabActivation = false;
+		_tabs->setCurrentIndex(_tabIndices.indexOf(_section));
 	}
 	updateTabsGeometry();
 }
@@ -826,33 +836,42 @@ void StickersBox::updateTabsGeometry() {
 
 	const auto maxTabs = _isMasks ? 2 : 3;
 
-	_tabs->resizeToWidth(_tabIndices.size() * width() / maxTabs);
+	_tabs->resize(
+		_tabIndices.size() * width() / maxTabs,
+		_tabs->sizeHint().height());
 	_unreadBadge->setVisible(_tabIndices.contains(Section::Featured));
 
 	setInnerTopSkip(topSkip());
 
-	auto featuredLeft = width() / maxTabs;
-	auto featuredRight = 2 * width() / maxTabs;
-	auto featuredTextWidth = st::stickersTabs.labelStyle.font->width(tr::lng_stickers_featured_tab(tr::now));
-	auto featuredTextRight = featuredLeft + (featuredRight - featuredLeft - featuredTextWidth) / 2 + featuredTextWidth;
-	auto unreadBadgeLeft = featuredTextRight - st::stickersFeaturedBadgeSkip;
-	auto unreadBadgeTop = st::stickersFeaturedBadgeTop;
-	if (unreadBadgeLeft + _unreadBadge->width() > featuredRight) {
-		unreadBadgeLeft = featuredRight - _unreadBadge->width();
+	const auto featuredIndex = _tabIndices.indexOf(Section::Featured);
+	if (featuredIndex >= 0) {
+		const auto tabRect = _tabs->tabRect(featuredIndex);
+		const auto featuredTextWidth = st::classicSettingsFont->width(
+			tr::lng_stickers_featured_tab(tr::now));
+		const auto featuredTextRight = tabRect.center().x()
+			+ featuredTextWidth / 2;
+		const auto featuredRight = tabRect.x() + tabRect.width();
+		auto unreadBadgeLeft = featuredTextRight
+			- st::stickersFeaturedBadgeSkip;
+		if (unreadBadgeLeft + _unreadBadge->width() > featuredRight) {
+			unreadBadgeLeft = featuredRight - _unreadBadge->width();
+		}
+		_unreadBadge->moveToLeft(
+			unreadBadgeLeft,
+			st::stickersFeaturedBadgeTop);
 	}
-	_unreadBadge->moveToLeft(unreadBadgeLeft, unreadBadgeTop);
 
-	_tabs->moveToLeft(0, 0);
+	_tabs->move(rtl() ? width() - _tabs->width() : 0, 0);
 }
 
 int StickersBox::topSkip() const {
-	return _tabs ? (_tabs->height() - st::lineWidth) : 0;
+	return _tabs ? _tabs->height() : 0;
 }
 
 void StickersBox::switchTab() {
 	if (!_tabs) return;
 
-	auto tab = _tabs->activeSection();
+	auto tab = _tabs->currentIndex();
 	Assert(tab >= 0 && tab < _tabIndices.size());
 	auto newSection = _tabIndices[tab];
 
@@ -1197,12 +1216,12 @@ StickersBox::Inner::Inner(
 , _buttonBgOver(
 	ImageRoundRadius::Large,
 	(_isInstalledTab
-		? st::stickersUndoRemove
+		? st::stickersBoxUndo
 		: st::stickersTrendingAdd).textBgOver)
 , _buttonBg(
 	ImageRoundRadius::Large,
 	(_isInstalledTab
-		? st::stickersUndoRemove
+		? st::stickersBoxUndo
 		: st::stickersTrendingAdd).textBg)
 , _inactiveButtonBg(
 	ImageRoundRadius::Large,
@@ -1215,7 +1234,7 @@ StickersBox::Inner::Inner(
 , _addText(tr::lng_stickers_featured_add(tr::now))
 , _addWidth(st::stickersTrendingAdd.style.font->width(_addText))
 , _undoText(tr::lng_stickers_return(tr::now))
-, _undoWidth(st::stickersUndoRemove.style.font->width(_undoText))
+, _undoWidth(st::stickersBoxUndo.style.font->width(_undoText))
 , _installedText(tr::lng_stickers_featured_installed(tr::now))
 , _installedWidth(st::stickersTrendingInstalled.style.font->width(
 		_installedText)) {
@@ -1238,12 +1257,12 @@ StickersBox::Inner::Inner(
 , _buttonBgOver(
 	ImageRoundRadius::Large,
 	(_isInstalledTab
-		? st::stickersUndoRemove
+		? st::stickersBoxUndo
 		: st::stickersTrendingAdd).textBgOver)
 , _buttonBg(
 	ImageRoundRadius::Large,
 	(_isInstalledTab
-		? st::stickersUndoRemove
+		? st::stickersBoxUndo
 		: st::stickersTrendingAdd).textBg)
 , _inactiveButtonBg(
 	ImageRoundRadius::Large,
@@ -1332,7 +1351,7 @@ void StickersBox::Inner::paintEvent(QPaintEvent *e) {
 
 	auto y = _itemsTop;
 	if (_rows.empty()) {
-		p.setFont(st::noContactsFont);
+		p.setFont(st::classicSettingsFont);
 		p.setPen(st::noContactsColor);
 		p.drawText(QRect(0, y, width(), st::noContactsHeight), tr::lng_contacts_loading(tr::now), style::al_center);
 	} else {
@@ -1357,6 +1376,9 @@ void StickersBox::Inner::paintEvent(QPaintEvent *e) {
 
 void StickersBox::Inner::resizeEvent(QResizeEvent *e) {
 	updateControlsGeometry();
+	if (e->oldSize().width() != width()) {
+		updateRows();
+	}
 }
 
 void StickersBox::Inner::updateControlsGeometry() {
@@ -1388,7 +1410,7 @@ QRect StickersBox::Inner::relativeButtonRect(
 		const auto &st = installedSet
 			? st::stickersTrendingInstalled
 			: _isInstalledTab
-			? st::stickersUndoRemove
+			? st::stickersBoxUndo
 			: st::stickersTrendingAdd;
 		const auto textWidth = installedSet
 			? _installedWidth
@@ -1399,7 +1421,10 @@ QRect StickersBox::Inner::relativeButtonRect(
 		buttonh = st.height;
 		buttonshift = 0;
 	}
-	auto buttonx = width() - st::contactsPadding.right() - buttonw + buttonshift;
+	auto buttonx = width()
+		- st::contactsPadding.right()
+		- buttonw
+		+ buttonshift;
 	auto buttony = (_st.height - buttonh) / 2;
 	return QRect(buttonx, buttony, buttonw, buttonh);
 }
@@ -1433,7 +1458,7 @@ void StickersBox::Inner::paintRow(Painter &p, not_null<Row*> row, int index) {
 					current = reachedOpacity;
 				}
 			}
-			auto rect = myrtlrect(_st.photoPosition.x() / 2, _st.photoPosition.y() / 2, width() - _st.photoPosition.x() - _scrollbar, _rowHeight - _st.photoPosition.y());
+			auto rect = myrtlrect(_st.photoPosition.x() / 2, _st.photoPosition.y() / 2, width() - _st.photoPosition.x(), _rowHeight - _st.photoPosition.y());
 			p.setOpacity(current);
 			Ui::Shadow::paint(p, rect, width(), st::boxRoundShadow);
 			p.setOpacity(1);
@@ -1473,8 +1498,10 @@ void StickersBox::Inner::paintRow(Painter &p, not_null<Row*> row, int index) {
 	int statusx = stickerskip + _st.statusPosition.x();
 	int statusy = _st.statusPosition.y();
 
-	p.setFont(st::contactsNameStyle.font);
-	p.setPen(_st.nameFg);
+	p.setFont((_nameSel == index
+		? st::stickersSetNameStyleOver
+		: st::stickersSetNameStyle).font);
+	p.setPen(st::stickersSetNameFg);
 	p.drawTextLeft(namex, namey, width(), row->title, row->titleWidth);
 
 	if (row->isUnread()) {
@@ -1495,7 +1522,7 @@ void StickersBox::Inner::paintRow(Painter &p, not_null<Row*> row, int index) {
 		? tr::lng_masks_count(tr::now, lt_count, row->count)
 		: tr::lng_stickers_count(tr::now, lt_count, row->count);
 
-	p.setFont(st::contactsStatusFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(_st.statusFg);
 	p.drawTextLeft(statusx, statusy, width(), statusText);
 
@@ -1657,16 +1684,30 @@ void StickersBox::Inner::paintFakeButton(Painter &p, not_null<Row*> row, int ind
 		const auto &st = st::stickersTrendingInstalled;
 		const auto textWidth = _installedWidth;
 		const auto &text = _installedText;
-		_inactiveButtonBg.paint(p, myrtlrect(rect));
-		if (row->ripple) {
+		const auto classic = row->isEmojiSet();
+		const auto pressed = classic && (index == _actionDown);
+		if (classic) {
+			Ui::PaintClassicButton(p, myrtlrect(rect), this, pressed);
+		} else {
+			_inactiveButtonBg.paint(p, myrtlrect(rect));
+		}
+		if (!classic && row->ripple) {
 			row->ripple->paint(p, rect.x(), rect.y(), width());
 			if (row->ripple->empty()) {
 				row->ripple.reset();
 			}
 		}
-		p.setFont(st.style.font);
-		p.setPen(st.textFg);
-		p.drawTextLeft(rect.x() - (st.width / 2), rect.y() + st.textTop, width(), text, textWidth);
+		const auto offset = classic
+			? Ui::ClassicButtonContentOffset(this, pressed)
+			: QPoint();
+		p.setFont(classic ? st::classicSettingsFont : st.style.font);
+		p.setPen(classic ? st::classicMenuText : st.textFg);
+		p.drawTextLeft(
+			rect.x() + (rect.width() - textWidth) / 2 + offset.x(),
+			rect.y() + st.textTop + offset.y(),
+			width(),
+			text,
+			textWidth);
 	} else {
 		const auto rect = relativeButtonRect(removeButton, false);
 		auto selected = (index == _actionSel && _actionDown < 0) || (index == _actionDown);
@@ -1687,20 +1728,40 @@ void StickersBox::Inner::paintFakeButton(Painter &p, not_null<Row*> row, int ind
 			// Round button ADD when not installed from Trending or Archived.
 			// Or round button UNDO after disabled from Installed.
 			const auto &st = _isInstalledTab
-				? st::stickersUndoRemove
+				? st::stickersBoxUndo
 				: st::stickersTrendingAdd;
 			const auto textWidth = _isInstalledTab ? _undoWidth : _addWidth;
 			const auto &text = _isInstalledTab ? _undoText : _addText;
-			(selected ? _buttonBgOver : _buttonBg).paint(p, myrtlrect(rect));
-			if (row->ripple) {
+			const auto classic = true;
+			const auto pressed = classic && (index == _actionDown);
+			if (classic) {
+				Ui::PaintClassicButton(p, myrtlrect(rect), this, pressed);
+			} else {
+				(selected ? _buttonBgOver : _buttonBg).paint(
+					p,
+					myrtlrect(rect));
+			}
+			if (!classic && row->ripple) {
 				row->ripple->paint(p, rect.x(), rect.y(), width());
 				if (row->ripple->empty()) {
 					row->ripple.reset();
 				}
 			}
-			p.setFont(st.style.font);
-			p.setPen(selected ? st.textFgOver : st.textFg);
-			p.drawTextLeft(rect.x() - (st.width / 2), rect.y() + st.textTop, width(), text, textWidth);
+			const auto offset = classic
+				? Ui::ClassicButtonContentOffset(this, pressed)
+				: QPoint();
+			p.setFont(classic ? st::classicActionFont : st.style.font);
+			p.setPen(classic
+				? st::classicMenuText
+				: selected
+				? st.textFgOver
+				: st.textFg);
+			p.drawTextLeft(
+				rect.x() + (rect.width() - textWidth) / 2 + offset.x(),
+				rect.y() + st.textTop + offset.y(),
+				width(),
+				text,
+				textWidth);
 		}
 	}
 }
@@ -1743,9 +1804,15 @@ void StickersBox::Inner::setActionDown(int newActionDown) {
 		if (!row->ripple) {
 			if (_isInstalledTab) {
 				if (row->removed) {
-					auto rippleSize = QSize(_undoWidth - st::stickersUndoRemove.width, st::stickersUndoRemove.height);
+					auto rippleSize = QSize(
+						_undoWidth - st::stickersBoxUndo.width,
+						st::stickersBoxUndo.height);
 					auto rippleMask = Ui::RippleAnimation::RoundRectMask(rippleSize, st::roundRadiusLarge);
-					ensureRipple(st::stickersUndoRemove.ripple, std::move(rippleMask), removeButton, false);
+					ensureRipple(
+						st::stickersBoxUndo.ripple,
+						std::move(rippleMask),
+						removeButton,
+						false);
 				} else {
 					auto rippleSize = st::stickersRemove.rippleAreaSize;
 					auto rippleMask = Ui::RippleAnimation::EllipseMask(QSize(rippleSize, rippleSize));
@@ -1789,13 +1856,13 @@ void StickersBox::Inner::setSelected(SelectedRow selected) {
 		return -1;
 	};
 	auto selectedIndex = countSelectedIndex();
-	if (_megagroupSet && selectedIndex >= 0 && selectedIndex < _rows.size()) {
+	if (selectedIndex >= 0 && selectedIndex < _rows.size()) {
 		update(0, _itemsTop + selectedIndex * _rowHeight, width(), _rowHeight);
 	}
 	_selected = selected;
 	updateCursor();
 	selectedIndex = countSelectedIndex();
-	if (_megagroupSet && selectedIndex >= 0 && selectedIndex < _rows.size()) {
+	if (selectedIndex >= 0 && selectedIndex < _rows.size()) {
 		update(0, _itemsTop + selectedIndex * _rowHeight, width(), _rowHeight);
 	}
 }
@@ -1897,12 +1964,26 @@ void StickersBox::Inner::updateSelected() {
 		bool in = rect().marginsRemoved(QMargins(0, _itemsTop, 0, st::membersMarginBottom)).contains(local);
 		auto selected = SelectedRow();
 		auto actionSel = -1;
+		auto nameSel = -1;
 		auto inDragArea = false;
 		if (in && !_rows.empty()) {
 			auto selectedIndex = floorclamp(local.y() - _itemsTop, _rowHeight, 0, _rows.size() - 1);
 			selected = selectedIndex;
 			local.setY(local.y() - _itemsTop - selectedIndex * _rowHeight);
 			const auto row = _rows[selectedIndex].get();
+			auto nameLeft = _st.namePosition.x();
+			if (!_megagroupSet && _isInstalledTab) {
+				nameLeft += st::stickersReorderIcon.width()
+					+ st::stickersReorderSkip;
+			}
+			const auto nameRect = myrtlrect(
+				nameLeft,
+				_st.namePosition.y(),
+				row->titleWidth,
+				st::stickersSetNameStyle.font->height);
+			if (nameRect.contains(local)) {
+				nameSel = selectedIndex;
+			}
 			if (!_megagroupSet
 				&& (_isInstalledTab
 					|| (_section == Section::Featured)
@@ -1932,6 +2013,7 @@ void StickersBox::Inner::updateSelected() {
 			}
 		}
 		setSelected(selected);
+		setNameSel(nameSel);
 		if (_inDragArea != inDragArea) {
 			_inDragArea = inDragArea;
 			updateCursor();
@@ -1942,14 +2024,10 @@ void StickersBox::Inner::updateSelected() {
 }
 
 void StickersBox::Inner::updateCursor() {
-	setCursor(_inDragArea
-		? style::cur_sizeall
-		: (!_megagroupSet && _isInstalledTab)
-		? ((_actionSel >= 0 && (_actionDown < 0 || _actionDown == _actionSel))
-			? style::cur_pointer
-			: style::cur_default)
-		: (!v::is_null(_selected) || !v::is_null(_pressed))
+	setCursor((_nameSel >= 0)
 		? style::cur_pointer
+		: _inDragArea
+		? style::cur_sizeall
 		: style::cur_default);
 }
 
@@ -2000,7 +2078,15 @@ void StickersBox::Inner::mouseReleaseEvent(QMouseEvent *e) {
 		}();
 		const auto showSetByRow = [&](const Row &row) {
 			setSelected(SelectedRow());
-			_show->showBox(Box<StickerSetBox>(_show, row.set));
+			if (const auto controller = _show->resolveWindow()) {
+				const auto show = controller->uiShow();
+				_show->hideLayer(anim::type::instant);
+				show->showBox(Box<StickerSetBox>(show, row.set));
+			} else {
+				_show->showBox(
+					Box<StickerSetBox>(_show, row.set),
+					Ui::LayerOption::CloseOther);
+			}
 		};
 		if (selectedIndex >= 0 && !_inDragArea) {
 			const auto row = _rows[selectedIndex].get();
@@ -2162,6 +2248,7 @@ void StickersBox::Inner::clear() {
 	setSelected(SelectedRow());
 	setPressed(SelectedRow());
 	setActionSel(-1);
+	setNameSel(-1);
 	setActionDown(-1);
 	update();
 }
@@ -2173,6 +2260,20 @@ void StickersBox::Inner::setActionSel(int32 actionSel) {
 		if (_actionSel >= 0) update(0, _itemsTop + _actionSel * _rowHeight, width(), _rowHeight);
 		updateCursor();
 	}
+}
+
+void StickersBox::Inner::setNameSel(int nameSel) {
+	if (nameSel == _nameSel) {
+		return;
+	}
+	if (_nameSel >= 0) {
+		update(0, _itemsTop + _nameSel * _rowHeight, width(), _rowHeight);
+	}
+	_nameSel = nameSel;
+	if (_nameSel >= 0) {
+		update(0, _itemsTop + _nameSel * _rowHeight, width(), _rowHeight);
+	}
+	updateCursor();
 }
 
 void StickersBox::Inner::AddressField::correctValue(
@@ -2461,10 +2562,12 @@ int StickersBox::Inner::countMaxNameWidth(bool installedSet) const {
 	if (!_megagroupSet && _isInstalledTab) {
 		namex += st::stickersReorderIcon.width() + st::stickersReorderSkip;
 	}
-	int namew = st::boxWideWidth - namex - st::contactsPadding.right();
+	int namew = width()
+		- namex
+		- st::contactsPadding.right();
 	if (_isInstalledTab) {
 		if (!_megagroupSet) {
-			namew -= _undoWidth - st::stickersUndoRemove.width;
+			namew -= _undoWidth - st::stickersBoxUndo.width;
 		}
 	} else {
 		namew -= installedSet
@@ -2695,7 +2798,6 @@ void StickersBox::Inner::visibleTopBottomUpdated(
 		int visibleBottom) {
 	_visibleTop = visibleTop;
 	_visibleBottom = visibleBottom;
-	updateScrollbarWidth();
 	if (_section == Section::Featured) {
 		readVisibleSets();
 	}
@@ -2741,14 +2843,6 @@ void StickersBox::Inner::readVisibleSets() {
 		if (!thumbnailLoading || thumbnailLoaded) {
 			session().api().readFeaturedSetDelayed(row->set->id);
 		}
-	}
-}
-
-void StickersBox::Inner::updateScrollbarWidth() {
-	auto width = (_visibleBottom - _visibleTop < height()) ? (st::boxScroll.width - st::boxScroll.deltax) : 0;
-	if (_scrollbar != width) {
-		_scrollbar = width;
-		update();
 	}
 }
 

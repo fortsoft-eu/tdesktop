@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_summary_header.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_transcribes.h"
 #include "apiwrap.h"
 #include "core/click_handler_types.h"
@@ -160,8 +161,8 @@ void SummaryHeader::paint(
 			_animation->path = QPainterPath();
 			_animation->path.addRoundedRect(
 				QRect(0, 0, w, _height),
-				quoteSt.radius,
-				quoteSt.radius);
+				style::CornerRadius(quoteSt.radius),
+				style::CornerRadius(quoteSt.radius));
 			_animation->cachedSize = size;
 		}
 		p.translate(x, y);

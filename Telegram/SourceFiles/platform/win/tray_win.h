@@ -43,6 +43,7 @@ public:
 	void destroyMenu();
 
 	void addAction(rpl::producer<QString> text, Fn<void()> &&callback);
+	void addSeparator();
 
 	void showTrayMessage() const;
 	[[nodiscard]] bool hasTrayMessageSupport() const;

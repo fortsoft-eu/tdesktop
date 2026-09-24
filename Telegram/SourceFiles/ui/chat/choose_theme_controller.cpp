@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/choose_theme_controller.h"
 
+#include "ui/style/style_radius.h"
 #include "boxes/background_box.h"
 #include "boxes/transfer_gift_box.h"
 #include "ui/dynamic_image.h"
@@ -129,10 +130,10 @@ struct Preview {
 			p.drawImage(sent, Images::Round(std::move(bubble), corners));
 		} else {
 			p.setBrush(theme->palette()->msgOutBg()->c);
-			p.drawRoundedRect(sent, radius, radius);
+			p.drawRoundedRect(sent, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 		p.setBrush(theme->palette()->msgInBg()->c);
-		p.drawRoundedRect(received, radius, radius);
+		p.drawRoundedRect(received, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		if (takenUserpic) {
 			const auto border = 2 * st::lineWidth;
@@ -434,8 +435,8 @@ void ChooseThemeController::paintEntry(QPainter &p, const Entry &entry) {
 		const auto add = st::lineWidth + width;
 		p.drawRoundedRect(
 			entry.geometry.marginsAdded({ add, add, add, add }),
-			st::roundRadiusLarge + add,
-			st::roundRadiusLarge + add);
+			style::CornerRadius(st::roundRadiusLarge + add),
+			style::CornerRadius(st::roundRadiusLarge + add));
 	}
 }
 

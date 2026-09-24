@@ -97,6 +97,7 @@ int FilterChatsPreview::resizeGetHeight(int newWidth) {
 
 void FilterChatsPreview::paintEvent(QPaintEvent *e) {
 	auto p = Painter(this);
+	p.fillRect(e->rect(), Qt::white);
 	auto top = 0;
 	const auto &st = st::windowFilterSmallItem;
 	const auto iconLeft = st.photoPosition.x();

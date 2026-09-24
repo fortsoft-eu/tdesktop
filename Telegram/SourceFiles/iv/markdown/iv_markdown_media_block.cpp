@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/markdown/iv_markdown_media_block.h"
 
+#include "ui/style/style_radius.h"
 #include "iv/markdown/iv_markdown_article.h"
 #include "iv/markdown/iv_markdown_article_layout_blocks.h"
 #include "iv/markdown/iv_markdown_prepare.h"
@@ -113,7 +114,7 @@ void PaintCardSurface(
 			auto hq = PainterHighQualityEnabler(p);
 			p.setPen(Qt::NoPen);
 			p.setBrush(bg->c);
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		} else {
 			p.fillRect(rect, bg->c);
 		}
@@ -129,7 +130,7 @@ void PaintCardSurface(
 	auto hq = PainterHighQualityEnabler(p);
 	p.setPen(QPen(borderFg->c, border));
 	p.setBrush(bg->c);
-	p.drawRoundedRect(inner, radius, radius);
+	p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 }
 
 [[nodiscard]] QString ChannelCopyText(const PreparedChannelBlockData &channel) {

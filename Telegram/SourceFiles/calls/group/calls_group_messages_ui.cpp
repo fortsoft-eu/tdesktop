@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "calls/group/calls_group_messages_ui.h"
 
+#include "ui/style/style_radius.h"
 #include "base/unixtime.h"
 #include "boxes/peers/prepare_short_info_box.h"
 #include "boxes/premium_preview_box.h"
@@ -1276,7 +1277,7 @@ void MessagesUi::setupMessagesWidget() {
 					p.setOpacity(
 						std::min((1.5 - std::abs(1.5 - progress)), 1.));
 					auto hq = PainterHighQualityEnabler(p);
-					p.drawRoundedRect(x, y, width, use, radius, radius);
+					p.drawRoundedRect(x, y, width, use, style::CornerRadius(radius), style::CornerRadius(radius));
 					p.setOpacity(1.);
 				}
 			} else if (entry.admin) {

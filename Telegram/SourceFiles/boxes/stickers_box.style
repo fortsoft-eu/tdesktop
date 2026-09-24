@@ -7,9 +7,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 using "boxes/boxes.style";
 
-contactsNameStyle: TextStyle(defaultTextStyle) {
-	font: semiboldFont;
+stickersSetNameStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
 }
+stickersSetNameStyleOver: TextStyle(stickersSetNameStyle) {
+	font: font(11px underline "Tahoma");
+}
+stickersSetNameFg: windowActiveTextFg;
 groupStickersRemove: defaultMultiSelectSearchCancel;
 groupStickersRemovePosition: point(6px, 6px);
 groupStickersFieldPadding: margins(8px, 6px, 8px, 6px);

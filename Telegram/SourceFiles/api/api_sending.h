@@ -47,7 +47,8 @@ void SendMusicSelection(
 void SendExistingPhoto(
 	MessageToSend &&message,
 	not_null<PhotoData*> photo,
-	std::optional<MsgId> localMessageId = std::nullopt);
+	std::optional<MsgId> localMessageId = std::nullopt,
+	Data::FileOrigin origin = {});
 
 bool SendDice(MessageToSend &message);
 

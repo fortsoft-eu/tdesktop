@@ -13,6 +13,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/fade_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "lang/lang_keys.h"
+
+#include <QtWidgets/QStyle>
+#include <QtWidgets/QStyleOptionProgressBar>
+
 #include "styles/style_export.h"
 #include "styles/style_widgets.h"
 
@@ -190,7 +194,13 @@ void ProgressWidget::Row::paintEvent(QPaintEvent *e) {
 
 	const auto thickness = st::exportProgressWidth;
 	const auto top = height() - thickness;
-	p.fillRect(0, top, width(), thickness, st::shadowFg);
+	auto option = QStyleOptionProgressBar();
+	option.initFrom(this);
+	option.rect = QRect(0, top, width(), thickness);
+	option.palette.setColor(QPalette::Window, st::exportProgressBg->c);
+	option.palette.setColor(QPalette::Light, Qt::white);
+	option.palette.setColor(QPalette::Dark, st::classicMenuSeparator->c);
+	style()->drawControl(QStyle::CE_ProgressBarGroove, &option, &p, this);
 
 	for (const auto &instance : _old) {
 		paintInstance(p, instance);
@@ -208,14 +218,14 @@ void ProgressWidget::Row::paintInstance(QPainter &p, const Instance &data) {
 
 	const auto thickness = st::exportProgressWidth;
 	const auto top = height() - thickness;
-	const auto till = qRound(data.progress.value(data.value) * width());
-	if (till > 0) {
-		p.fillRect(0, top, till, thickness, st::exportProgressFg);
+	const auto inner = QRect(0, top, width(), thickness).marginsRemoved(st::exportProgressPadding);
+	if (inner.isEmpty()) {
+		return;
 	}
-	if (till < width()) {
-		const auto left = width() - till;
-		p.fillRect(till, top, left, thickness, st::exportProgressBg);
-	}
+	const auto value = std::clamp(data.progress.value(data.value), 0., 1.);
+	const auto filled = qRound(value * inner.width());
+	p.fillRect(inner, st::exportProgressBg);
+	p.fillRect(QRect(inner.x(), inner.y(), filled, inner.height()), st::exportProgressFg);
 }
 
 void ProgressWidget::Row::updateControlsGeometry(int newWidth) {

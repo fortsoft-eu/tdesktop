@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "base/timer.h"
+#include "base/unique_qptr.h"
 #include "ui/userpic_view.h"
 
 namespace Data {
@@ -84,22 +85,22 @@ private:
 
 	PauseState _pauseState = {};
 
-	std::unique_ptr<Ui::RpWidget> _widget;
-	std::unique_ptr<Ui::AbstractButton> _info;
-	std::unique_ptr<Ui::UserpicButton> _userpic;
-	std::unique_ptr<Ui::FlatLabel> _name;
-	std::unique_ptr<Ui::FlatLabel> _counter;
-	std::unique_ptr<Ui::FlatLabel> _repost;
-	std::unique_ptr<Ui::FlatLabel> _date;
+	base::unique_qptr<Ui::RpWidget> _widget;
+	base::unique_qptr<Ui::AbstractButton> _info;
+	base::unique_qptr<Ui::UserpicButton> _userpic;
+	base::unique_qptr<Ui::FlatLabel> _name;
+	base::unique_qptr<Ui::FlatLabel> _counter;
+	base::unique_qptr<Ui::FlatLabel> _repost;
+	base::unique_qptr<Ui::FlatLabel> _date;
 	rpl::event_stream<> _dateUpdated;
-	std::unique_ptr<Ui::RpWidget> _playPause;
-	std::unique_ptr<Ui::RpWidget> _volumeToggle;
-	std::unique_ptr<Ui::FadeWrap<Ui::RpWidget>> _volume;
+	base::unique_qptr<Ui::RpWidget> _playPause;
+	base::unique_qptr<Ui::RpWidget> _volumeToggle;
+	base::unique_qptr<Ui::FadeWrap<Ui::RpWidget>> _volume;
 	rpl::variable<const style::icon*> _volumeIcon;
-	std::unique_ptr<Ui::RpWidget> _privacy;
+	base::unique_qptr<Ui::RpWidget> _privacy;
 	QRect _privacyBadgeGeometry;
 	std::optional<HeaderData> _data;
-	std::unique_ptr<Ui::ImportantTooltip> _tooltip;
+	base::unique_qptr<Ui::ImportantTooltip> _tooltip;
 	rpl::variable<bool> _tooltipShown = false;
 	QRect _contentGeometry;
 	Tooltip _tooltipType = {};

@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/boxes/choose_font_box.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/event_filter.h"
 #include "lang/lang_keys.h"
 #include "ui/boxes/confirm_box.h"
@@ -40,7 +43,6 @@ struct PreviewRequest {
 	QColor replyBar;
 	QColor replyNameFg;
 	QColor textFg;
-	QImage bubbleTail;
 };
 
 class PreviewPainter {
@@ -407,7 +409,7 @@ void Selector::paintEvent(QPaintEvent *e) {
 	const auto rows = shownRowsCount();
 	if (!rows) {
 		p.setFont(st::normalFont);
-		p.setPen(st::windowSubTextFg);
+		p.setPen(Ui::ClassicTextColor(this, st::windowSubTextFg));
 		p.drawText(
 			QRect(0, 0, width(), height() * 2 / 3),
 			tr::lng_font_not_found(tr::now),
@@ -575,7 +577,6 @@ std::vector<Selector::Entry> Selector::FullList(const QString &now) {
 		.replyBar = st::msgInReplyBarColor->c,
 		.replyNameFg = st::msgInServiceFg->c,
 		.textFg = st::historyTextInFg->c,
-		.bubbleTail = st::historyBubbleTailInLeft.instance(st::msgInBg->c),
 	};
 }
 
@@ -617,13 +618,10 @@ void PreviewPainter::paintBubble(Painter &p) {
 		bubble.height() + st::msgShadow - cornerShadow.height(),
 		_bubbleShadowBottomRight);
 	Ui::FillRoundRect(p, bubble, _msgBg.color(), _bubbleCorners);
-	const auto &bubbleTail = _request.bubbleTail;
-	const auto tail = bubbleTail.size() / bubbleTail.devicePixelRatio();
-	p.drawImage(-tail.width(), bubble.height() - tail.height(), bubbleTail);
 	p.fillRect(
-		-tail.width(),
+		0,
 		bubble.height(),
-		tail.width() + bubble.width() - cornerShadow.width(),
+		bubble.width() - cornerShadow.width(),
 		st::msgShadow,
 		_request.msgShadow);
 	p.translate(_content.topLeft());
@@ -666,14 +664,20 @@ void PreviewPainter::paintReply(Painter &p) {
 			_replyRect.y(),
 			outline,
 			_replyRect.height());
-		p.drawRoundedRect(_replyRect, radius, radius);
+		p.drawRoundedRect(
+			_replyRect,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 		p.setOpacity(Ui::kDefaultBgOpacity);
 		p.setClipRect(
 			_replyRect.x() + outline,
 			_replyRect.y(),
 			_replyRect.width() - outline,
 			_replyRect.height());
-		p.drawRoundedRect(_replyRect, radius, radius);
+		p.drawRoundedRect(
+			_replyRect,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	p.setOpacity(1.);
 	p.setClipping(false);
@@ -868,7 +872,7 @@ void ChooseFontBox(
 	top->add(MakePreview(top, generatePreviewBg, state->family.value()));
 	const auto filter = top->add(object_ptr<Ui::MultiSelect>(
 		top,
-		st::defaultMultiSelect,
+		st::fontBoxSearch,
 		tr::lng_participant_filter()));
 	top->resizeToWidth(st::boxWidth);
 

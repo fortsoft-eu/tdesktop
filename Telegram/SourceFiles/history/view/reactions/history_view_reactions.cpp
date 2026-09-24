@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/reactions/history_view_reactions.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "history/history_item.h"
 #include "history/history.h"
 #include "history/view/history_view_message.h"
@@ -39,11 +42,6 @@ constexpr auto kInNonChosenOpacity = 0.12;
 constexpr auto kOutNonChosenOpacity = 0.18;
 constexpr auto kMaxRecentUserpics = 3;
 constexpr auto kMaxNicePerRow = 5;
-
-[[nodiscard]] QColor AdaptChosenServiceFg(QColor serviceBg) {
-	serviceBg.setAlpha(std::max(serviceBg.alpha(), 192));
-	return serviceBg;
-}
 
 void PaintTagShape(QPainter &p, QSizeF size, const QColor &color) {
 	const auto arrow = st::reactionInlineTagArrow;
@@ -281,7 +279,7 @@ void InlineList::setButtonCount(Button &button, int count) {
 		button.textWidth = 0;
 	} else {
 		button.text = Lang::FormatCountToShort(count).string;
-		button.textWidth = st::semiboldFont->width(button.text);
+		button.textWidth = st::reactionInlineCountFont->width(button.text);
 	}
 }
 
@@ -473,8 +471,10 @@ void InlineList::paint(
 	const auto skip = (size - st::reactionInlineImage) / 2;
 	const auto tags = areTags();
 	const auto inbubble = (_data.flags & Data::Flag::InBubble);
+	const auto centered = (_data.flags & Data::Flag::Centered);
 	const auto flipped = (_data.flags & Data::Flag::Flipped);
-	p.setFont(tags ? st::reactionInlineTagFont : st::semiboldFont);
+	const auto countFont = st::reactionInlineCountFont;
+	p.setFont(tags ? st::reactionInlineTagFont : countFont);
 	for (const auto &button : _buttons) {
 		if (context.reactionInfo
 			&& button.animation
@@ -519,7 +519,9 @@ void InlineList::paint(
 				if (!bubbleReady) {
 					opacity = bubbleProgress;
 				}
-				color = (!chosen
+				color = centered
+					? st->msgServiceBg()->c
+					: (!chosen
 					? st->msgServiceBg()
 					: button.paid
 					? st->creditsBg2()
@@ -541,10 +543,8 @@ void InlineList::paint(
 			button.image = _owner->resolveReactionImageFor(button.id);
 		}
 
-		const auto textFg = !inbubble
-			? (chosen
-				? QPen(AdaptChosenServiceFg(st->msgServiceBg()->c))
-				: st->msgServiceFg())
+		const auto textFg = (centered || !inbubble)
+			? QPen(Qt::white)
 			: !chosen
 			? (button.paid ? st->creditsFg() : stm->msgServiceFg)
 			: context.outbg
@@ -614,14 +614,19 @@ void InlineList::paint(
 					- padding.left()
 					+ st::reactionInlineTagNamePosition.x())
 				: (left + size + st::reactionInlineSkip);
+			const auto font = tags ? st::reactionInlineTagFont : countFont;
 			const auto textTop = geometry.y()
 				+ (tags
 					? st::reactionInlineTagNamePosition.y()
-					: ((geometry.height() - st::semiboldFont->height) / 2));
-			const auto font = tags
-				? st::reactionInlineTagFont
-				: st::semiboldFont;
-			p.drawText(textLeft, textTop + font->ascent, button.text);
+					: ((geometry.height() - font->height) / 2));
+			const auto baseline = QPointF(
+				textLeft,
+				textTop + font->ascent);
+			if (centered || !inbubble) {
+				Ui::PaintClassicText(p, baseline, button.text, Qt::white);
+			} else {
+				p.drawText(baseline, button.text);
+			}
 		}
 		if (!bubbleReady) {
 			p.setOpacity(1.);
@@ -715,7 +720,7 @@ void InlineList::paintSingleBg(
 	if (!areTags()) {
 		const auto radius = fill.height() / 2.;
 		p.setBrush(color);
-		p.drawRoundedRect(fill, radius, radius);
+		p.drawRoundedRect(fill, style::CornerRadius(radius), style::CornerRadius(radius));
 		return;
 	}
 	validateTagBg(color);

@@ -110,6 +110,7 @@ void ShowReportFlowBox(
 			}
 			if (!result.options.empty() || result.commentOption) {
 				show->show(Box([=](not_null<Ui::GenericBox*> box) {
+					box->setStyle(st::reportDialogBox);
 					box->setTitle(result.title.isEmpty()
 						? reportInput.optionText
 						: result.title);

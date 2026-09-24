@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/markdown/iv_markdown_article_text.h"
+
+#include "ui/style/style_radius.h"
 #include "api/api_bot.h"
 #include "base/weak_ptr.h"
 #include "core/click_handler_types.h"
@@ -2135,7 +2137,7 @@ void InlineButtonObject::paint(QPainter &p, const Context &context) {
 		auto hq = PainterHighQualityEnabler(q);
 		q.setPen(Qt::NoPen);
 		q.setBrush(colors.bg);
-		q.drawRoundedRect(rect, radius, radius);
+		q.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		if (ripple) {
 			const auto mode = q.compositionMode();
 			if (eraseRipple) {

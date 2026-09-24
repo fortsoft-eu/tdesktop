@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/core_settings.h"
+#include "core/personal_defaults.h"
 
 #include "base/platform/base_platform_info.h"
 #include "calls/group/calls_group_common.h"
@@ -161,6 +162,7 @@ Settings::Settings()
 , _dialogsWithChatWidthRatio(DefaultDialogsWidthRatio())
 , _dialogsNoChatWidthRatio(DefaultDialogsWidthRatio())
 , _videoQuality({ .height = kInitialVideoQuality }) {
+	SetPersonalLocalDefaults(*this);
 }
 
 Settings::~Settings() = default;
@@ -1766,6 +1768,7 @@ void Settings::resetOnLastLogout() {
 	_emojiVariants.clear();
 
 	_accountsOrder.clear();
+	SetPersonalLocalDefaults(*this);
 }
 
 bool Settings::ThirdColumnByDefault() {

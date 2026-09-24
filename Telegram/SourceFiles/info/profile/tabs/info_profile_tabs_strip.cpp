@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/tabs/info_profile_tabs_strip.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/effects/animation_value.h"
 #include "ui/effects/animation_value_f.h"
 #include "ui/effects/ripple_animation.h"
@@ -48,7 +49,7 @@ void PaintIslandOutline(
 		? island.marginsAdded(QMarginsF(half, half, half, half))
 		: island.adjusted(half, half, -half, -half);
 	const auto strokeRadius = light ? (radius + half) : (radius - half);
-	p.drawRoundedRect(stroke, strokeRadius, strokeRadius);
+	p.drawRoundedRect(stroke, style::CornerRadius(strokeRadius), style::CornerRadius(strokeRadius));
 }
 
 } // namespace
@@ -436,12 +437,12 @@ void TabsStrip::paintEvent(QPaintEvent *e) {
 	auto hq = PainterHighQualityEnabler(p);
 	p.setBrush(_st.bg);
 	p.setPen(Qt::NoPen);
-	p.drawRoundedRect(island, radius, radius);
+	p.drawRoundedRect(island, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	validateContent(island);
 
 	auto clip = QPainterPath();
-	clip.addRoundedRect(QRectF(island), radius, radius);
+	clip.addRoundedRect(QRectF(island), style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setClipPath(clip);
 	p.drawImage(island.topLeft(), _content);
 	p.setClipping(false);
@@ -474,7 +475,7 @@ void TabsStrip::validateContent(QRect island) {
 		const auto highlightRadius = highlight.height() / 2.;
 		p.setBrush(_st.bgActive);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(highlight, highlightRadius, highlightRadius);
+		p.drawRoundedRect(highlight, style::CornerRadius(highlightRadius), style::CornerRadius(highlightRadius));
 	}
 	for (auto i = 0, c = int(_buttons.size()); i != c; ++i) {
 		auto &button = _buttons[i];

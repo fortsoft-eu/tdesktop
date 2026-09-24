@@ -307,6 +307,7 @@ private:
 	void saveCancel();
 	void showInFolder();
 	void forwardMedia();
+	void sendStoryCopy(bool allowDownload = true);
 	void deleteMedia();
 	void showMediaOverview();
 	void copyMedia();
@@ -357,7 +358,6 @@ private:
 
 	[[nodiscard]] bool computeSaveButtonVisible() const;
 	void checkForSaveLoaded();
-	void showPremiumDownloadPromo();
 
 	[[nodiscard]] std::optional<InstantViewItem> instantViewMediaKey() const;
 	[[nodiscard]] Entity entityForUserPhotos(int index) const;
@@ -590,6 +590,7 @@ private:
 		bool skipPremiumCheck = false) const;
 	[[nodiscard]] bool showCopyMediaRestriction(
 		bool skipPRemiumCheck = false);
+	[[nodiscard]] bool saveMediaAvailableLocally() const;
 
 	[[nodiscard]] QSize flipSizeByRotation(QSize size) const;
 
@@ -649,6 +650,9 @@ private:
 	PhotoData *_videoCover = nullptr;
 	Media::VideoQuality _quality;
 	QString _documentLoadingTo;
+	QString _saveStoryAsTarget;
+	bool _saveStoryAsAfterDownload = false;
+	bool _sendStoryCopyAfterDownload = false;
 	std::shared_ptr<Data::PhotoMedia> _photoMedia;
 	std::shared_ptr<Data::DocumentMedia> _documentMedia;
 	std::shared_ptr<Data::PhotoMedia> _videoCoverMedia;
@@ -800,7 +804,6 @@ private:
 	Over _over = Over::None;
 	Over _down = Over::None;
 	QPoint _lastAction, _lastMouseMovePos;
-	bool _ignoringDropdown = false;
 
 	Ui::Animations::Basic _stateAnimation;
 
@@ -818,7 +821,6 @@ private:
 
 	base::unique_qptr<Ui::PopupMenu> _menu;
 	object_ptr<Ui::DropdownMenu> _dropdown;
-	base::Timer _dropdownShowTimer;
 
 	base::unique_qptr<SponsoredButton> _sponsoredButton;
 	object_ptr<Ui::RoundButton> _voteButton = { nullptr };

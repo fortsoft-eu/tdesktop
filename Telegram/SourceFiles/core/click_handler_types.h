@@ -21,6 +21,7 @@ constexpr auto kPhoneNumberLinkProperty = 0x07;
 constexpr auto kTodoListItemIdProperty = 0x08;
 constexpr auto kPollOptionProperty = 0x09;
 constexpr auto kFastShareProperty = 0x0a;
+constexpr auto kClassicButtonCursorProperty = 0x0b;
 
 namespace Ui {
 class Show;

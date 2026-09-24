@@ -334,7 +334,7 @@ Rows::Rows(
 			item.nativeName,
 			Ui::NameTextOptions());
 		row.description.setText(
-			st::defaultTextStyle,
+			st::languageDescriptionTextStyle,
 			item.name,
 			descriptionOptions);
 		row.keywords = TextUtilities::PrepareSearchWords(
@@ -1564,6 +1564,8 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 			tr::lng_translate_settings_show(),
 			st::settingsButtonNoIcon))->toggleOn(
 				rpl::single(Core::App().settings().translateButtonEnabled()));
+	translateEnabled->setProperty("classicCheckOnLeft", true);
+	translateEnabled->setPaddingOverride(st::settingsLanguageTogglePadding);
 	_showButtonToggle = translateEnabled;
 
 	translateEnabled->toggledValue(
@@ -1592,6 +1594,9 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 				st::settingsButtonNoIcon))->toggleOn(
 					rpl::single(
 						Core::App().settings().usePlatformTranslation()));
+		platformTranslateEnabled->setProperty("classicCheckOnLeft", true);
+		platformTranslateEnabled->setPaddingOverride(
+			st::settingsLanguageTogglePadding);
 		platformTranslateEnabled->toggledValue(
 		) | rpl::filter([](bool checked) {
 			return (checked
@@ -1621,6 +1626,8 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 			rpl::duplicate(premium),
 			_1 && _2),
 		_translateChatTurnOff.events()));
+	translateChat->setProperty("classicCheckOnLeft", true);
+	translateChat->setPaddingOverride(st::settingsLanguageTogglePadding);
 	_translateChatsToggle = translateChat;
 	std::move(premium) | rpl::on_next([=](bool value) {
 		translateChat->setToggleLocked(!value);

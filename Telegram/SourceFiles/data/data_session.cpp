@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_session.h"
+#include "data/components/profile_details.h"
 
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
@@ -821,6 +822,12 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
 			const auto phone = minimal
 				? result->phone()
 				: qs(data.vphone().value_or_empty());
+			if (!minimal && data.vphone()) {
+				_session->profileDetails().observe(
+					peerToUser(result->id),
+					ProfileDetail::Phone,
+					phone);
+			}
 			const auto uname = minimal
 				? result->username()
 				: TextUtilities::SingleLine(

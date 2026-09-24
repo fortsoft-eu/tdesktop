@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/view/media_view_pip.h"
 
+#include "ui/style/style_radius.h"
 #include "media/streaming/media_streaming_player.h"
 #include "media/streaming/media_streaming_document.h"
 #include "media/streaming/media_streaming_utility.h"
@@ -1573,8 +1574,8 @@ void Pip::paintProgressBar(
 			rect.y(),
 			std::min(done + radius, rect.width()),
 			rect.height(),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	if (done < rect.width()) {
 		const auto from = std::max(rect.x() + done - radius, rect.x());
@@ -1589,8 +1590,8 @@ void Pip::paintProgressBar(
 			rect.y(),
 			rect.x() + rect.width() - from,
 			rect.height(),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	p.setClipping(false);
 }

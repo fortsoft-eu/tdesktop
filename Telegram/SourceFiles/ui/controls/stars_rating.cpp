@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/premium_graphics.h"
 #include "ui/layers/generic_box.h"
 #include "ui/layers/show.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/custom_emoji_helper.h"
 #include "ui/text/custom_emoji_text_badge.h"
 #include "ui/text/text_utilities.h"
@@ -115,7 +116,7 @@ void FillRatingLimit(
 			- st::boxPadding.right();
 		const auto average = available / float64(count);
 		const auto levelWidth = [&](int add) {
-			return st::normalFont->width(
+			return st::infoRatingTextStyle.font->width(
 				tr::lng_boost_level(
 					tr::now,
 					lt_count,
@@ -146,7 +147,7 @@ void FillRatingLimit(
 	});
 	Premium::AddBubbleRow(
 		container,
-		(hideCount ? st::iconOnlyPremiumBubble : st::starRatingBubble),
+		(hideCount ? st::iconOnlyPremiumBubble : st::aboutRatingBubble),
 		std::move(showFinished),
 		rpl::duplicate(bubbleRowState),
 		type,
@@ -191,6 +192,7 @@ void FillRatingLimit(
 				? st::attentionButtonFg->b
 				: st::windowBgActive->b;
 			},
+			.textStyle = &st::infoRatingTextStyle,
 		},
 		std::move(limitState),
 		limitLinePadding);
@@ -202,7 +204,9 @@ void AboutRatingBox(
 		Counters data,
 		Data::StarsRatingPending pending) {
 	box->setWidth(st::boxWideWidth);
-	box->setStyle(st::boostBox);
+	const auto boxStyle = box->lifetime().make_state<style::Box>(st::boostActionBox);
+	boxStyle->buttonPadding.setRight(boxStyle->buttonPadding.right() + 2 * st::lineWidth);
+	box->setStyle(*boxStyle);
 
 	struct State {
 		rpl::variable<Counters> data;
@@ -261,7 +265,7 @@ void AboutRatingBox(
 	}
 
 	box->addRow(
-		object_ptr<FlatLabel>(box, std::move(title), st::infoStarsTitle),
+		object_ptr<FlatLabel>(box, std::move(title), st::infoRatingTitle),
 		st::boxRowPadding + QMargins(0, st::boostTitleSkip / 2, 0, 0),
 		style::al_top);
 
@@ -325,7 +329,7 @@ void AboutRatingBox(
 			Text::CustomEmojiTextBadge(text.toUpper(), st));
 	};
 	const auto makeActive = [&](const QString &text) {
-		return makeBadge(text, st::customEmojiTextBadge);
+		return makeBadge(text, st::infoRatingAddedBadge);
 	};
 	const auto makeInactive = [&](const QString &text) {
 		return makeBadge(text, st::infoRatingDeductedBadge);
@@ -361,7 +365,12 @@ void AboutRatingBox(
 	};
 	const auto context = helper.context();
 	for (const auto &feature : features) {
-		box->addRow(MakeFeatureListEntry(box, feature, context));
+		box->addRow(MakeFeatureListEntry(
+			box,
+			feature,
+			context,
+			st::infoRatingFeatureTitle,
+			st::infoRatingFeatureAbout));
 	}
 	box->addButton(rpl::single(QString()), [=] {
 		box->closeBox();
@@ -519,14 +528,15 @@ void StarsRating::paint(QPainter &p) {
 		}
 
 		if (!_collapsedText.isEmpty()) {
-			q.setPen(_customTextColor
-				? *_customTextColor
-				: st::levelTextFg->c);
-			q.setFont(st::levelStyle.font);
-			q.drawText(
-				Rect(_shape->icon.size()),
-				Qt::AlignCenter,
-				_collapsedText);
+			const auto &font = st::classicActionFont;
+			q.setFont(font);
+			PaintClassicText(
+				q,
+				QPointF(
+					(_shape->icon.width() - font->width(_collapsedText)) / 2,
+					(_shape->icon.height() - font->height) / 2 + font->ascent),
+				_collapsedText,
+				_customTextColor.value_or(st::levelTextFg->c));
 		}
 
 		_cachedLevel = _currentLevel;

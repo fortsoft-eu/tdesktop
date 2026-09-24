@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "statistics/widgets/point_details_widget.h"
 
+#include "ui/style/style_radius.h"
 #include "base/debug_log.h"
 #include "info/channel_statistics/earn/earn_format.h"
 #include "lang/lang_keys.h"
@@ -52,20 +53,17 @@ void PaintShadow(QPainter &p, int radius, const QRect &r) {
 	auto hq = PainterHighQualityEnabler(p);
 
 	p.setOpacity(opacity);
-	p.drawRoundedRect(r + QMarginsF(0, hOffset, 0, hOffset), radius, radius);
+	p.drawRoundedRect(r + QMarginsF(0, hOffset, 0, hOffset), style::CornerRadius(radius), style::CornerRadius(radius));
 
 	p.setOpacity(opacity * kOpacityStep);
-	p.drawRoundedRect(r + QMarginsF(hOffset, 0, hOffset, 0), radius, radius);
+	p.drawRoundedRect(r + QMarginsF(hOffset, 0, hOffset, 0), style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setOpacity(opacity * kOpacityStep2);
-	p.drawRoundedRect(
-		r + QMarginsF(hOffset2, 0, hOffset2, 0),
-		radius,
-		radius);
+	p.drawRoundedRect(r + QMarginsF(hOffset2, 0, hOffset2, 0), style::CornerRadius(radius), style::CornerRadius(radius));
 
 	p.setOpacity(opacity * kOpacityStep);
-	p.drawRoundedRect(r + QMarginsF(0, 0, 0, vOffset), radius, radius);
+	p.drawRoundedRect(r + QMarginsF(0, 0, 0, vOffset), style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setOpacity(opacity * kOpacityStep2);
-	p.drawRoundedRect(r + QMarginsF(0, 0, 0, vOffset2), radius, radius);
+	p.drawRoundedRect(r + QMarginsF(0, 0, 0, vOffset2), style::CornerRadius(radius), style::CornerRadius(radius));
 
 	p.setOpacity(opacity);
 }

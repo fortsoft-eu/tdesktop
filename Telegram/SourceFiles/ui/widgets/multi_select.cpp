@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/multi_select.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/scroll_area.h"
@@ -19,10 +22,26 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <set>
 
+#include "styles/style_dialogs.h"
+
 namespace Ui {
 namespace {
 
 constexpr int kWideScale = 3;
+
+style::InputField ClassicMultiSelectField(style::InputField result) {
+	const auto border = 2 * st::lineWidth;
+	const auto height = st::dialogsSearchField.heightMin - 2 * border;
+	const auto margins = st::dialogsSearchField.textMargins - QMargins(border, border, border, border);
+	result.textMargins.setLeft(margins.left());
+	result.textMargins.setRight(margins.right());
+	if (result.heightMin >= height) {
+		result.heightMin = height;
+		result.textMargins.setTop(margins.top());
+		result.textMargins.setBottom(margins.bottom());
+	}
+	return result;
+}
 
 class Item {
 public:
@@ -195,8 +214,8 @@ void Item::paintOnce(Painter &p, int x, int y, int outerWidth) {
 		PainterHighQualityEnabler hq(p);
 		p.drawRoundedRect(
 			style::rtlrect(x, y, _width, _st.height, outerWidth),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 
 	if (clipEnabled) {
@@ -521,6 +540,12 @@ MultiSelect::MultiSelect(
 : RpWidget(parent)
 , _st(st)
 , _scroll(this, _st.scroll) {
+	paintRequest() | rpl::on_next([=](QRect clip) {
+		auto p = QPainter(this);
+		p.setClipRect(clip);
+		p.fillRect(clip, _st.bg);
+		PaintClassicField(p, rect(), this);
+	}, lifetime());
 	const auto scrollCallback = [=](int activeTop, int activeBottom) {
 		scrollTo(activeTop, activeBottom);
 	};
@@ -650,12 +675,15 @@ bool MultiSelect::hasItem(uint64 itemId) const {
 }
 
 int MultiSelect::resizeGetHeight(int newWidth) {
-	if (newWidth != _inner->width()) {
-		_inner->resizeToWidth(newWidth);
+	const auto border = 2 * st::lineWidth;
+	const auto scrollWidth = std::max(newWidth - 2 * border, 0);
+	_inner->resizeToWidth(scrollWidth);
+	if (_inner->height() > _st.maxHeight) {
+		_inner->resizeToWidth(std::max(scrollWidth - st::classicScrollBarWidth, 0));
 	}
-	auto newHeight = qMin(_inner->height(), _st.maxHeight);
-	_scroll->setGeometryToLeft(0, 0, newWidth, newHeight);
-	return newHeight;
+	const auto newHeight = std::min(_inner->height(), _st.maxHeight);
+	_scroll->setGeometryToLeft(border, border, scrollWidth, newHeight);
+	return newHeight + 2 * border;
 }
 
 MultiSelect::Inner::Inner(
@@ -667,7 +695,7 @@ MultiSelect::Inner::Inner(
 : RpWidget(parent)
 , _st(st)
 , _scrollCallback(std::move(callback))
-, _field(this, _st.field, std::move(placeholder), query)
+, _field(this, ClassicMultiSelectField(_st.field), std::move(placeholder), query)
 , _cancel(this, _st.fieldCancel) {
 	_field->customUpDown(true);
 	_field->focusedChanges(
@@ -771,7 +799,8 @@ void MultiSelect::Inner::updateFieldGeometry() {
 		fieldFinalWidth -= _st.fieldCancelSkip;
 	}
 	_field->resizeToWidth(fieldFinalWidth);
-	_field->moveToLeft(_st.padding.left() + _fieldLeft, _st.padding.top() + _fieldTop);
+	const auto rowHeight = std::max(_st.field.heightMin, _field->height());
+	_field->moveToLeft(_st.padding.left() + _fieldLeft, _st.padding.top() + _fieldTop + (rowHeight - _field->height()) / 2);
 }
 
 void MultiSelect::Inner::updateHasAnyItems(bool hasAnyItems) {
@@ -783,7 +812,7 @@ void MultiSelect::Inner::updateHasAnyItems(bool hasAnyItems) {
 }
 
 void MultiSelect::Inner::updateCursor() {
-	setCursor(_items.empty() ? style::cur_text : (_overDelete ? style::cur_pointer : style::cur_default));
+	setCursor(_items.empty() ? style::cur_text : style::cur_default);
 }
 
 void MultiSelect::Inner::setActiveItem(int active, ChangeActiveWay skipSetFocus) {
@@ -832,10 +861,15 @@ int MultiSelect::Inner::resizeGetHeight(int newWidth) {
 	updateFieldGeometry();
 
 	auto cancelLeft = _fieldLeft + _fieldWidth + _st.padding.right() - _cancel->width();
-	auto cancelTop = _fieldTop - _st.padding.top();
-	_cancel->moveToLeft(_st.padding.left() + cancelLeft, _st.padding.top() + cancelTop);
+	auto cancelTop = _field->y() + std::max(_field->height() - _cancel->height(), 0) / 2;
+	_cancel->moveToLeft(_st.padding.left() + cancelLeft, cancelTop);
 
-	return _field->y() + _field->height() + _st.padding.bottom();
+	auto bottom = _st.padding.top() + _fieldTop + std::max(_st.field.heightMin, _field->height());
+	if (!_items.empty()) {
+		const auto last = _items.back()->rect();
+		accumulate_max(bottom, _st.padding.top() + last.y() + last.height());
+	}
+	return bottom + _st.padding.bottom();
 }
 
 void MultiSelect::Inner::paintEvent(QPaintEvent *e) {

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/who_reacted_context_action.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "ui/widgets/menu/menu_action.h"
 #include "ui/widgets/popup_menu.h"
@@ -716,19 +717,46 @@ void WhenAction::paint(Painter &p) {
 		? st::whoReadChecksOver
 		: st::whoReadChecks;
 	icon.paint(p, st::whenReadIconPosition, width());
-	p.setPen(loading ? _st.itemFgDisabled : _st.itemFg);
-	_text.drawLeftElided(
-		p,
-		st::whenReadPadding.left(),
-		st::whenReadPadding.top(),
-		_textWidth,
-		width());
+	if (!isEnabled()) {
+		const auto text = st::whenReadStyle.font->elided(_text.toString(), _textWidth);
+		const auto ratio = style::DevicePixelRatio();
+		const auto size = QSize(_textWidth, st::whenReadStyle.font->height);
+		auto glyphs = QImage(size * ratio, QImage::Format_ARGB32_Premultiplied);
+		glyphs.setDevicePixelRatio(ratio);
+		glyphs.fill(Qt::transparent);
+		{
+			auto painter = QPainter(&glyphs);
+			painter.setFont(st::whenReadStyle.font);
+			painter.setPen(Qt::black);
+			painter.drawText(0, st::whenReadStyle.font->ascent, text);
+		}
+		// The personal Qt text policy forces neutral text colors to black.
+		// Render black glyphs first, then tint their alpha mask with fills.
+		// This preserves the disabled emboss colors without changing the
+		// process-wide text policy while other painters may be active.
+		const auto tint = [&](QColor color) {
+			auto painter = QPainter(&glyphs);
+			painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+			painter.fillRect(QRect(QPoint(), size), color);
+		};
+		const auto left = style::RightToLeft()
+			? width() - st::whenReadPadding.left() - _textWidth
+			: st::whenReadPadding.left();
+		const auto position = QPoint(left, st::whenReadPadding.top());
+		tint(Qt::white);
+		p.drawImage(position + QPoint(st::lineWidth, st::lineWidth), glyphs);
+		tint(QColor(128, 128, 128));
+		p.drawImage(position, glyphs);
+	} else {
+		p.setPen(_st.itemFg);
+		_text.drawLeftElided(p, st::whenReadPadding.left(), st::whenReadPadding.top(), _textWidth, width());
+	}
 	if (!_show.isEmpty()) {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(_st.itemBgOver);
 		const auto radius = _showRect.height() / 2.;
-		p.drawRoundedRect(_showRect, radius, radius);
+		p.drawRoundedRect(_showRect, style::CornerRadius(radius), style::CornerRadius(radius));
 		paintRipple(p, 0, 0);
 		const auto inner = _showRect.marginsRemoved(st::whenReadShowPadding);
 		p.setPen(_st.itemFgOver);
@@ -819,7 +847,7 @@ QPoint WhenAction::prepareRippleStartPosition() const {
 QImage WhenAction::prepareRippleMask() const {
 	return Ui::RippleAnimation::MaskByDrawer(size(), false, [&](QPainter &p) {
 		const auto radius = _showRect.height() / 2.;
-		p.drawRoundedRect(_showRect, radius, radius);
+		p.drawRoundedRect(_showRect, style::CornerRadius(radius), style::CornerRadius(radius));
 	});
 }
 
@@ -1049,7 +1077,7 @@ void WhoReactedEntryAction::setData(Data &&data) {
 		invalidateCloseCache();
 	}
 	_userpic = std::move(data.userpic);
-	_text.setMarkedText(_st.itemStyle, { data.text }, MenuTextOptions);
+	_text.setMarkedText(st::whoReadNameStyle, { data.text }, MenuTextOptions);
 	if (data.date.isEmpty()) {
 		_date = Text::String();
 	} else {
@@ -1130,7 +1158,7 @@ void WhoReactedEntryAction::paint(Painter &&p) {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(preloaderBrush);
-		p.drawEllipse(photoLeft, photoTop, photoSize, photoSize);
+		p.drawRect(photoLeft, photoTop, photoSize, photoSize);
 	} else if (!_userpic.isNull()) {
 		p.drawImage(photoLeft, photoTop, _userpic);
 		if (_type == WhoReactedType::RefRecipientNow) {
@@ -1139,11 +1167,11 @@ void WhoReactedEntryAction::paint(Painter &&p) {
 			auto bgPen = bg->p;
 			bgPen.setWidthF(st::lineWidth * 6.);
 			p.setPen(bgPen);
-			p.drawEllipse(photoLeft, photoTop, photoSize, photoSize);
+			p.drawRect(photoLeft, photoTop, photoSize, photoSize);
 			auto fgPen = st::windowBgActive->p;
 			fgPen.setWidthF(st::lineWidth * 2.);
 			p.setPen(fgPen);
-			p.drawEllipse(photoLeft, photoTop, photoSize, photoSize);
+			p.drawRect(photoLeft, photoTop, photoSize, photoSize);
 		}
 	} else if (!_custom) {
 		st::menuIconReactions.paintInCenter(
@@ -1154,19 +1182,19 @@ void WhoReactedEntryAction::paint(Painter &&p) {
 	const auto withDate = !_date.isEmpty();
 	const auto textTop = withDate
 		? st::whoReadNameWithDateTop
-		: (height() - _st.itemStyle.font->height) / 2;
+		: (height() - st::whoReadNameStyle.font->height) / 2;
 	if (_type == WhoReactedType::Preloader) {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(preloaderBrush);
-		const auto height = _st.itemStyle.font->height / 2;
+		const auto height = st::whoReadNameStyle.font->height / 2;
 		p.drawRoundedRect(
 			st::defaultWhoRead.nameLeft,
-			textTop + (_st.itemStyle.font->height - height) / 2,
+			textTop + (st::whoReadNameStyle.font->height - height) / 2,
 			_textWidth,
 			height,
-			height / 2.,
-			height / 2.);
+			style::CornerRadius(height / 2.),
+			style::CornerRadius(height / 2.));
 	} else {
 		p.setPen(selected
 			? _st.itemFgOver

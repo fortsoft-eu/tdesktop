@@ -44,6 +44,7 @@ public:
 	bool closeByBackButton() override;
 
 	static int MinimalSupportedWidth();
+	static int MaximumHeightForParent(int parentHeight);
 
 	~LayerWidget();
 

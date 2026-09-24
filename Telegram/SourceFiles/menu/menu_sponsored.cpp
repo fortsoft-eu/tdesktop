@@ -421,8 +421,7 @@ void FillSponsored(
 						: st::historySponsorInfoItem),
 					st::historyHasCustomEmojiPosition,
 					base::duplicate(i));
-				item->clicks(
-				) | rpl::on_next(callback, menu->lifetime());
+				item->setActionTriggered(callback);
 				menu->addAction(std::move(item));
 				if (i != details.info.back()) {
 					menu->addSeparator();

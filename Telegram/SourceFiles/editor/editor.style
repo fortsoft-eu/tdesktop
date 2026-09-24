@@ -26,21 +26,20 @@ photoEditorContentMargins: margins(
 
 photoEditorBarAnimationDuration: 100;
 
-photoEditorButtonIconFg: mediaviewPipControlsFg;
-photoEditorButtonIconFgOver: mediaviewPipControlsFgOver;
+photoEditorButtonIconFg: classicMenuText;
+photoEditorButtonIconFgOver: classicMenuText;
 
-photoEditorButtonIconFgActive: lightButtonFg;
-photoEditorButtonIconFgInactive: mediaviewPipPlaybackInactive;
-photoEditorEdgeButtonBg: shadowFg;
-photoEditorEdgeButtonMargins: margins(4px, 4px, 4px, 4px);
+photoEditorButtonIconFgActive: classicMenuText;
+photoEditorButtonIconFgInactive: classicMenuSeparator;
+photoEditorEdgeButtonMargins: margins(4px, 12px, 4px, 12px);
 
 photoEditorButtonBarHeight: 48px;
 photoEditorButtonBarWidth: 422px;
 photoEditorButtonBarPadding: margins(2px, 0px, 2px, 0px);
-photoEditorTextButtonPadding: margins(22px, 0px, 22px, 0px);
+photoEditorTextButtonPadding: margins(12px, 0px, 12px, 0px);
 
-photoEditorButtonStyle: TextStyle(semiboldTextStyle) {
-	font: font(14px semibold);
+photoEditorButtonStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
 }
 
 photoEditorAbout: FlatLabel(defaultFlatLabel) {

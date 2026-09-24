@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/info_profile_music_button.h"
 #include "info/profile/info_profile_shared_media_classic.h"
 #include "info/profile/info_profile_top_bar.h"
+#include "info/profile/info_profile_cover_classic.h"
 #include "info/profile/info_profile_actions.h"
 #include "info/profile/info_profile_values.h"
 #include "info/saved/info_saved_music_widget.h"
@@ -178,6 +179,7 @@ InnerWidget::InnerWidget(
 , _topic(_controller->key().topic())
 , _sublist(_controller->key().sublist())
 , _savedMessages(_controller->key().savedMessages() != nullptr)
+, _classicProfile(UseClassicProfile(controller))
 , _content(setupContent(this, origin)) {
 	_content->heightValue(
 	) | rpl::on_next([this](int height) {
@@ -211,16 +213,30 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 	}
 
 	auto result = object_ptr<Ui::VerticalLayout>(parent);
+	result->setProperty("classicProfileButtons", _classicProfile);
+	if (_classicProfile) {
+		_classicCover = result->add(object_ptr<ClassicCover>(
+			result.data(),
+			_controller->parentController(),
+			_peer,
+			[=] { return _controller->wrapWidget(); }));
+		_classicCover->setOnlineCount(_onlineCount.events());
+		_classicCover->showSection() | rpl::on_next([=](Info::Section section) {
+			_controller->showSection(std::make_shared<Info::Memento>(_peer, section));
+		}, _classicCover->lifetime());
+	}
 
 	if (!_savedMessages) {
 		const auto musicPeer = _sublist
 			? _sublist->sublistPeer().get()
 			: _peer.get();
-		AddSavedMusic(
-			result.data(),
-			_controller,
-			musicPeer,
-			_topBarColor.value());
+		if (!_classicProfile) {
+			AddSavedMusic(
+				result.data(),
+				_controller,
+				musicPeer,
+				_topBarColor.value());
+		}
 		if (const auto user = _peer->asUser()) {
 			AddUnofficialSecurityRiskWarning(result.data(), user);
 		}
@@ -571,11 +587,14 @@ void InnerWidget::showSearch() {
 }
 
 bool InnerWidget::hasFlexibleTopBar() const {
-	return true;
+	return !_classicProfile;
 }
 
 base::weak_qptr<Ui::RpWidget> InnerWidget::createPinnedToTop(
 		not_null<Ui::RpWidget*> parent) {
+	if (_classicProfile) {
+		return nullptr;
+	}
 	const auto content = Ui::CreateChild<TopBar>(
 		parent,
 		TopBar::Descriptor{

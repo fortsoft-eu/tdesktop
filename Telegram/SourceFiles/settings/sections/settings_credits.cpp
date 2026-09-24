@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_credits.h"
 
+#include "ui/style/style_classic.h"
 #include "api/api_credits.h"
 #include "api/api_earn.h"
 #include "api/api_statistics.h"
@@ -482,7 +483,7 @@ void Credits::setupContent() {
 			object_ptr<Ui::RoundButton>(
 				content,
 				nullptr,
-				st::creditsSettingsBigBalanceButton),
+				st::creditsSettingsTopupButton),
 			st::boxRowPadding,
 			style::al_top);
 		button->setContext([&]() -> Ui::Text::MarkedContext {
@@ -499,9 +500,9 @@ void Credits::setupContent() {
 					auto p = QPainter(&image);
 					auto hq = PainterHighQualityEnabler(p);
 					p.setPen(Qt::NoPen);
-					p.setBrush(st::activeButtonFg);
+					p.setBrush(st::classicMenuText);
 					p.drawEllipse(r);
-					icon.paintInCenter(p, r, st::windowBgActive->c);
+					icon.paintInCenter(p, r, st::classicControlBg->c);
 				}
 				return std::make_unique<Ui::CustomEmoji::Internal>(
 					u"topup_button"_q,
@@ -534,9 +535,12 @@ void Credits::setupContent() {
 		}
 		{
 			using namespace Info::Statistics;
+			const auto loadingStyle = button->lifetime().make_state<style::InfiniteRadialAnimation>(st::startGiveawayButtonLoading);
+			loadingStyle->color = st::classicMenuText;
 			const auto loadingAnimation = InfiniteRadialAnimationWidget(
 				button,
-				button->height() / 2);
+				button->height() / 2,
+				loadingStyle);
 			AddChildToWidgetCenter(button, loadingAnimation);
 			loadingAnimation->showOn(state->buyStars.loadingValue());
 		}
@@ -1093,7 +1097,8 @@ Fn<void()> BuyStarsHandler::handler(
 		std::shared_ptr<::Main::SessionShow> show,
 		Fn<void()> paid) {
 	const auto optionsBox = [=](not_null<Ui::GenericBox*> box) {
-		box->setStyle(st::giveawayGiftCodeBox);
+		box->setStyle(st::creditsTopupOptionsBox);
+		Ui::SetClassicSettingsStyle(box);
 		box->setWidth(st::boxWideWidth);
 		box->setTitle(tr::lng_credits_summary_options_subtitle());
 		const auto inner = box->verticalLayout();

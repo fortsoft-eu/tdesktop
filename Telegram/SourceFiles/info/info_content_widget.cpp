@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/info_content_widget.h"
 
+#include "ui/style/style_classic.h"
 #include "api/api_who_reacted.h"
 #include "boxes/peer_list_box.h"
 #include "data/data_chat.h"
@@ -83,15 +84,25 @@ ContentWidget::ContentWidget(
 		: st::defaultScrollArea)) {
 	using namespace rpl::mappers;
 
+	if (_controller->section().type() == Section::Type::Settings) {
+		Ui::SetClassicSettingsStyle(this);
+	}
+
 	setAttribute(Qt::WA_OpaquePaintEvent);
 	_controller->wrapValue(
 	) | rpl::on_next([this](Wrap value) {
 		if (value != Wrap::Layer) {
 			applyAdditionalScroll(0);
 		}
-		_bg = (value == Wrap::Layer)
+		_bg = (_controller->section().type() == Section::Type::Settings
+			|| _controller->section().type() == Section::Type::Community)
+			? st::classicControlBg
+			: (value == Wrap::Layer)
 			? st::boxBg
 			: st::profileBg;
+		if (_innerWrap) {
+			updateInnerPadding();
+		}
 		update();
 	}, lifetime());
 	if (_controller->section().type() != Section::Type::Profile) {
@@ -281,7 +292,14 @@ void ContentWidget::applyAdditionalScroll(int additionalScroll) {
 
 void ContentWidget::updateInnerPadding() {
 	const auto addedToBottom = std::max(_additionalScroll, _addedHeight);
-	_innerWrap->setPadding({ 0, _innerTopReserve, 0, addedToBottom });
+	const auto scrollbar = ((_controller->wrap() == Wrap::Side)
+		|| (_controller->wrap() == Wrap::Search)
+		|| (_controller->wrap() == Wrap::Layer)
+		|| (_controller->section().type() == Section::Type::Settings))
+		? st::classicScrollBarWidth
+		: 0;
+	_innerWrap->setPadding({ 0, _innerTopReserve, scrollbar, addedToBottom });
+	_innerWrap->resizeToWidth(width());
 }
 
 void ContentWidget::setInnerTopReserve(int reserve) {

@@ -135,6 +135,10 @@ public:
 protected:
 	void paintEvent(QPaintEvent *e) override;
 	void mousePressEvent(QMouseEvent *e) override;
+	void mouseMoveEvent(QMouseEvent *e) override;
+	void enterEventHook(QEnterEvent *e) override;
+	void leaveEventHook(QEvent *e) override;
+	void leaveToChildEvent(QEvent *e, QWidget *child) override;
 	void resizeEvent(QResizeEvent *e) override;
 	bool eventFilter(QObject *obj, QEvent *e) override;
 
@@ -153,7 +157,7 @@ private:
 	void updateSearchVisibility();
 	void updateSearchJumpToDateVisibility();
 	[[nodiscard]] bool searchJumpToDateFits() const;
-	void updateChooseFromUserGeometry();
+	void updateSearchControlsGeometry();
 	void updateControlsGeometry();
 	void slideAnimationCallback();
 	void updateInfoToggleActive();
@@ -185,6 +189,7 @@ private:
 	void connectingAnimationCallback();
 
 	void paintTopBar(Painter &p);
+	void setOnlineLinkOver(bool over);
 	[[nodiscard]] PeerData *titleNamePeer() const;
 	void paintStatus(
 		Painter &p,
@@ -263,7 +268,9 @@ private:
 	int _narrowWidth = 0;
 
 	Ui::Text::String _titlePeerText;
+	QRect _onlineLinkRect;
 	bool _titlePeerTextOnline = false;
+	bool _onlineLinkOver = false;
 	int _leftTaken = 0;
 	int _rightTaken = 0;
 	float64 _titleShownRatio = 1.;

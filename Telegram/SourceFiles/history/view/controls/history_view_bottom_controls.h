@@ -100,6 +100,7 @@ private:
 	void refreshDirectMessageShown();
 
 	void recomputeContentHeight();
+	void updateControlsGeometry();
 
 	[[nodiscard]] bool isBotStart() const;
 	[[nodiscard]] bool isBlocked() const;

@@ -309,7 +309,7 @@ void Invoice::draw(Painter &p, const PaintContext &context) const {
 			auto statusX = st::msgDateImgDelta;
 			auto statusY = st::msgDateImgDelta;
 
-			Ui::FillRoundRect(p, style::rtlrect(statusX, statusY, statusW, statusH, pixwidth), sti->msgDateImgBg, sti->msgDateImgBgCorners);
+			p.fillRect(style::rtlrect(statusX, statusY, statusW, statusH, pixwidth), sti->msgDateImgBg);
 
 			p.setFont(st::msgDateFont);
 			p.setPen(st->msgDateImgFg());

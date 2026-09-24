@@ -207,7 +207,7 @@ PreLaunchButton::PreLaunchButton(QWidget *parent, bool confirm) : QPushButton(pa
 	closeFont.setPixelSize(static_cast<PreLaunchWindow*>(parent)->basicSize());
 	setFont(closeFont);
 
-	setCursor(Qt::PointingHandCursor);
+	setCursor(Qt::ArrowCursor);
 	show();
 };
 
@@ -231,7 +231,7 @@ PreLaunchCheckbox::PreLaunchCheckbox(QWidget *parent) : QCheckBox(parent) {
 	p.setColor(QPalette::Text, QColor(96, 96, 96));
 	setPalette(p);
 
-	setCursor(Qt::PointingHandCursor);
+	setCursor(Qt::ArrowCursor);
 	show();
 };
 

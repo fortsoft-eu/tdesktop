@@ -40,7 +40,6 @@ public:
 	[[nodiscard]] rpl::producer<> hideFinished() const;
 	[[nodiscard]] rpl::producer<int> desiredHeight() const;
 
-	void setRoundedShapeBelow(bool value);
 	void hideAnimated();
 
 protected:
@@ -70,7 +69,6 @@ private:
 	rpl::event_stream<> _closeRequests;
 	rpl::variable<bool> _hideFinished = false;
 	bool _hiding = false;
-	bool _roundedShapeBelow = true;
 
 };
 

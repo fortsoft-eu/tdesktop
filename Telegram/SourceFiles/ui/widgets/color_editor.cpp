@@ -11,11 +11,42 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
+#include "ui/style/style_classic.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/fields/masked_input_field.h"
 #include "ui/widgets/shadow.h"
 #include "styles/style_color_editor.h"
 #include "styles/style_widgets.h"
+
+namespace {
+
+void PaintColorField(
+		QPainter &p,
+		not_null<QWidget*> field,
+		const style::InputField &st,
+		const QString &prefix,
+		const QString &suffix = {}) {
+	const auto frame = field->rect().marginsRemoved(QMargins(
+		st.textMargins.left() - st::colorFieldTextInset,
+		0,
+		st.textMargins.right() - st::colorFieldTextInset,
+		0));
+	p.fillRect(frame, st::windowBg);
+	Ui::PaintClassicField(p, frame, field);
+	p.setFont(st.style.font);
+	p.setPen(st::classicMenuText);
+	const auto labels = field->rect().marginsRemoved(QMargins(
+		0,
+		st.textMargins.top(),
+		0,
+		st.textMargins.bottom()));
+	p.drawText(labels, prefix, style::al_topleft);
+	if (!suffix.isEmpty()) {
+		p.drawText(labels, suffix, style::al_topright);
+	}
+}
+
+} // namespace
 
 class ColorEditor::Picker : public Ui::RpWidget {
 public:
@@ -704,17 +735,7 @@ void ColorEditor::Field::correctValue(
 }
 
 void ColorEditor::Field::paintAdditionalPlaceholder(QPainter &p) {
-	p.setFont(_st.style.font);
-	p.setPen(_st.placeholderFg);
-	const auto inner = QRect(
-		_st.textMargins.right(),
-		_st.textMargins.top(),
-		width() - 2 * _st.textMargins.right(),
-		height() - rect::m::sum::v(_st.textMargins));
-	p.drawText(inner, _placeholder, style::al_topleft);
-	if (!_units.isEmpty()) {
-		p.drawText(inner, _units, style::al_topright);
-	}
+	PaintColorField(p, this, _st, _placeholder, _units);
 }
 
 void ColorEditor::Field::wheelEvent(QWheelEvent *e) {
@@ -829,16 +850,7 @@ void ColorEditor::ResultField::correctValue(
 }
 
 void ColorEditor::ResultField::paintAdditionalPlaceholder(QPainter &p) {
-	p.setFont(_st.style.font);
-	p.setPen(_st.placeholderFg);
-	p.drawText(
-		QRect(
-			_st.textMargins.right(),
-			_st.textMargins.top(),
-			width(),
-			height() - rect::m::sum::v(_st.textMargins)),
-		"#",
-		style::al_topleft);
+	PaintColorField(p, this, _st, u"#"_q);
 }
 
 ColorEditor::ColorEditor(

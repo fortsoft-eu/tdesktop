@@ -848,8 +848,13 @@ void SuggestionsController::handleTextChange() {
 		Core::App().emojiKeywords().refresh();
 	}
 
+	const auto generation = ++_textChangeGeneration;
 	_ignoreCursorPositionChange = true;
-	InvokeQueued(_container, [=] { _ignoreCursorPositionChange = false; });
+	InvokeQueued(_container, [=] {
+		if (_textChangeGeneration == generation) {
+			_ignoreCursorPositionChange = false;
+		}
+	});
 
 	const auto query = getEmojiQuery();
 	if (v::is<EmojiPtr>(query)) {
@@ -1012,8 +1017,9 @@ void SuggestionsController::replaceCurrent(
 }
 
 void SuggestionsController::handleCursorPositionChange() {
+	const auto generation = _textChangeGeneration;
 	InvokeQueued(_container, [=] {
-		if (_ignoreCursorPositionChange) {
+		if (_ignoreCursorPositionChange || _textChangeGeneration != generation) {
 			return;
 		}
 		showWithQuery(QString());

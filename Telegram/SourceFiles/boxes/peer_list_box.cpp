@@ -6,7 +6,9 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peer_list_box.h"
+#include "boxes/peer_list_controllers.h"
 
+#include "ui/style/style_radius.h"
 #include "boxes/peer_list_section_headers.h"
 #include "boxes/peer_list_section_index.h"
 #include "history/history.h" // chatListNameSortKey.
@@ -113,9 +115,7 @@ void PeerListBox::createMultiSelect() {
 	auto placeholder = _controller->searchPlaceholder();
 	auto entity = object_ptr<Ui::MultiSelect>(
 		this,
-		(_controller->selectSt()
-			? *_controller->selectSt()
-			: st::defaultMultiSelect),
+		_controller->computeSelectSt(),
 		placeholder ? std::move(placeholder) : tr::lng_participant_filter());
 	_select.create(this, std::move(entity));
 	_select->heightValue(
@@ -187,6 +187,14 @@ void PeerListBox::updateScrollSkips() {
 }
 
 void PeerListBox::prepare() {
+	setScrollShadowsEnabled(false);
+	if (dynamic_cast<ChooseRecipientBoxController*>(_controller.get())) {
+		const auto boxStyle = lifetime().make_state<style::Box>(st::defaultBox);
+		setProperty("classicSettingsStyle", false);
+		boxStyle->title.style.font = st::classicActionFont;
+		boxStyle->title.textFg = st::classicMenuText;
+		setStyle(*boxStyle);
+	}
 	setContent(setInnerWidget(
 		object_ptr<PeerListContent>(
 			this,
@@ -497,7 +505,9 @@ void PeerListController::setDescriptionText(const QString &text) {
 	if (text.isEmpty()) {
 		setDescription(nullptr);
 	} else {
-		setDescription(object_ptr<Ui::FlatLabel>(nullptr, text, computeListSt().about));
+		auto labelStyle = computeListSt().about;
+		labelStyle.style.font = st::classicSettingsFont;
+		setDescription(object_ptr<Ui::FlatLabel>(nullptr, text, labelStyle));
 	}
 }
 
@@ -1000,9 +1010,9 @@ void PeerListRow::paintStatusText(
 		int availableWidth,
 		int outerWidth,
 		bool selected) {
-	auto statusHasOnlineColor = (_statusType == PeerListRow::StatusType::Online)
-		|| (_statusType == PeerListRow::StatusType::CustomActive);
-	p.setFont(st::contactsStatusFont);
+	const auto statusHasOnlineColor = (_statusType == StatusType::Online)
+		|| (_statusType == StatusType::CustomActive);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(statusHasOnlineColor ? st.statusFgActive : (selected ? st.statusFgOver : st.statusFg));
 	_status.drawLeftElided(p, x, y, availableWidth, outerWidth);
 }
@@ -1111,7 +1121,7 @@ void PeerListRow::paintDisabledCheckUserpic(
 		if (peer()->forum()) {
 			const auto radius = userpicDiameter
 				* Ui::ForumUserpicRadiusMultiplier();
-			p.drawRoundedRect(userpicEllipse, radius, radius);
+			p.drawRoundedRect(userpicEllipse, style::CornerRadius(radius), style::CornerRadius(radius));
 		} else {
 			p.drawEllipse(userpicEllipse);
 		}
@@ -1125,7 +1135,7 @@ void PeerListRow::paintDisabledCheckUserpic(
 }
 
 void PeerListRow::setStatusText(const QString &text) {
-	_status.setText(st::defaultTextStyle, text, Ui::NameTextOptions());
+	_status.setText(st::contactsStatusTextStyle, text, Ui::NameTextOptions());
 }
 
 float64 PeerListRow::checkedRatio() {

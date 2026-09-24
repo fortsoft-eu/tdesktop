@@ -12,6 +12,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_todo_list.h"
 #include "base/flags.h"
 
+#include <QtCore/QPointer>
+
 struct TodoListData;
 
 namespace ChatHelpers {
@@ -19,6 +21,7 @@ class TabbedPanel;
 } // namespace ChatHelpers
 
 namespace Ui {
+class InputField;
 class VerticalLayout;
 } // namespace Ui
 
@@ -75,6 +78,7 @@ private:
 	HistoryItem *_editingItem = nullptr;
 	rpl::variable<int> _starsRequired;
 	base::unique_qptr<ChatHelpers::TabbedPanel> _emojiPanel;
+	QPointer<Ui::InputField> _emojiField;
 	Fn<void()> _setInnerFocus;
 	Fn<rpl::producer<bool>()> _dataIsValidValue;
 	rpl::event_stream<Result> _submitRequests;
@@ -106,6 +110,7 @@ private:
 	const not_null<Window::SessionController*> _controller;
 	const not_null<HistoryItem*> _item;
 	base::unique_qptr<ChatHelpers::TabbedPanel> _emojiPanel;
+	QPointer<Ui::InputField> _emojiField;
 	Fn<void()> _setInnerFocus;
 	rpl::event_stream<Result> _submitRequests;
 

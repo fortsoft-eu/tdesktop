@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "lang/lang_keys.h"
 #include "ui/layers/generic_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/power_saving.h"
 #include "ui/vertical_list.h"
@@ -31,6 +32,8 @@ constexpr auto kForceDisableTooltipDuration = 3 * crl::time(1000);
 void PowerSavingBox(
 		not_null<Ui::GenericBox*> box,
 		PowerSaving::Flags highlightFlags) {
+	box->setProperty("classicFormFrame", true);
+	Ui::SetClassicSettingsStyle(box);
 	box->setStyle(st::layerBox);
 	box->setTitle(tr::lng_settings_power_title());
 	box->setWidth(st::boxWideWidth);

@@ -86,17 +86,13 @@ uniform float transparentSize;
 	return {
 		.header = R"(
 uniform vec4 roundRect;
-uniform float roundRadius;
 
 float roundedCorner() {
 	vec2 rectHalf = roundRect.zw / 2.;
 	vec2 rectCenter = roundRect.xy + rectHalf;
 	vec2 fromRectCenter = abs(gl_FragCoord.xy - rectCenter);
-	vec2 vectorRadius = vec2(roundRadius + 0.5, roundRadius + 0.5);
-	vec2 fromCenterWithRadius = fromRectCenter + vectorRadius;
-	vec2 fromRoundingCenter = max(fromCenterWithRadius, rectHalf)
-		- rectHalf;
-	float rounded = length(fromRoundingCenter) - roundRadius;
+	vec2 edgeDistance = fromRectCenter - rectHalf + vec2(0.5);
+	float rounded = max(edgeDistance.x, edgeDistance.y);
 
 	return 1. - smoothstep(0., 1., rounded);
 }
@@ -670,9 +666,6 @@ void OverlayWidget::RendererGL::paintTransformedContent(
 				0,
 				_uniformViewport.x(),
 				_uniformViewport.y()));
-		program->setUniformValue(
-			"roundRadius",
-			GLfloat(geometry.roundRadius * _factor));
 	}
 	FillTexturedRectangle(*_f, &*program);
 }
@@ -961,6 +954,9 @@ void OverlayWidget::RendererGL::paintFooter(QRect outer, float64 opacity) {
 	paintUsingRaster(_footerImage, outer, [&](Painter &&p) {
 		const auto newOuter = QRect(QPoint(), outer.size());
 		_owner->paintFooterContent(p, newOuter, newOuter, opacity);
+		p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+		p.setOpacity(1.);
+		p.fillRect(newOuter, Qt::white);
 	}, kFooterOffset, true);
 }
 
@@ -1029,9 +1025,6 @@ void OverlayWidget::RendererGL::paintRoundedCorners(int radius) {
 	_roundedCornersProgram->setUniformValue("viewport", _uniformViewport);
 	const auto roundRect = transformRect(QRect(QPoint(), _viewport));
 	_roundedCornersProgram->setUniformValue("roundRect", Uniform(roundRect));
-	_roundedCornersProgram->setUniformValue(
-		"roundRadius",
-		GLfloat(radius * _factor));
 
 	_f->glEnable(GL_BLEND);
 	_f->glBlendFunc(GL_ZERO, GL_SRC_ALPHA);

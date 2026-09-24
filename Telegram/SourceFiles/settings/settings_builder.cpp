@@ -252,7 +252,18 @@ Ui::RpWidget *SectionBuilder::addControl(ControlArgs &&args) {
 }
 
 Ui::SettingsButton *SectionBuilder::addButton(ButtonArgs &&args) {
-	const auto &st = args.st ? *args.st : st::settingsButton;
+	auto st = args.st ? *args.st : st::settingsButton;
+	if (args.raised) {
+		st.style.font = st::classicActionFont;
+		st.height = st::classicActionFont->height;
+		st.textFg = st.textFgOver = st::classicMenuText;
+		st.textBg = st.textBgOver = st::classicControlBg;
+	}
+	if (args.toggled) {
+		st.toggleSkip = st.padding.left();
+		st.padding.setLeft(st.toggleSkip + st::classicCheckSize
+			+ st::settingsExperimentalButton.padding.right());
+	}
 	auto iconForSearch = IconDescriptor{ args.icon.icon };
 	const auto factory = [&](not_null<Ui::VerticalLayout*> container) {
 		auto button = CreateButtonWithIcon(
@@ -260,6 +271,9 @@ Ui::SettingsButton *SectionBuilder::addButton(ButtonArgs &&args) {
 			rpl::duplicate(args.title),
 			st,
 			std::move(args.icon));
+		if (args.raised) {
+			button->setProperty("classicButton", true);
+		}
 		if (button && args.onClick) {
 			button->addClickHandler(std::move(args.onClick));
 		}
@@ -267,10 +281,11 @@ Ui::SettingsButton *SectionBuilder::addButton(ButtonArgs &&args) {
 			CreateRightLabel(
 				button.data(),
 				std::move(args.label),
-				st,
+				button->st(),
 				rpl::duplicate(args.title));
 		}
 		if (args.toggled) {
+			button->setProperty("classicCheckOnLeft", true);
 			button->toggleOn(std::move(args.toggled));
 		}
 		return button;
@@ -351,7 +366,7 @@ Ui::SettingsButton *SectionBuilder::addPrivacyButton(PrivacyButtonArgs &&args) {
 	const auto button = addButton({
 		.id = args.id,
 		.title = rpl::duplicate(args.title),
-		.st = &st::settingsButtonNoIcon,
+		.st = &st::settingsPrivacyButton,
 		.label = PrivacyButtonLabel(session, args.key),
 		.keywords = args.keywords,
 	});
@@ -378,7 +393,7 @@ Ui::SettingsButton *SectionBuilder::addPrivacyButton(PrivacyButtonArgs &&args) {
 				button,
 				session,
 				std::move(args.title),
-				st::settingsButtonNoIcon.padding);
+				st::settingsPrivacyButton.padding);
 		}
 	}
 	return button;

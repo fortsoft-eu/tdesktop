@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/continuous_sliders.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
 #include "base/timer.h"
@@ -14,20 +15,98 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/platform/base_platform_info.h"
 #include "styles/style_widgets.h"
 
+#include <QtCore/QSignalBlocker>
+#include <QtWidgets/QGraphicsOpacityEffect>
+#include <QtWidgets/QSlider>
+#include <QtWidgets/QStyle>
+#include <QtWidgets/QStyleFactory>
+
 namespace Ui {
 namespace {
 
 constexpr auto kByWheelFinishedTimeout = 1000;
+constexpr auto kNativeSliderSteps = 1000000;
 
 } // namespace
 
 ContinuousSlider::ContinuousSlider(QWidget *parent) : RpWidget(parent) {
-	setCursor(style::cur_pointer);
+	_native = new QSlider(Qt::Horizontal, this);
+	if (const auto nativeStyle = QStyleFactory::create(u"Windows"_q)) {
+		nativeStyle->setParent(_native);
+		_native->setStyle(nativeStyle);
+	}
+	_native->setRange(0, kNativeSliderSteps);
+	_native->setSingleStep(kNativeSliderSteps / 100);
+	_native->setPageStep(kNativeSliderSteps / 10);
+	auto palette = _native->palette();
+	palette.setColor(QPalette::Button, QColor(212, 208, 200));
+	palette.setColor(QPalette::Window, QColor(212, 208, 200));
+	palette.setColor(QPalette::Light, Qt::white);
+	palette.setColor(QPalette::Dark, QColor(128, 128, 128));
+	palette.setColor(QPalette::Shadow, QColor(64, 64, 64));
+	_native->setPalette(palette);
+	setFocusProxy(_native);
+	setMinimumHeight(_native->minimumSizeHint().height());
+	QObject::connect(_native, &QSlider::sliderPressed, this, [=] {
+		_mouseDown = true;
+		_downValue = _value;
+	});
+	QObject::connect(_native, &QSlider::valueChanged, this, [=](int value) {
+		auto adjusted = value / float64(kNativeSliderSteps);
+		if (_adjustCallback) {
+			adjusted = std::clamp(_adjustCallback(adjusted), 0., 1.);
+		}
+		{
+			const auto blocker = QSignalBlocker(_native);
+			_native->setValue(qRound(adjusted * kNativeSliderSteps));
+		}
+		_value = _downValue = adjusted;
+		const auto weak = base::make_weak(this);
+		if (_changeProgressCallback) {
+			_changeProgressCallback(adjusted);
+		}
+		if (weak && !_mouseDown && _changeFinishedCallback) {
+			_changeFinishedCallback(adjusted);
+		}
+	});
+	QObject::connect(_native, &QSlider::sliderReleased, this, [=] {
+		_mouseDown = false;
+		_value = _downValue;
+		if (_changeFinishedCallback) {
+			_changeFinishedCallback(_value);
+		}
+	});
+	_native->installEventFilter(this);
+	_native->show();
+}
+
+bool ContinuousSlider::eventFilter(QObject *object, QEvent *event) {
+	if (object == _native && event->type() == QEvent::Wheel) {
+		wheelEvent(static_cast<QWheelEvent*>(event));
+		return true;
+	} else if (object == _native && event->type() == QEvent::KeyPress) {
+		keyPressEvent(static_cast<QKeyEvent*>(event));
+		return true;
+	}
+	return RpWidget::eventFilter(object, event);
+}
+
+void ContinuousSlider::setDirection(Direction direction) {
+	_direction = direction;
+	_native->setOrientation(isHorizontal() ? Qt::Horizontal : Qt::Vertical);
+	setMinimumSize(isHorizontal()
+		? QSize(0, _native->minimumSizeHint().height())
+		: QSize(_native->minimumSizeHint().width(), 0));
+}
+
+void ContinuousSlider::resizeEvent(QResizeEvent *e) {
+	_native->setGeometry(rect());
 }
 
 void ContinuousSlider::setDisabled(bool disabled) {
 	if (_disabled != disabled) {
 		_disabled = disabled;
+		_native->setEnabled(!disabled);
 		setCursor(_disabled ? style::cur_default : style::cur_pointer);
 		update();
 	}
@@ -66,12 +145,25 @@ void ContinuousSlider::setValue(float64 value, float64 receivedTill) {
 	if (_value != value || _receivedTill != receivedTill) {
 		_value = value;
 		_receivedTill = receivedTill;
+		const auto blocker = QSignalBlocker(_native);
+		_native->setValue(qRound(
+			std::clamp(getCurrentValue(), 0., 1.) * kNativeSliderSteps));
 		update();
 	}
 }
 
 void ContinuousSlider::setFadeOpacity(float64 opacity) {
 	_fadeOpacity = opacity;
+	auto effect = qobject_cast<QGraphicsOpacityEffect*>(_native->graphicsEffect());
+	if (opacity < 1.) {
+		if (!effect) {
+			effect = new QGraphicsOpacityEffect(_native);
+			_native->setGraphicsEffect(effect);
+		}
+		effect->setOpacity(opacity);
+	} else if (effect) {
+		_native->setGraphicsEffect(nullptr);
+	}
 	update();
 }
 
@@ -219,6 +311,8 @@ void ContinuousSlider::setOver(bool over) {
 
 FilledSlider::FilledSlider(QWidget *parent, const style::FilledSlider &st) : ContinuousSlider(parent)
 , _st(st) {
+	nativeSlider()->hide();
+	setMinimumHeight(0);
 }
 
 QSize FilledSlider::getSeekDecreaseSize() const {
@@ -258,7 +352,7 @@ void FilledSlider::paintEvent(QPaintEvent *e) {
 		p.setOpacity(masterOpacity * over);
 		p.fillRect(mid, height() - lineWidthRounded, (end - mid), lineWidthRounded, _st.inactiveFg);
 		if (lineWidthPartial > 0.01) {
-			p.setOpacity(masterOpacity * over * lineWidthPartial);
+			p.setOpacity(masterOpacity * lineWidthPartial);
 			p.fillRect(mid, height() - lineWidthRounded - 1, (end - mid), 1, _st.inactiveFg);
 		}
 	}
@@ -278,6 +372,7 @@ float64 MediaSlider::getOverDuration() const {
 
 void MediaSlider::disablePaint(bool disabled) {
 	_paintDisabled = disabled;
+	nativeSlider()->setVisible(!disabled);
 }
 
 void MediaSlider::addDivider(float64 atValue, const QSize &size) {
@@ -337,233 +432,6 @@ void MediaSlider::setColorOverrides(ColorOverrides overrides) {
 }
 
 void MediaSlider::paintEvent(QPaintEvent *e) {
-	if (_paintDisabled) {
-		return;
-	}
-	auto p = QPainter(this);
-	PainterHighQualityEnabler hq(p);
-
-	p.setPen(Qt::NoPen);
-	p.setOpacity(fadeOpacity());
-
-	const auto horizontal = isHorizontal();
-	const auto borderWidth = _st.borderWidth;
-	const auto borderHalf = borderWidth / 2;
-	const auto radius = _st.width / 2;
-	const auto disabled = isDisabled();
-	const auto over = getCurrentOverFactor();
-	const auto seekRect = getSeekRect();
-
-	// invert colors and value for vertical
-	const auto value = horizontal
-		? getCurrentValue()
-		: (1. - getCurrentValue());
-
-	// receivedTill is not supported for vertical
-	const auto receivedTill = horizontal
-		? getCurrentReceivedTill()
-		: value;
-
-	const auto markerFrom = (horizontal ? seekRect.x() : seekRect.y());
-	const auto markerLength = horizontal
-		? seekRect.width()
-		: seekRect.height();
-	const auto from = 0;
-	const auto length = (horizontal ? width() : height());
-	const auto alwaysSeekSize = horizontal
-		? _st.seekSize.width()
-		: _st.seekSize.height();
-	const auto mid = _alwaysDisplayMarker
-		? qRound(from
-			+ (alwaysSeekSize / 2.)
-			+ value * (length - alwaysSeekSize))
-		: qRound(from + value * length);
-	const auto till = horizontal
-		? std::max(mid, qRound(from + receivedTill * length))
-		: mid;
-	const auto end = from + length;
-	const auto activeFg = disabled
-		? _st.activeFgDisabled
-		: _overrides.activeFg
-		? QBrush(*_overrides.activeFg)
-		: anim::brush(_st.activeFg, _st.activeFgOver, over);
-	const auto receivedTillFg = _st.receivedTillFg;
-	const auto inactiveFg = disabled
-		? _st.inactiveFgDisabled
-		: _overrides.inactiveFg
-		? QBrush(*_overrides.inactiveFg)
-		: anim::brush(_st.inactiveFg, _st.inactiveFgOver, over);
-	const auto borderFg = _st.borderFg;
-	const auto gapStyle = (_dividerStyle == DividerStyle::Gaps);
-	if (gapStyle) {
-		rebuildDividerExclusion();
-	}
-	const auto clip = [&](const QRect &rect) {
-		if (!gapStyle || _dividerExclusion.isEmpty()) {
-			p.setClipRect(rect);
-		} else {
-			p.setClipRegion(QRegion(rect) - _dividerExclusion);
-		}
-	};
-	if (mid > from) {
-		const auto fromClipRect = horizontal
-			? QRect(0, 0, mid, height())
-			: QRect(0, 0, width(), mid);
-		const auto till = std::min(mid + radius, end);
-		const auto fromRect = horizontal
-			? QRect(
-				from + borderHalf,
-				(height() - _st.width) / 2 + borderHalf,
-				till - from - borderWidth,
-				_st.width - borderWidth)
-			: QRect(
-				(width() - _st.width) / 2 + borderHalf,
-				from + borderHalf,
-				_st.width - borderWidth,
-				till - from - borderWidth);
-		clip(fromClipRect);
-		if (borderWidth > 0) {
-			const auto borderPen = _overrides.activeBorder
-				? QPen(*_overrides.activeBorder, borderWidth)
-				: QPen(borderFg, borderWidth);
-			const auto bgBrush = _overrides.activeBg
-				? QBrush(*_overrides.activeBg)
-				: (horizontal ? borderFg : inactiveFg);
-			p.setPen(borderPen);
-			p.setBrush(bgBrush);
-		} else {
-			p.setPen(Qt::NoPen);
-			p.setBrush(horizontal ? activeFg : inactiveFg);
-		}
-		p.drawRoundedRect(fromRect, radius, radius);
-	}
-	if (till > mid) {
-		Assert(horizontal);
-		auto clipRect = QRect(mid, 0, till - mid, height());
-		const auto left = std::max(mid - radius, from);
-		const auto right = std::min(till + radius, end);
-		const auto rect = QRect(
-			left,
-			(height() - _st.width) / 2,
-			right - left,
-			_st.width);
-		clip(clipRect);
-		p.setBrush(receivedTillFg);
-		p.drawRoundedRect(rect, radius, radius);
-	}
-	if (end > till) {
-		const auto endClipRect = horizontal
-			? QRect(till, 0, width() - till, height())
-			: QRect(0, till, width(), height() - till);
-		const auto begin = std::max(till - radius, from);
-		const auto endRect = horizontal
-			? QRect(
-				begin + borderHalf,
-				(height() - _st.width) / 2 + borderHalf,
-				end - begin - borderWidth,
-				_st.width - borderWidth)
-			: QRect(
-				(width() - _st.width) / 2 + borderHalf,
-				begin + borderHalf,
-				_st.width - borderWidth,
-				end - begin - borderWidth);
-		clip(endClipRect);
-		if (borderWidth > 0) {
-			const auto endBorderPen = _overrides.inactiveBorder
-				? QPen(*_overrides.inactiveBorder, borderWidth)
-				: QPen(borderFg, borderWidth);
-			p.setPen(endBorderPen);
-		} else {
-			p.setPen(Qt::NoPen);
-		}
-		p.setBrush(horizontal ? inactiveFg : activeFg);
-		p.drawRoundedRect(endRect, radius, radius);
-	}
-	if (!gapStyle && !_dividers.empty()) {
-		p.setClipRect(rect());
-		for (const auto &divider : _dividers) {
-			const auto dividerValue = horizontal
-				? divider.atValue
-				: (1. - divider.atValue);
-			const auto dividerMid = base::SafeRound(from
-				+ dividerValue * length);
-			const auto &size = divider.size;
-			const auto rect = horizontal
-				? QRect(
-					dividerMid - size.width() / 2,
-					(height() - size.height()) / 2,
-					size.width(),
-					size.height())
-				: QRect(
-					(width() - size.height()) / 2,
-					dividerMid - size.width() / 2,
-					size.height(),
-					size.width());
-			p.setBrush(((value < dividerValue) == horizontal)
-				? inactiveFg
-				: activeFg);
-			const auto dividerRadius = size.width() / 2.;
-			p.drawRoundedRect(rect, dividerRadius, dividerRadius);
-		}
-	}
-	const auto markerSizeRatio = disabled
-		? 0.
-		: (_alwaysDisplayMarker ? 1. : over);
-	if (markerSizeRatio > 0) {
-		const auto position = qRound(markerFrom + value * markerLength)
-			- (horizontal
-				? (_st.seekSize.width() / 2)
-				: (_st.seekSize.height() / 2));
-		const auto seekButton = horizontal
-			? QRect(
-				position,
-				(height() - _st.seekSize.height()) / 2,
-				_st.seekSize.width(),
-				_st.seekSize.height())
-			: QRect(
-				(width() - _st.seekSize.width()) / 2,
-				position,
-				_st.seekSize.width(),
-				_st.seekSize.height());
-		const auto size = horizontal
-			? _st.seekSize.width()
-			: _st.seekSize.height();
-		const auto remove = static_cast<int>(
-			((1. - markerSizeRatio) * size) / 2.);
-		if (remove * 2 < size) {
-			p.setClipRect(rect());
-			const auto seekFg = _overrides.seekFg
-				? QBrush(*_overrides.seekFg)
-				: activeFg;
-			if (borderWidth > 0) {
-				const auto seekBorderPen = _overrides.seekBorder
-					? QPen(*_overrides.seekBorder, borderWidth)
-					: QPen(borderFg, borderWidth);
-				p.setPen(seekBorderPen);
-				p.setBrush(seekFg);
-			} else {
-				p.setPen(Qt::NoPen);
-				p.setBrush(seekFg);
-			}
-			const auto xshift = horizontal
-				? std::max(
-					seekButton.x() + seekButton.width() - remove - width(),
-					0) + std::min(seekButton.x() + remove, 0)
-				: 0;
-			const auto yshift = horizontal
-				? 0
-				: std::max(
-					seekButton.y() + seekButton.height() - remove - height(),
-					0) + std::min(seekButton.y() + remove, 0);
-			auto ellipseRect = (seekButton - Margins(remove)).translated(
-				-xshift,
-				-yshift);
-			if (borderWidth > 0) {
-				ellipseRect -= Margins(borderHalf);
-			}
-			p.drawEllipse(ellipseRect);
-		}
-	}
 }
 
 } // namespace Ui

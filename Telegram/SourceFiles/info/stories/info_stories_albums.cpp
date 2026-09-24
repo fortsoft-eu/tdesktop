@@ -41,12 +41,12 @@ void EditAlbumBox(
 			object_ptr<Ui::FlatLabel>(
 				box,
 				tr::lng_stories_album_new_text(),
-				st::collectionAbout));
+				st::storiesAlbumAbout));
 	}
 	const auto title = box->addRow(
 		object_ptr<Ui::InputField>(
 			box,
-			st::collectionNameField,
+			st::storiesAlbumNameField,
 			tr::lng_stories_album_new_ph(),
 			currentName));
 	title->setMaxLength(kAlbumNameLimit * 2);

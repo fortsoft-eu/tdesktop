@@ -93,14 +93,6 @@ rpl::producer<int> ReplyPillHeader::desiredHeight() const {
 	return _desiredHeight.value();
 }
 
-void ReplyPillHeader::setRoundedShapeBelow(bool value) {
-	if (_roundedShapeBelow == value) {
-		return;
-	}
-	_roundedShapeBelow = value;
-	update();
-}
-
 void ReplyPillHeader::hideAnimated() {
 	if (_hiding) {
 		return;
@@ -152,11 +144,12 @@ void ReplyPillHeader::setShownMessage(HistoryItem *item) {
 			.customEmojiLoopLimit = 1,
 		});
 		_shownMessageName.setMarkedText(
-			st::fwdTextStyle,
+			st::sendFilesReplyNameStyle,
 			HistoryView::Reply::ComposePreviewName(
 				item->history(),
 				item,
-				_replyTo),
+				_replyTo,
+				true),
 			Ui::NameTextOptions(),
 			context);
 	} else {
@@ -219,48 +212,7 @@ void ReplyPillHeader::paintEvent(QPaintEvent *e) {
 		return;
 	}
 
-	{
-		auto hq = PainterHighQualityEnabler(p);
-		p.setPen(Qt::NoPen);
-		p.setBrush(st::windowBgOver);
-		const auto topRadius = st::bubbleRadiusLarge;
-		const auto bottomRadius = _roundedShapeBelow
-			? st::bubbleRadiusSmall
-			: st::bubbleRadiusLarge;
-		const auto rectF = QRectF(pillRect);
-		auto path = QPainterPath();
-		path.moveTo(rectF.left() + topRadius, rectF.top());
-		path.lineTo(rectF.right() - topRadius, rectF.top());
-		path.arcTo(
-			rectF.right() - 2 * topRadius,
-			rectF.top(),
-			2 * topRadius,
-			2 * topRadius,
-			90, -90);
-		path.lineTo(rectF.right(), rectF.bottom() - bottomRadius);
-		path.arcTo(
-			rectF.right() - 2 * bottomRadius,
-			rectF.bottom() - 2 * bottomRadius,
-			2 * bottomRadius,
-			2 * bottomRadius,
-			0, -90);
-		path.lineTo(rectF.left() + bottomRadius, rectF.bottom());
-		path.arcTo(
-			rectF.left(),
-			rectF.bottom() - 2 * bottomRadius,
-			2 * bottomRadius,
-			2 * bottomRadius,
-			270, -90);
-		path.lineTo(rectF.left(), rectF.top() + topRadius);
-		path.arcTo(
-			rectF.left(),
-			rectF.top(),
-			2 * topRadius,
-			2 * topRadius,
-			180, -90);
-		path.closeSubpath();
-		p.fillPath(path, st::windowBgOver);
-	}
+	p.fillRect(pillRect, st::windowBgOver);
 
 	const auto iconPos = st::sendFilesReplyIconPosition
 		+ QPoint(pillRect.left(), pillRect.top());
@@ -344,7 +296,7 @@ void ReplyPillHeader::paintEvent(QPaintEvent *e) {
 	}
 
 	p.setPen(st::historyReplyNameFg);
-	p.setFont(st::msgServiceNameFont);
+	p.setFont(st::sendFilesReplyNameStyle.font);
 	_shownMessageName.drawElided(
 		p,
 		contentLeft,
@@ -357,7 +309,7 @@ void ReplyPillHeader::paintEvent(QPaintEvent *e) {
 			contentLeft,
 			pillRect.top()
 				+ st::msgReplyPadding.top()
-				+ st::msgServiceNameFont->height),
+				+ st::sendFilesReplyNameStyle.font->height),
 		.availableWidth = contentAvailable,
 		.palette = &st::historyComposeAreaPalette,
 		.spoiler = Ui::Text::DefaultSpoilerCache(),

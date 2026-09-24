@@ -27,6 +27,8 @@ public:
 
 private:
 	void rebuildMenu();
+	void readAllChats();
+	void clearAllAccountsCache();
 	void toggleSoundNotifications();
 
 	Platform::Tray _tray;

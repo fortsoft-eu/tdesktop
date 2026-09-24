@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/peer/color_sample.h"
 
+#include "ui/style/style_radius.h"
 #include "base/algorithm.h"
 #include "ui/chat/chat_style.h"
 #include "ui/color_contrast.h"
@@ -177,7 +178,7 @@ void ColorSample::paintEvent(QPaintEvent *e) {
 		} else {
 			p.setBrush(colors.bg);
 		}
-		p.drawRoundedRect(rect(), radius, radius);
+		p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 
 		const auto padding = st::settingsColorSamplePadding;
 		p.setPen(colors.name);
@@ -258,8 +259,8 @@ void ColorSample::paintEvent(QPaintEvent *e) {
 			p.setBrush(colors.outlines[2]);
 			p.drawRoundedRect(
 				QRectF(-center / 2., -center / 2., center, center),
-				radius,
-				radius);
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 		}
 		const auto selected = _selectAnimation.value(_selected ? 1. : 0.);
 		if (selected > 0) {

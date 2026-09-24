@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/layers/generic_box.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/wrap/padding_wrap.h"
@@ -152,6 +153,7 @@ void ShowGradientEditor(
 		StartData data,
 		Fn<void(std::vector<QColor>)> &&doneCallback) {
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+		Ui::SetClassicSettingsStyle(box);
 		struct State {
 			rpl::event_stream<> saveRequests;
 		};
@@ -220,6 +222,7 @@ EmojiSelector::EmojiSelector(
 	rpl::producer<std::vector<DocumentId>> recent)
 : RpWidget(parent)
 , _controller(controller) {
+	setProperty("classicSettingsStyle", false);
 	std::move(
 		recent
 	) | rpl::on_next([=](std::vector<DocumentId> ids) {
@@ -373,12 +376,13 @@ void EmojiSelector::createSelector(Type type) {
 			s.width(),
 			st::lineWidth);
 
-		const auto listWidth = s.width() - st::boxRadius * 2;
+		const auto scrollAreaWidth = s.width() - 2 * left;
+		const auto listWidth = std::max(scrollAreaWidth - scrollWidth, 0);
 		selector.list->resizeToWidth(listWidth);
 		scroll->setGeometry(
-			st::boxRadius,
+			left,
 			rect::bottom(separator),
-			selector.list->width() + scrollWidth,
+			scrollAreaWidth,
 			s.height() - rect::bottom(separator));
 		selector.list->setMinimalHeight(listWidth, scroll->height());
 	}, lifetime());

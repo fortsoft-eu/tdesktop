@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/userpic/info_userpic_emoji_builder_layer.h"
 
+#include "ui/style/style_classic.h"
 #include "styles/style_info.h"
 #include "styles/style_info_userpic_builder.h"
 #include "styles/style_layers.h"
@@ -14,10 +15,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace UserpicBuilder {
 
 LayerWidget::LayerWidget()
-: _corners(Ui::PrepareCornerPixmaps(st::boxRadius, st::boxDividerBg)) {
+: _corners(Ui::PrepareCornerPixmaps(st::boxRadius, st::classicControlBg)) {
+	Ui::SetClassicSettingsStyle(this);
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
-		_corners = Ui::PrepareCornerPixmaps(st::boxRadius, st::boxDividerBg);
+		_corners = Ui::PrepareCornerPixmaps(st::boxRadius, st::classicControlBg);
 		update();
 	}, lifetime());
 }
@@ -50,7 +52,7 @@ int LayerWidget::resizeGetHeight(int newWidth) {
 void LayerWidget::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 
-	Ui::FillRoundRect(p, rect(), st::boxDividerBg, _corners);
+	Ui::FillRoundRect(p, rect(), st::classicControlBg, _corners);
 }
 
 } // namespace UserpicBuilder

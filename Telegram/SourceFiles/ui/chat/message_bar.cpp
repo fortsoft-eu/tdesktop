@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/message_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/effects/spoiler_mess.h"
 #include "ui/image/image_prepare.h"
 #include "ui/painter.h"
@@ -621,7 +622,7 @@ void MessageBar::paintLeftBar(Painter &p) {
 		const auto bottom = top + state.size;
 		const auto active = (top == activeFrom);
 		p.setBrush(active ? activeBrush : inactiveBrush);
-		p.drawRoundedRect(bar.translated(0, top), radius, radius);
+		p.drawRoundedRect(bar.translated(0, top), style::CornerRadius(radius), style::CornerRadius(radius));
 		if (active
 			|| bottom - line <= activeFrom
 			|| top + line >= activeTill) {
@@ -632,8 +633,8 @@ void MessageBar::paintLeftBar(Painter &p) {
 		p.setBrush(activeBrush);
 		p.drawRoundedRect(
 			QRect(bar.x(), bar.y() + partFrom, line, partTill - partFrom),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	p.setClipping(false);
 	if (_content.count > 4) {

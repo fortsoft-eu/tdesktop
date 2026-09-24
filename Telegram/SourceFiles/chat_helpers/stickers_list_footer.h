@@ -264,18 +264,11 @@ private:
 	void paintSelectionBg(
 		QPainter &p,
 		const ExpandingContext &context) const;
-	void paintLeftRightFading(
-		QPainter &p,
-		const ExpandingContext &context) const;
 
 	void updateEmojiSectionWidth();
 	void updateEmojiWidthCallback();
 
 	void scrollByWheelEvent(not_null<QWheelEvent*> e);
-
-	void validateFadeLeft(int leftWidth) const;
-	void validateFadeRight(int rightWidth) const;
-	void validateFadeMask() const;
 
 	void clipCallback(Media::Clip::Notification notification, uint64 setId);
 
@@ -300,11 +293,6 @@ private:
 	int _singleWidth = 0;
 	QPoint _areaPosition;
 
-	mutable QImage _fadeLeftCache;
-	mutable QColor _fadeLeftColor;
-	mutable QImage _fadeRightCache;
-	mutable QColor _fadeRightColor;
-	mutable QImage _fadeMask;
 	mutable QImage _setIconCache;
 
 	ScrollState _iconState;

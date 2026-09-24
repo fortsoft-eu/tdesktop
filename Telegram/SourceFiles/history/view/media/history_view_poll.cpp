@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_poll.h"
 
+#include "ui/style/style_radius.h"
 #include "core/click_handler_types.h"
 #include "core/ui_integration.h" // TextContext
 #include "data/data_cloud_file.h"
@@ -452,8 +453,8 @@ void OpenPollOptionLinkBox(
 		p.setBrush(st::windowBgOver);
 		p.drawRoundedRect(
 			urlContainer->rect(),
-			st::pollOpenLinkUrlRadius,
-			st::pollOpenLinkUrlRadius);
+			style::CornerRadius(st::pollOpenLinkUrlRadius),
+			style::CornerRadius(st::pollOpenLinkUrlRadius));
 	}, urlContainer->lifetime());
 
 	if (webpage && !webpage->failed && WebPageHasRichPreview(webpage)) {
@@ -935,7 +936,7 @@ auto Poll::Footer::computeLayout(int innerWidth) const -> Layout {
 			bottomW = _adminBackVoteLabel.maxWidth();
 			break;
 		case Layout::Kind::LinkButton:
-			bottomW = st::semiboldFont->width(linkButtonText());
+			bottomW = st::historyPollFooterLinkFont->width(linkButtonText());
 			break;
 		}
 	}
@@ -1063,12 +1064,12 @@ void Poll::Footer::draw(
 		break;
 	}
 	case Layout::Kind::LinkButton: {
-		p.setFont(st::semiboldFont);
+		p.setFont(st::historyPollFooterLinkFont);
 		p.setPen(layout.link
 			? stm->msgFileThumbLinkFg
 			: stm->msgDateFg);
 		const auto string = linkButtonText();
-		const auto stringw = st::semiboldFont->width(string);
+		const auto stringw = st::historyPollFooterLinkFont->width(string);
 		p.drawTextLeft(
 			left + (innerWidth - stringw) / 2,
 			layout.textY,
@@ -1408,8 +1409,7 @@ struct Poll::Header : public Poll::Part {
 	void paintRecentVoters(
 		Painter &p,
 		int left,
-		int top,
-		const PaintContext &context) const;
+		int top) const;
 	void paintShowSolution(
 		Painter &p,
 		int right,
@@ -1453,7 +1453,7 @@ struct Poll::Header : public Poll::Part {
 	mutable Ui::Animations::Simple _solutionButtonAnimation;
 	mutable bool _solutionShown = false;
 	mutable bool _solutionButtonVisible = false;
-	mutable QImage _userpicCircleCache;
+
 };
 
 int Poll::Header::countHeight(int innerWidth) const {
@@ -1496,8 +1496,8 @@ void Poll::Header::draw(
 					== PollThumbnailKind::Emoji) {
 				p.drawRoundedRect(
 					target,
-					st::roundRadiusLarge,
-					st::roundRadiusLarge);
+					style::CornerRadius(st::roundRadiusLarge),
+					style::CornerRadius(st::roundRadiusLarge));
 				const auto image
 					= _attachedMedia->thumbnail->image(
 						std::max(target.width(), target.height()));
@@ -1524,8 +1524,8 @@ void Poll::Header::draw(
 					auto path = QPainterPath();
 					path.addRoundedRect(
 						target,
-						st::roundRadiusLarge,
-						st::roundRadiusLarge);
+						style::CornerRadius(st::roundRadiusLarge),
+						style::CornerRadius(st::roundRadiusLarge));
 					p.setClipPath(path);
 					p.drawImage(geometry, image, source);
 					p.restore();
@@ -1582,11 +1582,16 @@ void Poll::Header::draw(
 	tshift += _question.countHeight(innerWidth)
 		+ st::historyPollSubtitleSkip;
 
-	p.setPen(stm->msgDateFg);
+	const auto closed = (_owner->_flags & PollData::Flag::Closed);
+	p.setPen(closed ? st::classicMenuText : stm->msgDateFg);
 	_subtitle.drawLeftElided(
-		p, left, tshift, innerWidth, outerWidth);
+		p,
+		left,
+		tshift + (closed ? st::historyPollClosedSubtitleTop : 0),
+		innerWidth,
+		outerWidth);
 	paintRecentVoters(
-		p, left + _subtitle.maxWidth(), tshift, context);
+		p, left + _subtitle.maxWidth(), tshift);
 	paintShowSolution(
 		p, left + innerWidth, tshift, context);
 }
@@ -3493,8 +3498,7 @@ void Poll::Options::radialAnimationCallback() const {
 void Poll::Header::paintRecentVoters(
 		Painter &p,
 		int left,
-		int top,
-		const PaintContext &context) const {
+		int top) const {
 	const auto count = int(_recentVoters.size());
 	if (!count) {
 		return;
@@ -3504,9 +3508,6 @@ void Poll::Header::paintRecentVoters(
 		+ (count - 1) * st::historyPollRecentVoterSkip;
 	auto y = top;
 	const auto size = st::historyPollRecentVoterSize;
-	const auto stm = context.messageStyle();
-	auto pen = stm->msgBg->p;
-	pen.setWidth(st::lineWidth);
 
 	auto created = false;
 	for (const auto &recent : ranges::views::reverse(_recentVoters)) {
@@ -3514,26 +3515,6 @@ void Poll::Header::paintRecentVoters(
 		recent.peer->paintUserpic(p, recent.userpic, x, y, size);
 		if (!was && !recent.userpic.null()) {
 			created = true;
-		}
-		const auto paintContent = [&](QPainter &p) {
-			p.setPen(pen);
-			p.setBrush(Qt::NoBrush);
-			PainterHighQualityEnabler hq(p);
-			p.drawEllipse(x, y, size, size);
-		};
-		if (_owner->usesBubblePattern(context)) {
-			const auto add = st::lineWidth * 2;
-			const auto target = QRect(x, y, size, size).marginsAdded(
-				{ add, add, add, add });
-			Ui::PaintPatternBubblePart(
-				p,
-				context.viewport,
-				context.bubblesPattern->pixmap,
-				target,
-				paintContent,
-				_userpicCircleCache);
-		} else {
-			paintContent(p);
 		}
 		x -= st::historyPollRecentVoterSkip;
 	}
@@ -3903,8 +3884,8 @@ void Poll::Options::paintAnswer(
 				auto path = QPainterPath();
 				path.addRoundedRect(
 					target,
-					st::historyPollAnswerThumbRadius,
-					st::historyPollAnswerThumbRadius);
+					style::CornerRadius(st::historyPollAnswerThumbRadius),
+					style::CornerRadius(st::historyPollAnswerThumbRadius));
 				p.fillPath(path, cache->bg);
 				if (selected) {
 					p.setClipPath(path);
@@ -3939,8 +3920,8 @@ void Poll::Options::paintAnswer(
 						auto path = QPainterPath();
 						path.addRoundedRect(
 							target,
-							st::historyPollAnswerThumbRadius,
-							st::historyPollAnswerThumbRadius);
+							style::CornerRadius(st::historyPollAnswerThumbRadius),
+							style::CornerRadius(st::historyPollAnswerThumbRadius));
 						p.setClipPath(path);
 					}
 					p.drawImage(geometry, image, source);
@@ -3955,8 +3936,8 @@ void Poll::Options::paintAnswer(
 						auto path = QPainterPath();
 						path.addRoundedRect(
 							target,
-							st::historyPollAnswerThumbRadius,
-							st::historyPollAnswerThumbRadius);
+							style::CornerRadius(st::historyPollAnswerThumbRadius),
+							style::CornerRadius(st::historyPollAnswerThumbRadius));
 						p.setClipPath(path);
 						p.fillRect(target, st::songCoverOverlayFg);
 						linkIcon.paintInCenter(p, target);
@@ -4023,7 +4004,10 @@ void Poll::Options::paintRadio(
 			pen.setCapStyle(Qt::RoundCap);
 			p.setPen(pen);
 			if (multiChoice) {
-				p.drawRoundedRect(rect, radius, radius);
+				p.drawRoundedRect(
+					rect,
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 			} else {
 				p.drawArc(
 					rect,
@@ -4037,7 +4021,10 @@ void Poll::Options::paintRadio(
 			pen.setWidth(radio.thickness);
 			p.setPen(pen);
 			if (multiChoice) {
-				p.drawRoundedRect(rect, radius, radius);
+				p.drawRoundedRect(
+					rect,
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 			} else {
 				p.drawEllipse(rect);
 			}
@@ -4052,7 +4039,10 @@ void Poll::Options::paintRadio(
 			p.setBrush(color);
 			const auto inner = rect - Margins(removeNow);
 			if (multiChoice) {
-				p.drawRoundedRect(inner, radius, radius);
+				p.drawRoundedRect(
+					inner,
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 			} else {
 				p.drawEllipse(inner);
 			}
@@ -4148,7 +4138,13 @@ void Poll::Options::paintFilling(
 	PainterHighQualityEnabler hq(p);
 	{
 		p.setBrush(anim::with_alpha(color->c, st::historyPollFillingBgOpacity));
-		p.drawRoundedRect(barleft, ftop, max, thickness, radius, radius);
+		p.drawRoundedRect(
+			barleft,
+			ftop,
+			max,
+			thickness,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	p.setBrush(color);
 	if (chosen || correct) {
@@ -4165,8 +4161,8 @@ void Poll::Options::paintFilling(
 				ctop,
 				icon.width(),
 				icon.height(),
-				st::historyPollCheckboxRadius,
-				st::historyPollCheckboxRadius);
+				style::CornerRadius(st::historyPollCheckboxRadius),
+				style::CornerRadius(st::historyPollCheckboxRadius));
 		} else {
 			p.drawEllipse(cleft, ctop, icon.width(), icon.height());
 		}
@@ -4196,7 +4192,13 @@ void Poll::Options::paintFilling(
 		//barwidth -= icon.width() - radius;
 	}
 	if (barwidth > 0) {
-		p.drawRoundedRect(barleft, ftop, barwidth, thickness, radius, radius);
+		p.drawRoundedRect(
+			barleft,
+			ftop,
+			barwidth,
+			thickness,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 }
 

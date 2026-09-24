@@ -11,7 +11,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Ui {
 class VerticalLayout;
-class FadeShadow;
 class FlatLabel;
 template <typename Widget>
 class FadeWrap;
@@ -47,8 +46,6 @@ private:
 
 	int _desiredHeight = 0;
 	bool _inResize = false;
-	bool _tillTop = false;
-	bool _tillBottom = false;
 
 };
 

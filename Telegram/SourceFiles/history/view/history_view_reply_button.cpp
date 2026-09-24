@@ -9,7 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "history/view/history_view_cursor_state.h"
 #include "ui/chat/chat_style.h"
-#include "ui/effects/ripple_animation.h"
+#include "ui/style/style_classic.h"
 #include "lang/lang_keys.h"
 #include "styles/style_chat.h"
 #include "styles/style_widgets.h"
@@ -49,19 +49,7 @@ constexpr auto kButtonHideDelay = crl::time(300);
 } // namespace
 
 int ComputeInnerWidth() {
-	struct Cached {
-		QString text;
-		int result = 0;
-	};
-	static auto cached = Cached();
-	const auto &text = tr::lng_fast_reply(tr::now);
-	if (cached.text != text) {
-		const auto &padding = st::replyCornerTextPadding;
-		const auto textWidth = st::msgDateTextStyle.font->width(text);
-		cached.result = padding.left() + textWidth + padding.right();
-		cached.text = text;
-	}
-	return cached.result;
+	return st::replyCornerWidth;
 }
 
 Button::Button(
@@ -161,14 +149,10 @@ void Button::applyState(ButtonState state, Fn<void(QRect)> update) {
 Manager::Manager(Fn<void(QRect)> buttonUpdate)
 : _outer(ComputeOuterSize())
 , _inner(QRect(QPoint(), ComputeInnerSize()))
-, _cachedRound(
-	ComputeInnerSize(),
-	st::replyCornerShadow,
-	ComputeInnerSize().height())
 , _buttonShowTimer([=] { showButtonDelayed(); })
 , _buttonUpdate(std::move(buttonUpdate))
-, _text(st::msgDateTextStyle.font->width(tr::lng_fast_reply(tr::now))) {
-	_text.setText(st::msgDateTextStyle, tr::lng_fast_reply(tr::now));
+, _text(st::replyCornerTextStyle.font->width(tr::lng_fast_reply(tr::now))) {
+	_text.setText(st::replyCornerTextStyle, tr::lng_fast_reply(tr::now));
 	_inner.translate(
 		QRect(QPoint(), _outer).center() - _inner.center());
 }
@@ -176,6 +160,10 @@ Manager::Manager(Fn<void(QRect)> buttonUpdate)
 Manager::~Manager() = default;
 
 void Manager::updateButton(ButtonParameters parameters) {
+	if (_pressed) {
+		_parametersWhilePressed = std::move(parameters);
+		return;
+	}
 	const auto contextChanged = (_buttonContext != parameters.context);
 	if (contextChanged) {
 		if (_button) {
@@ -184,10 +172,9 @@ void Manager::updateButton(ButtonParameters parameters) {
 		}
 		_buttonShowTimer.cancel();
 		_scheduledParameters = std::nullopt;
-		_ripple = nullptr;
+		_pressed = false;
 	}
 	_buttonContext = parameters.context;
-	_lastPointer = parameters.pointer;
 	if (parameters.link) {
 		_link = parameters.link;
 	}
@@ -201,14 +188,8 @@ void Manager::updateButton(ButtonParameters parameters) {
 		_scheduledParameters = std::nullopt;
 		return;
 	}
-	const auto globalPositionChanged = _scheduledParameters
-		&& (_scheduledParameters->globalPointer
-			!= parameters.globalPointer);
-	const auto positionChanged = _scheduledParameters
-		&& (_scheduledParameters->pointer != parameters.pointer);
 	_scheduledParameters = parameters;
-	if ((_buttonShowTimer.isActive() && positionChanged)
-		|| globalPositionChanged) {
+	if (!_buttonShowTimer.isActive()) {
 		_buttonShowTimer.callOnce(kButtonShowDelay);
 	}
 }
@@ -241,83 +222,32 @@ void Manager::paintButton(
 		const PaintContext &context,
 		not_null<Button*> button) {
 	const auto geometry = button->geometry();
-	if (!context.clip.intersects(geometry)) {
-		return;
-	}
-	constexpr auto kFramesCount = Ui::RoundAreaWithShadow::kFramesCount;
-	const auto scale = button->currentScale();
-	const auto scaleMin = ScaleForState(ButtonState::Hidden);
-	const auto scaleMax = ScaleForState(ButtonState::Shown);
-	const auto progress = (scale - scaleMin) / (scaleMax - scaleMin);
-	const auto frame = int(
-		base::SafeRound(progress * (kFramesCount - 1)));
-	const auto useScale = scaleMin
-		+ (frame / float64(kFramesCount - 1))
-			* (scaleMax - scaleMin);
-	paintButton(p, context, button, frame, useScale);
-}
-
-void Manager::paintButton(
-		QPainter &p,
-		const PaintContext &context,
-		not_null<Button*> button,
-		int frameIndex,
-		float64 scale) {
 	const auto opacity = button->currentOpacity();
-	if (opacity == 0.) {
+	if (!context.clip.intersects(geometry) || !opacity) {
 		return;
 	}
-	const auto geometry = button->geometry();
-	const auto position = geometry.topLeft();
-	if (opacity != 1.) {
-		p.setOpacity(opacity);
-	}
-	const auto shadow = context.st->shadowFg()->c;
-	const auto background = context.st->windowBg()->c;
-	_cachedRound.setShadowColor(shadow);
-	_cachedRound.setBackgroundColor(background);
-	const auto radius = _inner.height() / 2.;
-	const auto frame = _cachedRound.validateFrame(
-		frameIndex,
-		scale,
-		radius);
-	p.drawImage(position, *frame.image, frame.rect);
-
-	if (_ripple && !_ripple->empty() && _button && button == _button.get()) {
-		const auto color = context.st->windowBgOver()->c;
-		_ripple->paint(
-			p,
-			position.x() + _inner.x(),
-			position.y() + _inner.y(),
-			_inner.width(),
-			&color);
-		if (_ripple->empty()) {
-			_ripple.reset();
-		}
-	}
-
-	const auto textLeft = position.x()
-		+ _inner.x()
-		+ st::replyCornerTextPadding.left();
-	const auto textTop = position.y()
-		+ _inner.y()
-		+ (_inner.height() - st::msgDateTextStyle.font->height) / 2;
-	const auto &incomingStyle = context.st->messageStyle(false, false);
-	p.setPen(incomingStyle.msgDateFg);
-	p.setFont(st::msgDateTextStyle.font);
+	p.save();
+	p.setOpacity(p.opacity() * opacity);
+	const auto down = _pressed && button == _button.get();
+	const auto inner = buttonInner(button);
+	Ui::PaintClassicButton(p, inner, nullptr, down);
+	const auto shift = Ui::ClassicMessageButtonContentOffset(down, context.messageViewport);
+	const auto textLeft = inner.x() + (inner.width() - _text.maxWidth()) / 2;
+	const auto textTop = inner.y() + (inner.height() - st::classicActionFont->height) / 2;
+	p.setPen(Qt::black);
+	p.setFont(st::classicActionFont);
 	_text.draw(p, {
-		.position = QPoint(textLeft, textTop),
+		.position = QPoint(textLeft, textTop) + shift,
 		.availableWidth = _text.maxWidth(),
 	});
-	if (opacity != 1.) {
-		p.setOpacity(1.);
-	}
+	p.restore();
 }
 
 TextState Manager::buttonTextState(QPoint position) const {
 	if (overCurrentButton(position)) {
 		auto result = TextState(nullptr, _link);
 		result.itemId = _buttonContext;
+		result.cursor = CursorState::Default;
 		return result;
 	}
 	return {};
@@ -351,7 +281,7 @@ void Manager::remove(FullMsgId context) {
 	if (_buttonContext == context) {
 		_buttonContext = {};
 		_button = nullptr;
-		_ripple = nullptr;
+		_pressed = false;
 	}
 }
 
@@ -361,20 +291,14 @@ void Manager::clickHandlerPressedChanged(
 	if (action != _link || !_button) {
 		return;
 	}
+	_pressed = pressed;
 	if (pressed) {
-		const auto inner = buttonInner();
-		if (!_ripple) {
-			const auto mask = Ui::RippleAnimation::RoundRectMask(
-				inner.size(),
-				inner.height() / 2);
-			_ripple = std::make_unique<Ui::RippleAnimation>(
-				st::defaultRippleAnimation,
-				mask,
-				[=] { if (_button) _buttonUpdate(_button->geometry()); });
-		}
-		_ripple->add(_lastPointer - inner.topLeft());
-	} else if (_ripple) {
-		_ripple->lastStop();
+		_parametersWhilePressed = std::nullopt;
+		_buttonUpdate(_button->geometry());
+	} else if (auto parameters = base::take(_parametersWhilePressed)) {
+		updateButton(std::move(*parameters));
+	} else {
+		_buttonUpdate(_button->geometry());
 	}
 }
 

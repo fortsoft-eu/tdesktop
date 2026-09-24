@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "export/view/export_view_panel_controller.h"
 #include "lang/lang_keys.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
@@ -71,6 +72,8 @@ void ChooseFormatBox(
 		not_null<Ui::GenericBox*> box,
 		Output::Format format,
 		Fn<void(Output::Format)> done) {
+	box->setProperty("classicFormFrame", true);
+	Ui::SetClassicSettingsStyle(box);
 	using Format = Output::Format;
 	const auto group = std::make_shared<Ui::RadioenumGroup<Format>>(format);
 	const auto addFormatOption = [&](QString label, Format format) {
@@ -129,7 +132,14 @@ SettingsWidget::SettingsWidget(
 , _session(session)
 , _singlePeerId(ReadPeerId(session, data.singlePeer))
 , _internal_data(std::move(data)) {
+	Ui::SetClassicSettingsStyle(this);
 	ResolveSettings(session, _internal_data);
+	_internal_data.media.types = MediaSettings::Type::AllMask;
+	_internal_data.media.sizeLimit = SizeLimitByIndex(kSizeValueCount - 1);
+	if (!_internal_data.onlySinglePeer()) {
+		_internal_data.types = Settings::Type::AllMask;
+		_internal_data.fullChats = Settings::Type::AnyChatsMask;
+	}
 	setupContent();
 }
 
@@ -160,8 +170,9 @@ void SettingsWidget::setupContent() {
 	sizeValue(
 	) | rpl::on_next([=](QSize size) {
 		scroll->resize(size.width(), size.height() - buttons->height());
-		wrap->resizeToWidth(size.width());
-		content->resizeToWidth(size.width());
+		const auto innerWidth = std::max(size.width() - st::classicScrollBarWidth, 0);
+		wrap->resizeToWidth(innerWidth);
+		content->resizeToWidth(innerWidth);
 	}, lifetime());
 }
 
@@ -872,7 +883,7 @@ void SettingsWidget::addSizeSlider(
 	}, slider->lifetime());
 
 	_sizeLimitExtraHeight = SizeLimitFitsOptionLine(
-		st::exportPanelSize.width(),
+		st::exportPanelSize.width() - st::classicScrollBarWidth,
 		above->naturalWidth(),
 		label->width())
 		? 0
@@ -960,7 +971,7 @@ void SettingsWidget::chooseFolder() {
 }
 
 rpl::producer<Settings> SettingsWidget::changes() const {
-	return _changes.events();
+	return _changes.events_starting_with_copy(_internal_data);
 }
 
 int SettingsWidget::sizeLimitExtraHeight() const {
@@ -968,7 +979,7 @@ int SettingsWidget::sizeLimitExtraHeight() const {
 }
 
 rpl::producer<Settings> SettingsWidget::value() const {
-	return rpl::single(readData()) | rpl::then(changes());
+	return changes();
 }
 
 rpl::producer<> SettingsWidget::startClicks() const {

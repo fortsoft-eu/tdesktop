@@ -13,6 +13,10 @@ namespace Main {
 class Session;
 } // namespace Main
 
+namespace style {
+struct InputField;
+} // namespace style
+
 namespace Ui::Toast {
 struct Config;
 } // namespace Ui::Toast
@@ -27,6 +31,7 @@ class VerticalLayout;
 struct StarsInputFieldArgs {
 	std::optional<int64> value;
 	int64 max = 0;
+	const style::InputField *style = nullptr;
 };
 [[nodiscard]] not_null<NumberInput*> AddStarsInputField(
 	not_null<VerticalLayout*> container,

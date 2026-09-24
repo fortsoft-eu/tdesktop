@@ -104,6 +104,9 @@ public:
 	TextWithEntities title() override;
 	TextWithEntities subtitle() override;
 	rpl::producer<QString> button() override;
+	const style::TextStyle &subtitleStyle() const override;
+	const style::TextStyle &buttonStyle() const override;
+	bool classicButton() const override;
 	void draw(
 		Painter &p,
 		const PaintContext &context,

@@ -97,6 +97,7 @@ private:
 	int _emojiQueryLength = 0;
 	bool _ignoreCursorPositionChange = false;
 	bool _textChangeAfterKeyPress = false;
+	uint64 _textChangeGeneration = 0;
 	QPointer<QTextEdit> _field;
 	const not_null<Main::Session*> _session;
 	Fn<void(

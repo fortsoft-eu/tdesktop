@@ -99,11 +99,13 @@ void InitMessageFieldHandlers(
 std::shared_ptr<Ui::ChatStyle> InitMessageField(
 	std::shared_ptr<ChatHelpers::Show> show,
 	not_null<Ui::InputField*> field,
-	Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji);
+	Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji,
+	bool compactHeight = false);
 std::shared_ptr<Ui::ChatStyle> InitMessageField(
 	not_null<Window::SessionController*> controller,
 	not_null<Ui::InputField*> field,
-	Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji);
+	Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji,
+	bool compactHeight = false);
 
 void InitSpellchecker(
 	std::shared_ptr<Main::SessionShow> show,

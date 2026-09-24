@@ -53,11 +53,9 @@ void SetSearchButtonLabel(
 	const auto rightSkip = right->size().grownBy(rightPadding).width();
 
 	struct State {
-		State() : linkFg([] {
-			auto copy = st::windowFgActive->c;
-			copy.setAlphaF(0.6);
-			return copy;
-		}), st(st::resaleButtonTitle) {
+		State()
+		: linkFg([] { return st::classicMenuText->c; })
+		, st(st::postsSearchButtonLabel) {
 		}
 
 		style::complex_color linkFg;

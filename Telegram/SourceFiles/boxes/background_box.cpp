@@ -137,6 +137,7 @@ private:
 	MTP::Sender _api;
 
 	std::vector<Paper> _papers;
+	int _perRow = kBackgroundsInRow;
 	uint64 _currentId = 0;
 	uint64 _insertedResetId = 0;
 
@@ -162,21 +163,18 @@ void BackgroundBox::prepare() {
 
 	addButton(tr::lng_close(), [=] { closeBox(); });
 
-	setDimensions(st::boxWideWidth, st::boxMaxListHeight);
-
 	auto wrap = object_ptr<Ui::VerticalLayout>(this);
 	const auto container = wrap.data();
 
 	Ui::AddSkip(container);
 
-	const auto button = container->add(object_ptr<Ui::SettingsButton>(
-		container,
-		tr::lng_settings_bg_from_file(),
-		st::infoProfileButton));
-	object_ptr<Info::Profile::FloatingIcon>(
-		button,
-		st::infoIconMediaPhoto,
-		st::infoSharedMediaButtonIconPosition);
+	const auto button = container->add(
+		object_ptr<Ui::RoundButton>(
+			container,
+			tr::lng_settings_bg_from_file(),
+			st::backgroundChooseFileButton),
+		st::boxRowPadding,
+		style::al_top);
 
 	if (forChannel() && _forPeer->wallPaper()) {
 		const auto remove = container->add(object_ptr<Ui::SettingsButton>(
@@ -209,6 +207,7 @@ void BackgroundBox::prepare() {
 
 	setInnerWidget(std::move(wrap), st::backgroundScroll);
 	setInnerTopSkip(st::lineWidth);
+	setDimensions(st::boxWideWidth, st::boxMaxListHeight);
 
 	_inner->chooseEvents(
 	) | rpl::on_next([=](const Data::WallPaper &paper) {
@@ -394,6 +393,13 @@ BackgroundBox::Inner::Inner(
 		st::boxWideWidth,
 		(2 * (st::backgroundSize.height() + st::backgroundPadding)
 			+ st::backgroundPadding));
+	widthValue() | rpl::on_next([=](int width) {
+		_perRow = std::clamp(
+			(width - st::backgroundPadding) / (st::backgroundSize.width() + st::backgroundPadding),
+			1,
+			kBackgroundsInRow);
+		resizeToContentAndPreload();
+	}, lifetime());
 
 	Window::Theme::IsNightModeValue(
 	) | rpl::on_next([=] {
@@ -589,16 +595,15 @@ void BackgroundBox::Inner::updatePapers() {
 }
 
 void BackgroundBox::Inner::resizeToContentAndPreload() {
-	const auto count = _papers.size();
-	const auto rows = (count / kBackgroundsInRow)
-		+ (count % kBackgroundsInRow ? 1 : 0);
+	const auto count = int(_papers.size());
+	const auto rows = (count + _perRow - 1) / _perRow;
+	const auto height = count
+		? (rows * (st::backgroundSize.height() + st::backgroundPadding)
+			+ st::backgroundPadding)
+		: st::noContactsHeight;
+	resize(width(), height);
 
-	resize(
-		st::boxWideWidth,
-		(rows * (st::backgroundSize.height() + st::backgroundPadding)
-			+ st::backgroundPadding));
-
-	const auto preload = kBackgroundsInRow * 3;
+	const auto preload = _perRow * 3;
 	for (const auto &paper : _papers | ranges::views::take(preload)) {
 		if (!paper.data.localThumbnail() && !paper.dataMedia) {
 			if (const auto document = paper.data.document()) {
@@ -625,7 +630,7 @@ void BackgroundBox::Inner::paintEvent(QPaintEvent *e) {
 	for (const auto &paper : _papers) {
 		const auto increment = gsl::finally([&] {
 			++column;
-			if (column == kBackgroundsInRow) {
+			if (column == _perRow) {
 				column = 0;
 				++row;
 			}
@@ -730,8 +735,10 @@ void BackgroundBox::Inner::mouseMoveEvent(QMouseEvent *e) {
 		const auto skip = st::backgroundPadding;
 		const auto row = int((y - skip) / (height + skip));
 		const auto column = int((x - skip) / (width + skip));
-		const auto result = row * kBackgroundsInRow + column;
-		if (y - row * (height + skip) > skip + height) {
+		const auto result = row * _perRow + column;
+		if (x < skip || y < skip || column >= _perRow) {
+			return Selection();
+		} else if (y - row * (height + skip) > skip + height) {
 			return Selection();
 		} else if (x - column * (width + skip) > skip + width) {
 			return Selection();
@@ -771,8 +778,8 @@ void BackgroundBox::Inner::repaintPaper(int index) {
 	if (index < 0 || index >= _papers.size()) {
 		return;
 	}
-	const auto row = (index / kBackgroundsInRow);
-	const auto column = (index % kBackgroundsInRow);
+	const auto row = (index / _perRow);
+	const auto column = (index % _perRow);
 	const auto width = st::backgroundSize.width();
 	const auto height = st::backgroundSize.height();
 	const auto skip = st::backgroundPadding;
@@ -824,7 +831,7 @@ void BackgroundBox::Inner::visibleTopBottomUpdated(
 		int visibleTop,
 		int visibleBottom) {
 	for (auto i = 0, count = int(_papers.size()); i != count; ++i) {
-		const auto row = (i / kBackgroundsInRow);
+		const auto row = (i / _perRow);
 		const auto height = st::backgroundSize.height();
 		const auto skip = st::backgroundPadding;
 		const auto top = skip + row * (height + skip);

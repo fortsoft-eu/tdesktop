@@ -37,6 +37,7 @@ struct UniqueGiftMediaDescriptor {
 	PeerData *messageAuthor = nullptr;
 	bool upgrade = false;
 	bool skipViewAction = false;
+	bool classicText = false;
 };
 
 [[nodiscard]] auto GenerateUniqueGiftMedia(
@@ -56,7 +57,8 @@ struct UniqueGiftBgCache {
 [[nodiscard]] auto UniqueGiftBg(
 	not_null<Element*> view,
 	std::shared_ptr<Data::UniqueGift> gift,
-	std::shared_ptr<UniqueGiftBgCache> cache = nullptr)
+	std::shared_ptr<UniqueGiftBgCache> cache = nullptr,
+	bool classicText = false)
 -> Fn<void(
 	Painter&,
 	const Ui::ChatPaintContext&,
@@ -96,6 +98,11 @@ struct UniqueGiftBgCache {
 	Fn<void()> repaint,
 	ClickHandlerPtr link,
 	QColor bg = QColor(0, 0, 0, 0));
+[[nodiscard]] std::unique_ptr<MediaGenericPart> MakeGenericClassicButtonPart(
+	const QString &text,
+	QMargins margins,
+	Fn<void()> repaint,
+	ClickHandlerPtr link);
 
 class TextPartColored : public MediaGenericTextPart {
 public:
@@ -129,7 +136,8 @@ public:
 		QMargins margins,
 		Fn<QColor(const PaintContext &)> labelColor,
 		Fn<QColor(const PaintContext &)> valueColor,
-		const Ui::Text::MarkedContext &context = {});
+		const Ui::Text::MarkedContext &context = {},
+		const style::TextStyle *textStyle = nullptr);
 
 	void draw(
 		Painter &p,

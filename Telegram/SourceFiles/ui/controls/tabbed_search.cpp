@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/tabbed_search.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/qt_signal_producer.h"
 #include "lang/lang_keys.h"
 #include "ui/widgets/fields/input_field.h"
@@ -119,7 +122,7 @@ void GroupsStrip::init(rpl::producer<std::vector<EmojiGroup>> groups) {
 		set(std::move(list));
 	}, lifetime());
 
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 }
 
 void GroupsStrip::set(std::vector<EmojiGroup> list) {
@@ -465,6 +468,9 @@ void SearchWithGroups::initEdges() {
 
 	_fade->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
+		if (UsesClassicSettingsStyle(_fade)) {
+			return;
+		}
 		auto p = QPainter(_fade);
 		p.setOpacity(_fadeOpacity.current());
 		const auto fill = QRect(0, 0, _fadeLeftStart, _st.height);
@@ -489,6 +495,7 @@ void SearchWithGroups::initEdges() {
 }
 
 void SearchWithGroups::initButtons() {
+	_cancel->setClassic(true);
 	_cancel->setClickedCallback([=] {
 		_field->setText(QString());
 	});
@@ -522,7 +529,7 @@ void SearchWithGroups::ensureRounding(int size, float64 ratio) {
 		p.setCompositionMode(QPainter::CompositionMode_Source);
 		p.setBrush(Qt::transparent);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(QRect(QPoint(), full), rounded / 2., rounded / 2.);
+		p.drawRoundedRect(QRect(QPoint(), full), style::CornerRadius(rounded / 2.), style::CornerRadius(rounded / 2.));
 	}
 	_rounding.setDevicePixelRatio(ratio);
 }
@@ -624,7 +631,11 @@ void SearchWithGroups::moveGroupsTo(int width, int to) {
 		: _fadeLeftStart;
 	_field->moveToLeft(fieldLeft, 0);
 
-	if (fieldLeft >= _fadeLeftStart) {
+	if (UsesClassicSettingsStyle(this)) {
+		if (!_fade->isHidden()) {
+			_fade->hide();
+		}
+	} else if (fieldLeft >= _fadeLeftStart) {
 		if (!_fade->isHidden()) {
 			_fade->hide();
 		}

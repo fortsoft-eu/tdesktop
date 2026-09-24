@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer.h"
 
 #include <map>
+#include <optional>
 
 class StickerPremiumMark;
 
@@ -100,6 +101,7 @@ struct EmojiListDescriptor {
 	Fn<std::unique_ptr<Ui::Text::CustomEmoji>(
 		DocumentId,
 		Fn<void()>)> customRecentFactory;
+	std::optional<base::flat_set<DocumentId>> allowedCustomIds;
 	base::flat_set<DocumentId> freeEffects;
 	const style::EmojiPan *st = nullptr;
 	ComposeFeatures features;
@@ -143,6 +145,7 @@ public:
 	QString tooltipText() const override;
 	QPoint tooltipPos() const override;
 	bool tooltipWindowActive() const override;
+	const style::Tooltip *tooltipSt() const override;
 
 	void refreshEmoji();
 
@@ -156,6 +159,7 @@ public:
 	void setMarkedCustomIds(base::flat_set<DocumentId> ids);
 
 	void setSearchRightReserved(int value);
+	void focusSearch();
 
 	void prepareExpanding();
 	void paintExpanding(
@@ -225,8 +229,6 @@ private:
 	};
 	struct CustomEmojiInstance;
 	struct RightButton {
-		QImage back;
-		QImage backOver;
 		QImage rippleMask;
 		QString text;
 		int textWidth = 0;
@@ -329,6 +331,7 @@ private:
 	void unloadCustomIn(const SectionInfo &info);
 
 	void setupSearch();
+	[[nodiscard]] bool customIdAllowed(DocumentId id) const;
 	[[nodiscard]] std::vector<EmojiPtr> collectPlainSearchResults();
 	void appendPremiumSearchResults();
 	void sendSearchRequest();
@@ -404,7 +407,8 @@ private:
 	void selectEmoji(EmojiChosen data);
 	void selectCustom(FileChosen data);
 	void paint(Painter &p, ExpandingContext context, QRect clip);
-	void drawCollapsedBadge(QPainter &p, QPoint position, int count);
+	void drawCollapsedBadge(QPainter &p, QPoint position, int count, bool pressed);
+	[[nodiscard]] bool isCollapsedButton(const OverState &state) const;
 	void drawRecent(
 		QPainter &p,
 		const ExpandingContext &context,
@@ -461,7 +465,7 @@ private:
 	void removeSet(uint64 setId);
 	void removeMegagroupSet(bool locally);
 
-	void initButton(RightButton &button, const QString &text, bool gradient);
+	void initButton(RightButton &button, const QString &text);
 	[[nodiscard]] std::unique_ptr<Ui::RippleAnimation> createButtonRipple(
 		int section);
 	[[nodiscard]] QPoint buttonRippleTopLeft(int section) const;
@@ -513,6 +517,7 @@ private:
 	Fn<std::unique_ptr<Ui::Text::CustomEmoji>(
 		DocumentId,
 		Fn<void()>)> _customRecentFactory;
+	std::optional<base::flat_set<DocumentId>> _allowedCustomIds;
 
 	int _counts[kEmojiSectionCount];
 	std::vector<RecentOne> _recent;
@@ -589,7 +594,6 @@ private:
 	RightButton _add;
 	RightButton _unlock;
 	RightButton _restore;
-	Ui::RoundRect _collapsedBg;
 
 	OverState _selected;
 	OverState _pressed;

@@ -27,51 +27,70 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/toast/toast.h"
 #include "styles/style_chat_helpers.h"
 
+#include <QtGui/QtEvents>
+
 namespace HistoryView {
 
 CornerButtons::CornerButtons(
 	not_null<Ui::ScrollArea*> parent,
 	not_null<const Ui::ChatStyle*> st,
-	not_null<CornerButtonsDelegate*> delegate)
+	not_null<CornerButtonsDelegate*> delegate,
+	bool messageViewport)
 : CornerButtons(
 	parent,
 	[=](QEvent *e) { return parent->viewportEvent(e); },
 	st,
-	delegate) {
+	delegate,
+	messageViewport) {
 }
 
 CornerButtons::CornerButtons(
 	not_null<Ui::ElasticScroll*> parent,
 	not_null<const Ui::ChatStyle*> st,
-	not_null<CornerButtonsDelegate*> delegate)
+	not_null<CornerButtonsDelegate*> delegate,
+	bool messageViewport)
 : CornerButtons(
 	parent,
 	[=](QEvent *e) { return parent->viewportEvent(e); },
 	st,
-	delegate) {
+	delegate,
+	messageViewport) {
 }
 
 CornerButtons::CornerButtons(
 	not_null<QWidget*> parent,
 	Fn<bool(QEvent*)> scrollViewportEvent,
 	not_null<const Ui::ChatStyle*> st,
-	not_null<CornerButtonsDelegate*> delegate)
+	not_null<CornerButtonsDelegate*> delegate,
+	bool messageViewport)
 : _parent(parent)
 , _scrollViewportEvent(std::move(scrollViewportEvent))
 , _delegate(delegate)
 , _column(parent)
 , _down(
 	&_column,
-	st->value(_stLifetime, st::historyToDown))
+	st->value(_stLifetime, st::historyToDown),
+	messageViewport
+		? Ui::JumpDownButton::Context::MessageViewport
+		: Ui::JumpDownButton::Context::Other)
 , _mentions(
 	&_column,
-	st->value(_stLifetime, st::historyUnreadMentions))
+	st->value(_stLifetime, st::historyUnreadMentions),
+	messageViewport
+		? Ui::JumpDownButton::Context::MessageViewport
+		: Ui::JumpDownButton::Context::Other)
 , _reactions(
 		&_column,
-		st->value(_stLifetime, st::historyUnreadReactions))
+		st::historyUnreadReactions,
+		messageViewport
+			? Ui::JumpDownButton::Context::MessageViewport
+			: Ui::JumpDownButton::Context::Other)
 , _pollVotes(
 		&_column,
-		st->value(_stLifetime, st::historyUnreadPollVotes)) {
+		st->value(_stLifetime, st::historyUnreadPollVotes),
+		messageViewport
+			? Ui::JumpDownButton::Context::MessageViewport
+			: Ui::JumpDownButton::Context::Other) {
 	// The buttons keep the positions they had as direct children, because the
 	// column has the parent's height and shares its edge. Only they take mouse
 	// input in it - the empty part of the strip is masked out in
@@ -100,12 +119,10 @@ CornerButtons::CornerButtons(
 
 	const auto filterScroll = [&](CornerButton &button) {
 		button.widget->installEventFilter(this);
+		button.widget->widthValue() | rpl::skip(1) | rpl::on_next([=] {
+			updatePositions();
+		}, _column.lifetime());
 	};
-	filterScroll(_down);
-	filterScroll(_mentions);
-	filterScroll(_reactions);
-	filterScroll(_pollVotes);
-
 	SendMenu::SetupUnreadMentionsMenu(_mentions.widget.data(), [=] {
 		return _delegate->cornerButtonsThread();
 	});
@@ -115,6 +132,10 @@ CornerButtons::CornerButtons(
 	SendMenu::SetupUnreadPollVotesMenu(_pollVotes.widget.data(), [=] {
 		return _delegate->cornerButtonsThread();
 	});
+	filterScroll(_down);
+	filterScroll(_mentions);
+	filterScroll(_reactions);
+	filterScroll(_pollVotes);
 }
 
 void CornerButtons::updateAccessibleDescription(CornerButton &button) {
@@ -126,12 +147,42 @@ void CornerButtons::updateAccessibleDescription(CornerButton &button) {
 }
 
 bool CornerButtons::eventFilter(QObject *o, QEvent *e) {
-	if (e->type() == QEvent::Wheel
-		&& (o == _down.widget
-			|| o == _mentions.widget
-			|| o == _reactions.widget
-			|| o == _pollVotes.widget)) {
+	if (o != _down.widget
+		&& o != _mentions.widget
+		&& o != _reactions.widget
+		&& o != _pollVotes.widget) {
+		return QObject::eventFilter(o, e);
+	}
+	if (e->type() == QEvent::Wheel) {
 		return _scrollViewportEvent(e);
+	}
+	const auto button = static_cast<Ui::JumpDownButton*>(o);
+	const auto buttonTop = button->height() - st::historyToDownButtonSize;
+	switch (e->type()) {
+	case QEvent::MouseButtonPress:
+	case QEvent::MouseButtonDblClick:
+	case QEvent::MouseButtonRelease:
+	case QEvent::MouseMove: {
+		const auto mouse = static_cast<QMouseEvent*>(e);
+		if (mouse->pos().y() >= buttonTop) {
+			break;
+		}
+		if (e->type() == QEvent::MouseMove) {
+			button->setSynteticOver(false);
+		} else {
+			button->clearState();
+		}
+		e->accept();
+		return true;
+	} break;
+	case QEvent::ContextMenu: {
+		const auto menu = static_cast<QContextMenuEvent*>(e);
+		if (menu->reason() == QContextMenuEvent::Mouse && menu->pos().y() < buttonTop) {
+			e->accept();
+			return true;
+		}
+	} break;
+	default: break;
 	}
 	return QObject::eventFilter(o, e);
 }
@@ -342,6 +393,7 @@ void CornerButtons::updateUnreadThingsVisibility() {
 	} else {
 		updateVisibility(Type::PollVotes, false);
 	}
+	updatePositions();
 }
 
 void CornerButtons::updateJumpDownVisibility(std::optional<int> counter) {
@@ -351,6 +403,7 @@ void CornerButtons::updateJumpDownVisibility(std::optional<int> counter) {
 	if (counter) {
 		_down.widget->setUnreadCount(*counter);
 		updateAccessibleDescription(_down);
+		updatePositions();
 	}
 }
 
@@ -368,7 +421,12 @@ void CornerButtons::updatePositions() {
 
 	// All corner buttons is a child widgets of _column over _scroll, not me.
 
-	const auto columnWidth = st::historyToDown.width
+	const auto columnWidth = std::max({
+		_down.widget->width(),
+		_mentions.widget->width(),
+		_reactions.widget->width(),
+		_pollVotes.widget->width(),
+	})
 		+ 2 * st::historyToDownPosition.x();
 	_column.resize(columnWidth, _parent->height());
 	_column.moveToRight(0, 0, _parent->width());
@@ -459,7 +517,7 @@ void CornerButtons::updatePositions() {
 	auto mask = QRegion();
 	const auto addToMask = [&](CornerButton &button) {
 		if (!button.widget->isHidden()) {
-			mask += button.widget->geometry();
+			mask += button.widget->mask().translated(button.widget->pos());
 		}
 	};
 	addToMask(_down);

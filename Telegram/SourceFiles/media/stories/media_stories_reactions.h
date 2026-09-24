@@ -88,9 +88,6 @@ public:
 		rpl::producer<bool> weatherInCelsius)
 	-> std::unique_ptr<StoryAreaView>;
 
-	void setReplyFieldState(
-		rpl::producer<bool> focused,
-		rpl::producer<bool> hasSendText);
 	void attachToReactionButton(not_null<Ui::RpWidget*> button);
 	void setReactionIconWidget(Ui::RpWidget *widget);
 
@@ -130,9 +127,6 @@ private:
 	const std::unique_ptr<Panel> _panel;
 
 	rpl::event_stream<Chosen> _chosen;
-	bool _replyFocused = false;
-	bool _hasSendText = false;
-
 	Ui::RpWidget *_likeIconWidget = nullptr;
 	rpl::variable<Data::ReactionId> _liked;
 	base::has_weak_ptr _likeIconGuard;

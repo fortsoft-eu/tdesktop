@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/settings_scale_preview.h"
 
+#include "ui/style/style_radius.h"
 #include "base/platform/base_platform_info.h"
 #include "base/event_filter.h"
 #include "data/data_user.h"
@@ -700,14 +701,14 @@ void Preview::paintReply(Painter &p, QRect clip) {
 			_replyRect.y(),
 			outline,
 			_replyRect.height());
-		p.drawRoundedRect(_replyRect, radius, radius);
+		p.drawRoundedRect(_replyRect, style::CornerRadius(radius), style::CornerRadius(radius));
 		p.setOpacity(Ui::kDefaultBgOpacity);
 		p.setClipRect(
 			_replyRect.x() + outline,
 			_replyRect.y(),
 			_replyRect.width() - outline,
 			_replyRect.height());
-		p.drawRoundedRect(_replyRect, radius, radius);
+		p.drawRoundedRect(_replyRect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 	p.setOpacity(1.);
 	p.setClipping(false);

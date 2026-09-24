@@ -116,6 +116,14 @@ void MarkAsReadChatList(
 	}
 }
 
+void MarkAsReadAllChats(not_null<Main::Session*> session, MarkAsReadMuted muted) {
+	const auto owner = &session->data();
+	MarkAsReadChatList(owner->chatsList(), muted);
+	if (const auto folder = owner->folderLoaded(Data::Folder::kId)) {
+		MarkAsReadChatList(folder->chatsList(), muted);
+	}
+}
+
 void AddAllChatsAction(
 		not_null<Main::Session*> session,
 		std::shared_ptr<Ui::Show> show,
@@ -132,10 +140,7 @@ void AddAllChatsAction(
 
 	auto callback = [=] {
 		const auto markAll = [=] {
-			MarkAsReadChatList(owner->chatsList(), muted);
-			if (const auto folder = owner->folderLoaded(Data::Folder::kId)) {
-				MarkAsReadChatList(folder->chatsList(), muted);
-			}
+			MarkAsReadAllChats(session, muted);
 		};
 		if (unreadState.messages <= kMaxUnreadWithoutConfirmation) {
 			markAll();

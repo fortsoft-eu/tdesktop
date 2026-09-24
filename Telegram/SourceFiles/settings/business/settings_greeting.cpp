@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/toast/toast.h"
 #include "ui/widgets/box_content_divider.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/checkbox.h"
 #include "ui/widgets/vertical_drum_picker.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
@@ -147,18 +148,20 @@ void Greeting::setupContent(
 		(_1 < _2) || _3);
 
 	Ui::AddSkip(content);
-	const auto enabled = content->add(object_ptr<Ui::SettingsButton>(
+	const auto enabled = content->add(object_ptr<Ui::Checkbox>(
 		content,
 		tr::lng_greeting_enable(),
-		st::settingsButtonNoIcon
-	))->toggleOn(rpl::single(
-		!disabled
-	) | rpl::then(rpl::merge(
+		!disabled,
+		st::settingsCheckbox),
+		st::settingsCheckboxPadding);
+	rpl::merge(
 		_canHave.value() | rpl::filter(!_1),
 		_deactivateOnAttempt.events() | rpl::map_to(false)
-	)));
+	) | rpl::on_next([=](bool checked) {
+		enabled->setChecked(checked);
+	}, enabled->lifetime());
 
-	_enabled = enabled->toggledValue();
+	_enabled = enabled->checkedValue();
 	_enabled.value() | rpl::filter(_1) | rpl::on_next([=] {
 		if (!_canHave.current()) {
 			controller->showToast({
@@ -179,13 +182,13 @@ void Greeting::setupContent(
 				st::boxDividerHeight,
 				st::defaultDividerBar,
 				RectPart::Top))
-	)->setDuration(0)->toggleOn(enabled->toggledValue() | rpl::map(!_1));
+	)->setDuration(0)->toggleOn(enabled->checkedValue() | rpl::map(!_1));
 	content->add(
 		object_ptr<Ui::SlideWrap<Ui::BoxContentDivider>>(
 			content,
 			object_ptr<Ui::BoxContentDivider>(
 				content))
-	)->setDuration(0)->toggleOn(enabled->toggledValue());
+	)->setDuration(0)->toggleOn(enabled->checkedValue());
 
 	const auto wrap = content->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -259,9 +262,10 @@ void Greeting::setupContent(
 		st::defaultDividerLabel,
 		RectPart::Top);
 
-	wrap->toggleOn(enabled->toggledValue());
+	wrap->toggleOn(enabled->checkedValue());
 	wrap->finishAnimating();
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 

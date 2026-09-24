@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
+#include "ui/wrap/vertical_layout.h"
 #include "ui/painter.h"
 #include "ui/vertical_list.h"
 #include "apiwrap.h"
@@ -53,7 +54,7 @@ namespace {
 	raw->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(raw);
-		p.fillRect(clip, st::groupCallMembersBgOver);
+		p.fillRect(clip, st::classicControlBg);
 	}, raw->lifetime());
 
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(
@@ -659,6 +660,28 @@ void ConfInviteController::addPriorityInvites() {
 }
 
 void ConfInviteController::addShareLinkButton() {
+	if (!_st.inviteViaLink) {
+		auto row = object_ptr<Ui::VerticalLayout>(nullptr);
+		auto buttonStyle = st::classicProfileActionButton;
+		buttonStyle.icon = buttonStyle.iconOver = st::createCallInviteLinkIcon;
+		buttonStyle.iconPosition = QPoint(0, (buttonStyle.height - buttonStyle.icon.height()) / 2);
+		const auto button = row->add(object_ptr<Ui::RoundButton>(
+			row,
+			tr::lng_profile_add_via_link(),
+			buttonStyle),
+			style::margins(0, st::membersMarginTop, 0, 0),
+			style::al_center);
+		button->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
+		button->setClickedCallback(_shareLink);
+		button->events(
+		) | rpl::filter([=](not_null<QEvent*> e) {
+			return (e->type() == QEvent::Enter);
+		}) | rpl::on_next([=] {
+			delegate()->peerListMouseLeftGeometry();
+		}, button->lifetime());
+		delegate()->peerListSetAboveWidget(std::move(row));
+		return;
+	}
 	auto button = object_ptr<Ui::PaddingWrap<Ui::SettingsButton>>(
 		nullptr,
 		object_ptr<Ui::SettingsButton>(

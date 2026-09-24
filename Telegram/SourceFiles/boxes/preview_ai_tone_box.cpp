@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/preview_ai_tone_box.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_compose_with_ai.h"
 #include "boxes/create_ai_tone_box.h"
 #include "core/click_handler_types.h"
@@ -360,8 +361,8 @@ void PreviewAiToneExampleCard::paintEvent(QPaintEvent *e) {
 	p.setBrush(st::aiTonePreviewExampleCardBg);
 	p.drawRoundedRect(
 		rect(),
-		st::aiTonePreviewExampleCardRadius,
-		st::aiTonePreviewExampleCardRadius);
+		style::CornerRadius(st::aiTonePreviewExampleCardRadius),
+		style::CornerRadius(st::aiTonePreviewExampleCardRadius));
 }
 
 void ShowToneAddedToast(

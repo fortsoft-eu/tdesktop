@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/userpic_view.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/empty_userpic.h"
 #include "ui/painter.h"
 #include "ui/image/image_prepare.h"
@@ -93,8 +94,8 @@ void PaintCommunityUserpicEffect(
 			q.translate(-pivot);
 			q.drawRoundedRect(
 				QRectF(peek - grow, top - grow, side + 2 * grow, side + 2 * grow),
-				radius + grow,
-				radius + grow);
+				style::CornerRadius(radius + grow),
+				style::CornerRadius(radius + grow));
 			q.restore();
 		};
 
@@ -121,8 +122,8 @@ void PaintCommunityUserpicEffect(
 		q.setBrush(Qt::transparent);
 		q.drawRoundedRect(
 			QRectF(peek - gap, -gap, size + 2 * gap, size + 2 * gap),
-			size * rounding + gap,
-			size * rounding + gap);
+			style::CornerRadius(size * rounding + gap),
+			style::CornerRadius(size * rounding + gap));
 	}
 	p.drawImage(QPointF(x - peek, y), cache.image);
 }

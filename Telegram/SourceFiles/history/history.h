@@ -247,6 +247,21 @@ public:
 	[[nodiscard]] Element *firstUnreadMessage() const;
 
 	[[nodiscard]] bool loadedAtBottom() const; // last message is in the list
+	[[nodiscard]] bool keepAfterLeave() const {
+		return _keepAfterLeave;
+	}
+	void setKeepAfterLeave(bool keep) {
+		_keepAfterLeave = keep;
+		if (!keep) {
+			_cachedOnlyAfterLeave = false;
+		}
+	}
+	[[nodiscard]] bool cachedOnlyAfterLeave() const {
+		return _cachedOnlyAfterLeave;
+	}
+	void setCachedOnlyAfterLeave() {
+		_cachedOnlyAfterLeave = true;
+	}
 	void setNotLoadedAtBottom();
 	[[nodiscard]] bool loadedAtTop() const; // nothing was added after loading history back
 	void markLoadedAtTop();
@@ -674,6 +689,8 @@ private:
 	HistoryItem *_newPeerPhotoChange = nullptr;
 	bool _loadedAtTop = false;
 	bool _loadedAtBottom = true;
+	bool _keepAfterLeave = false;
+	bool _cachedOnlyAfterLeave = false;
 
 	std::optional<Data::Folder*> _folder;
 	Data::CommunityInfo *_communityInfo = nullptr;

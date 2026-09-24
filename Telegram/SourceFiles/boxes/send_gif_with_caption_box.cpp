@@ -75,12 +75,16 @@ void SetupCaptionFieldInBox(
 	using Selector = ChatHelpers::TabbedSelector;
 	state->emojiPanel = base::make_unique_q<ChatHelpers::TabbedPanel>(
 		container,
-		controller,
-		object_ptr<Selector>(
-			nullptr,
-			controller->uiShow(),
-			Window::GifPauseReason::Layer,
-			Selector::Mode::EmojiOnly));
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = controller,
+			.ownedSelector = object_ptr<Selector>(
+				nullptr,
+				controller->uiShow(),
+				Window::GifPauseReason::Layer,
+				Selector::Mode::EmojiOnly),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
+		});
 	const auto emojiPanel = state->emojiPanel.get();
 	emojiPanel->setDesiredHeightValues(
 		1.,

@@ -1,5 +1,8 @@
 #include "settings/detailed_settings_button.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
 #include "ui/wrap/vertical_layout.h"
@@ -13,7 +16,12 @@ DetailedSettingsButton::DetailedSettingsButton(
 	rpl::producer<bool> toggled,
 	const style::DetailedSettingsButtonStyle &rowStyle)
 : Ui::RippleButton(parent, rowStyle.button.ripple)
-, _style(rowStyle)
+, _style([&] {
+	auto result = rowStyle;
+	result.button = Ui::ClassicSettingsStyle(parent, result.button);
+	result.description = Ui::ClassicSettingsStyle(parent, result.description);
+	return result;
+}())
 , _title(0)
 , _description(0)
 , _toggle(std::make_unique<Ui::ToggleView>(
@@ -111,7 +119,7 @@ void DetailedSettingsButton::onStateChanged(
 			? _style.button.toggleOver
 			: _style.button.toggle);
 	if (nowDisabled != wasDisabled) {
-		setPointerCursor(!nowDisabled);
+		setPointerCursor(false);
 	}
 	update();
 }
@@ -259,14 +267,14 @@ void DetailedSettingsButton::paintIcon(QPainter &p) const {
 		p.setBrush(*_iconBackground);
 		{
 			auto hq = PainterHighQualityEnabler(p);
-			p.drawRoundedRect(rect, _style.iconRadius, _style.iconRadius);
+			p.drawRoundedRect(rect, style::CornerRadius(_style.iconRadius), style::CornerRadius(_style.iconRadius));
 		}
 	} else if (_iconBackgroundBrush) {
 		p.setPen(Qt::NoPen);
 		p.setBrush(*_iconBackgroundBrush);
 		{
 			auto hq = PainterHighQualityEnabler(p);
-			p.drawRoundedRect(rect, _style.iconRadius, _style.iconRadius);
+			p.drawRoundedRect(rect, style::CornerRadius(_style.iconRadius), style::CornerRadius(_style.iconRadius));
 		}
 	}
 	if (_iconForeground) {

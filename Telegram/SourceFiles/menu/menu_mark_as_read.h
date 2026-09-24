@@ -44,6 +44,9 @@ void MarkAsReadThread(
 void MarkAsReadChatList(
 	not_null<Dialogs::MainList*> list,
 	MarkAsReadMuted muted = MarkAsReadMuted::Include);
+void MarkAsReadAllChats(
+	not_null<Main::Session*> session,
+	MarkAsReadMuted muted = MarkAsReadMuted::Include);
 
 void AddAllChatsAction(
 	not_null<Main::Session*> session,

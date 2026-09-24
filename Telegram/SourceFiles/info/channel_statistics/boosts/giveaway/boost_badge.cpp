@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/channel_statistics/boosts/giveaway/boost_badge.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/effects/radial_animation.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
@@ -101,7 +102,7 @@ QImage CreateBadge(
 		{
 			auto hq = PainterHighQualityEnabler(p);
 			auto o = ScopedPainterOpacity(p, bgOpacity);
-			p.drawRoundedRect(r, badgeh / 2, badgeh / 2);
+			p.drawRoundedRect(r, style::CornerRadius(badgeh / 2), style::CornerRadius(badgeh / 2));
 		}
 
 		p.setPen(fg);

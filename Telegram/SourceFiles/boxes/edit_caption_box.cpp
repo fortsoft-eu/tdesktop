@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/edit_caption_box.h"
 
+#include "ui/style/style_classic.h"
 #include "api/api_editing.h"
 #include "api/api_text_entities.h"
 #include "apiwrap.h"
@@ -265,6 +266,7 @@ EditCaptionBox::EditCaptionBox(
 , _initialText(std::move(text))
 , _initialList(std::move(list))
 , _saved(std::move(saved)) {
+	Ui::SetClassicSettingsStyle(this);
 	Expects(!_initialList.files.empty());
 	Expects(item->allowsEditMedia());
 
@@ -1022,7 +1024,17 @@ void EditCaptionBox::setupDragArea() {
 		std::move(enterFilter),
 		[=](bool f) { _field->setAcceptDrops(f); },
 		nullptr,
-		std::move(computeState));
+		std::move(computeState),
+		false,
+		[=] {
+			return QRect(
+				st::boxPhotoPadding.left(),
+				_scroll->y(),
+				st::sendMediaPreviewSize,
+				_scroll->height());
+		});
+	areas.document->setWorkspaceBackground(true);
+	areas.photo->setWorkspaceBackground(true);
 
 	const auto droppedCallback = [=](bool compress) {
 		return [=](const QMimeData *data) {
@@ -1039,12 +1051,16 @@ void EditCaptionBox::setupEmojiPanel() {
 	using Selector = ChatHelpers::TabbedSelector;
 	_emojiPanel = base::make_unique_q<ChatHelpers::TabbedPanel>(
 		container,
-		_controller,
-		object_ptr<Selector>(
-			nullptr,
-			_controller->uiShow(),
-			Window::GifPauseReason::Layer,
-			Selector::Mode::EmojiOnly));
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = _controller,
+			.ownedSelector = object_ptr<Selector>(
+				nullptr,
+				_controller->uiShow(),
+				Window::GifPauseReason::Layer,
+				Selector::Mode::EmojiOnly),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
+		});
 	_emojiPanel->setDesiredHeightValues(
 		1.,
 		st::emojiPanMinHeight / 2,
@@ -1236,7 +1252,8 @@ void EditCaptionBox::resizeEvent(QResizeEvent *e) {
 		(st::boxPhotoPadding.left()
 			+ st::sendMediaPreviewSize
 			- _emojiToggle->width()),
-		_field->y() + st::boxAttachEmojiTop);
+		_field->y() + _field->textFrameRect().y()
+			+ (_field->textFrameRect().height() - _emojiToggle->height()) / 2);
 	_emojiToggle->update();
 
 	if (_aiButton) {

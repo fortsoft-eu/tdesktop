@@ -790,33 +790,25 @@ void ClearCallsBox(
 	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
 }
 
-[[nodiscard]] not_null<Ui::SettingsButton*> AddCreateCallButton(
+[[nodiscard]] not_null<Ui::RoundButton*> AddCreateCallButton(
 		not_null<Ui::VerticalLayout*> container,
 		not_null<::Window::SessionController*> controller,
 		Fn<void()> done) {
-	const auto result = container->add(object_ptr<Ui::SettingsButton>(
+	const auto result = container->add(object_ptr<Ui::RoundButton>(
 		container,
 		tr::lng_confcall_create_call(),
-		st::inviteViaLinkButton), QMargins());
+		st::classicProfileActionButton), style::al_center);
+	result->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
 	Ui::AddSkip(container);
-	Ui::AddDividerText(
+	container->add(object_ptr<Ui::FlatLabel>(
 		container,
 		tr::lng_confcall_create_call_description(
 			lt_count,
 			rpl::single(controller->session().appConfig().confcallSizeLimit()
 				* 1.),
-			tr::marked));
-
-	const auto icon = Ui::CreateChild<Info::Profile::FloatingIcon>(
-		result,
-		st::inviteViaLinkIcon,
-		QPoint());
-	result->heightValue(
-	) | rpl::on_next([=](int height) {
-		icon->moveToLeft(
-			st::inviteViaLinkIconPosition.x(),
-			(height - st::inviteViaLinkIcon.height()) / 2);
-	}, icon->lifetime());
+			tr::marked),
+		st::classicDividerLabel.label),
+		st::defaultBoxDividerLabelPadding);
 
 	result->setClickedCallback([=] {
 		controller->show(Group::PrepareCreateCallBox(controller, done));

@@ -116,14 +116,22 @@ public:
 	void prepareCollapseSnapshot();
 
 	[[nodiscard]] const style::TextStyle &contentTitleSt() const;
+	QAccessible::Role accessibilityRole() override;
 
 protected:
 	void paintEvent(QPaintEvent *) override;
 	int resizeGetHeight(int newWidth) override;
+	void mousePressEvent(QMouseEvent *e) override;
+	void mouseMoveEvent(QMouseEvent *e) override;
+	void mouseReleaseEvent(QMouseEvent *e) override;
+	void leaveEventHook(QEvent *e) override;
 
 private:
 	void draw(QPainter &p);
 	void releaseCollapseSnapshot();
+	void refreshContent();
+	void updateClickableTextHover(QPoint position);
+	[[nodiscard]] QRect clickableTextRect() const;
 
 	const style::TextStyle &_titleSt;
 	const style::TextStyle &_contentTitleSt;
@@ -131,6 +139,10 @@ private:
 
 	Ui::Text::String _contentTitle;
 	Ui::Text::String _contentText;
+	TextWithEntities _contentTitleSource;
+	TextWithEntities _contentTextSource;
+	std::optional<Ui::Text::MarkedContext> _contentContext;
+	ClickHandlerPtr _suggestionLink;
 	float64 _collapseProgress = 0.;
 	QPixmap _collapseSnapshot;
 	std::optional<QColor> _descriptionColorOverride;

@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/controls/history_view_suggest_options.h"
 
+#include "ui/style/style_classic.h"
+#include "base/event_filter.h"
 #include "base/unixtime.h"
 #include "boxes/star_gift_box.h"
 #include "chat_helpers/compose/compose_show.h"
@@ -46,6 +48,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_credits.h"
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"
+
+#include <QtGui/QKeyEvent>
+#include <QtWidgets/QTabBar>
 
 namespace HistoryView {
 namespace {
@@ -136,12 +141,22 @@ StarsTonPriceInput AddStarsTonPriceInput(
 			added.left(),
 			0,
 			added.right(),
-			-st::defaultSubsectionTitlePadding.bottom()));
+			-st::defaultSubsectionTitlePadding.bottom()),
+		&st::suggestPriceTitle);
 
 	const auto starsField = AddStarsInputField(starsInner, {
 		.value = ((args.price && args.price.stars())
 			? args.price.whole()
 			: std::optional<int64>()),
+		.style = &st::suggestStarsField,
+	});
+	base::install_event_filter(starsField, [=](not_null<QEvent*> event) {
+		if (event->type() == QEvent::KeyPress
+			&& static_cast<QKeyEvent*>(event.get())->key() == Qt::Key_Backspace
+			&& starsField->getLastText().isEmpty()) {
+			return base::EventFilterResult::Cancel;
+		}
+		return base::EventFilterResult::Continue;
 	});
 
 	AddApproximateUsd(
@@ -152,7 +167,11 @@ StarsTonPriceInput AddStarsTonPriceInput(
 	Ui::AddSkip(starsInner);
 	Ui::AddSkip(starsInner);
 	if (args.starsAbout) {
-		Ui::AddDividerText(starsInner, std::move(args.starsAbout));
+		Ui::AddDividerText(
+			starsInner,
+			std::move(args.starsAbout),
+			st::defaultBoxDividerLabelPadding,
+			st::suggestPriceDivider);
 	}
 
 	const auto tonWrap = container->add(
@@ -168,7 +187,8 @@ StarsTonPriceInput AddStarsTonPriceInput(
 			added.left(),
 			0,
 			added.right(),
-			-st::defaultSubsectionTitlePadding.bottom()));
+			-st::defaultSubsectionTitlePadding.bottom()),
+		&st::suggestPriceTitle);
 
 	const auto tonField = AddTonInputField(tonInner, {
 		.value = (args.price && args.price.ton())
@@ -184,7 +204,11 @@ StarsTonPriceInput AddStarsTonPriceInput(
 	Ui::AddSkip(tonInner);
 	Ui::AddSkip(tonInner);
 	if (args.tonAbout) {
-		Ui::AddDividerText(tonInner, std::move(args.tonAbout));
+		Ui::AddDividerText(
+			tonInner,
+			std::move(args.tonAbout),
+			st::defaultBoxDividerLabelPadding,
+			st::suggestPriceDivider);
 	}
 
 	tonWrap->toggleOn(state->ton.value(), anim::type::instant);
@@ -300,13 +324,8 @@ StarsTonPriceInput AddStarsTonPriceInput(
 void ChooseSuggestPriceBox(
 		not_null<Ui::GenericBox*> box,
 		SuggestPriceBoxArgs &&args) {
-	struct Button {
-		QRect geometry;
-		Ui::Text::String text;
-		bool active = false;
-	};
 	struct State {
-		std::vector<Button> buttons;
+		style::Box boxStyle;
 		rpl::event_stream<> fieldsChanges;
 		rpl::variable<CreditsAmount> price;
 		rpl::variable<TimeId> date;
@@ -316,7 +335,6 @@ void ChooseSuggestPriceBox(
 		Fn<void()> save;
 		std::optional<CreditsAmount> lastSmallPrice;
 		bool savePending = false;
-		bool inButton = false;
 	};
 	const auto state = box->lifetime().make_state<State>();
 	state->date = args.value.date;
@@ -339,7 +357,17 @@ void ChooseSuggestPriceBox(
 	}
 	const auto container = box->verticalLayout();
 
-	box->setStyle(st::suggestPriceBox);
+	state->boxStyle = st::suggestPriceBox;
+	const auto buttonSpace = st::boxWidth
+		+ 4 * st::lineWidth
+		- st::classicProfileActionButton.width;
+	state->boxStyle.buttonPadding.setLeft(buttonSpace / 2);
+	state->boxStyle.buttonPadding.setRight(buttonSpace - buttonSpace / 2);
+	state->boxStyle.buttonHeight = st::classicProfileActionButton.height;
+	state->boxStyle.button = st::classicProfileActionButton;
+	state->boxStyle.buttonWide = true;
+	box->setStyle(state->boxStyle);
+	box->setWidth(st::boxWidth);
 
 	auto title = gift
 		? tr::lng_gift_offer_title()
@@ -360,109 +388,30 @@ void ChooseSuggestPriceBox(
 			style::al_top);
 	}
 
-	state->buttons.push_back({
-		.text = Ui::Text::String(
-			st::semiboldTextStyle,
-			(admin
-				? tr::lng_suggest_options_stars_request(tr::now)
-				: tr::lng_suggest_options_stars_offer(tr::now))),
-		.active = !state->ton.current(),
-	});
-	state->buttons.push_back({
-		.text = Ui::Text::String(
-			st::semiboldTextStyle,
-			(admin
-				? tr::lng_suggest_options_ton_request(tr::now)
-				: tr::lng_suggest_options_ton_offer(tr::now))),
-		.active = state->ton.current(),
-	});
-
-	auto x = 0;
-	auto y = st::giftBoxTabsMargin.top();
-	const auto padding = st::giftBoxTabPadding;
-	for (auto &button : state->buttons) {
-		const auto width = button.text.maxWidth();
-		const auto height = st::semiboldTextStyle.font->height;
-		const auto r = QRect(0, 0, width, height).marginsAdded(padding);
-		button.geometry = QRect(QPoint(x, y), r.size());
-		x += r.width() + st::giftBoxTabSkip;
-	}
 	const auto buttonsSkip = admin ? 0 : st::normalFont->height;
-	const auto buttons = box->addRow(
+	const auto tabsWrap = box->addRow(
 		object_ptr<Ui::RpWidget>(box),
-		(st::boxRowPadding
-			- QMargins(
-				padding.left() / 2,
-				-buttonsSkip,
-				padding.right() / 2,
-				0)));
-	const auto height = y
-		+ state->buttons.back().geometry.height()
-		+ st::giftBoxTabsMargin.bottom();
-	buttons->resize(buttons->width(), height);
-
-	buttons->setMouseTracking(true);
-	buttons->events() | rpl::on_next([=](not_null<QEvent*> e) {
-		const auto type = e->type();
-		switch (type) {
-		case QEvent::MouseMove: {
-			const auto in = [&] {
-				const auto me = static_cast<QMouseEvent*>(e.get());
-				const auto position = me->pos();
-				for (const auto &button : state->buttons) {
-					if (button.geometry.contains(position)) {
-						return true;
-					}
-				}
-				return false;
-			}();
-			if (state->inButton != in) {
-				state->inButton = in;
-				buttons->setCursor(in
-					? style::cur_pointer
-					: style::cur_default);
-			}
-		} break;
-		case QEvent::MouseButtonPress: {
-			const auto me = static_cast<QMouseEvent*>(e.get());
-			if (me->button() != Qt::LeftButton) {
-				break;
-			}
-			const auto position = me->pos();
-			for (auto i = 0, c = int(state->buttons.size()); i != c; ++i) {
-				if (state->buttons[i].geometry.contains(position)) {
-					state->ton = (i != 0);
-					state->buttons[i].active = true;
-					state->buttons[1 - i].active = false;
-					buttons->update();
-					break;
-				}
-			}
-		} break;
+		QMargins(0, buttonsSkip, 0, 0));
+	const auto tabs = Ui::CreateClassicTabBar(tabsWrap);
+	tabs->addTab(admin
+		? tr::lng_suggest_options_stars_request(tr::now)
+		: tr::lng_suggest_options_stars_offer(tr::now));
+	tabs->addTab(admin
+		? tr::lng_suggest_options_ton_request(tr::now)
+		: tr::lng_suggest_options_ton_offer(tr::now));
+	tabs->setCurrentIndex(state->ton.current() ? 1 : 0);
+	tabs->show();
+	tabsWrap->widthValue(
+	) | rpl::filter(rpl::mappers::_1 > 0) | rpl::on_next([=](int width) {
+		const auto size = tabs->sizeHint();
+		tabs->resize(width, size.height());
+		tabsWrap->resize(width, size.height());
+	}, tabsWrap->lifetime());
+	QObject::connect(tabs, &QTabBar::currentChanged, tabsWrap, [=](int index) {
+		if (index >= 0) {
+			state->ton = (index == 1);
 		}
-	}, buttons->lifetime());
-
-	buttons->paintRequest() | rpl::on_next([=] {
-		auto p = QPainter(buttons);
-		auto hq = PainterHighQualityEnabler(p);
-		const auto padding = st::giftBoxTabPadding;
-		for (const auto &button : state->buttons) {
-			const auto geometry = button.geometry;
-			if (button.active) {
-				p.setBrush(st::giftBoxTabBgActive);
-				p.setPen(Qt::NoPen);
-				const auto radius = geometry.height() / 2.;
-				p.drawRoundedRect(geometry, radius, radius);
-				p.setPen(st::giftBoxTabFgActive);
-			} else {
-				p.setPen(st::giftBoxTabFg);
-			}
-			button.text.draw(p, {
-				.position = geometry.marginsRemoved(padding).topLeft(),
-				.availableWidth = button.text.maxWidth(),
-			});
-		}
-	}, buttons->lifetime());
+	});
 
 	Ui::AddSkip(container);
 
@@ -571,7 +520,7 @@ void ChooseSuggestPriceBox(
 			container,
 			tr::lng_gift_offer_duration(),
 			state->offerDuration.value() | rpl::map(durationToText),
-			st::settingsButtonNoIcon);
+			st::suggestPriceSettingsButton);
 
 		duration->setClickedCallback([=] {
 			box->uiShow()->show(Box([=](not_null<Ui::GenericBox*> box) {
@@ -598,7 +547,9 @@ void ChooseSuggestPriceBox(
 			container,
 			tr::lng_gift_offer_duration_about(
 				lt_user,
-				rpl::single(peer->shortName())));
+				rpl::single(peer->shortName())),
+			st::defaultBoxDividerLabelPadding,
+			st::suggestPriceDivider);
 	} else {
 		const auto time = Settings::AddButtonWithLabel(
 			container,
@@ -608,7 +559,7 @@ void ChooseSuggestPriceBox(
 					? langDateTime(base::unixtime::parse(date))
 					: tr::lng_suggest_options_date_any(tr::now);
 			}),
-			st::settingsButtonNoIcon);
+			st::suggestPriceSettingsButton);
 
 		time->setClickedCallback([=] {
 			const auto weak = std::make_shared<
@@ -634,7 +585,11 @@ void ChooseSuggestPriceBox(
 		});
 
 		Ui::AddSkip(container);
-		Ui::AddDividerText(container, tr::lng_suggest_options_date_about());
+		Ui::AddDividerText(
+			container,
+			tr::lng_suggest_options_date_about(),
+			st::defaultBoxDividerLabelPadding,
+			st::suggestPriceDivider);
 	}
 
 	state->save = [=] {
@@ -751,13 +706,6 @@ void ChooseSuggestPriceBox(
 				Lang::FormatCreditsAmountDecimal(price)),
 			tr::marked);
 	}));
-	const auto buttonWidth = st::boxWidth
-		- rect::m::sum::h(st::suggestPriceBox.buttonPadding);
-	button->widthValue() | rpl::filter([=] {
-		return (button->widthNoMargins() != buttonWidth);
-	}) | rpl::on_next([=] {
-		button->resizeToWidth(buttonWidth);
-	}, button->lifetime());
 
 	if (admin) {
 		box->addTopButton(st::boxTitleClose, [=] {
@@ -781,7 +729,10 @@ void ChooseSuggestPriceBox(
 				state->ton.value(),
 				session->credits().tonBalanceValue(),
 				session->credits().balanceValue()),
-			false);
+			false,
+			nullptr,
+			false,
+			&st::suggestBalanceTextStyle);
 		rpl::combine(
 			balance->sizeValue(),
 			container->sizeValue()

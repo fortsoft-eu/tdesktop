@@ -8,11 +8,21 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "tray.h"
 #include "tray_accounts_menu.h"
 
+#include "mainwidget.h"
 #include "core/application.h"
 #include "core/core_settings.h"
+#include "data/data_session.h"
+#include "main/main_account.h"
+#include "main/main_domain.h"
+#include "main/main_session.h"
+#include "menu/menu_mark_as_read.h"
 #include "platform/platform_notifications_manager.h"
 #include "platform/platform_specific.h"
 #include "lang/lang_keys.h"
+#include "storage/cache/storage_cache_database.h"
+#include "ui/emoji_config.h"
+#include "window/window_controller.h"
+#include "window/window_session_controller.h"
 
 #include <QtWidgets/QApplication>
 
@@ -73,6 +83,21 @@ void Tray::rebuildMenu() {
 	_tray.destroyMenu();
 	_tray.createMenu();
 
+	if (!Core::App().passcodeLocked()
+		&& Core::App().domain().accountsAuthedCount()) {
+		_tray.addAction(tr::lng_read_all_chats_from_tray(), [=] { readAllChats(); });
+		_tray.addAction(tr::lng_clear_all_accounts_cache_from_tray(), [=] { clearAllAccountsCache(); });
+		_tray.addSeparator();
+		_tray.addAction(tr::lng_restore_left_panel_width_from_tray(), [] {
+			if (const auto window = Core::App().activePrimaryWindow()) {
+				if (const auto controller = window->sessionController()) {
+					controller->content()->restoreDefaultDialogsWidth();
+				}
+			}
+		});
+		_tray.addSeparator();
+	}
+
 	{
 		auto minimizeText = _textUpdates.events(
 		) | rpl::map([=] {
@@ -105,6 +130,25 @@ void Tray::rebuildMenu() {
 	TrayAccountsMenu::Fill(_tray);
 
 	updateMenuText();
+}
+
+void Tray::readAllChats() {
+	for (const auto &account : Core::App().domain().orderedAccounts()) {
+		if (account->sessionExists()) {
+			MarkAsReadMenu::MarkAsReadAllChats(&account->session());
+		}
+	}
+}
+
+void Tray::clearAllAccountsCache() {
+	for (const auto &account : Core::App().domain().orderedAccounts()) {
+		if (account->sessionExists()) {
+			auto &data = account->session().data();
+			data.cache().clear();
+			data.cacheBigFile().clear();
+		}
+	}
+	Ui::Emoji::ClearIrrelevantCache();
 }
 
 void Tray::updateMenuText() {

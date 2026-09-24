@@ -54,12 +54,21 @@ auto SearchFieldController::createRowView(
 		auto availableWidth = newWidth
 			- st.fieldIconSkip
 			- st.fieldCancelSkip;
+		if (st.fieldCancelInside) {
+			availableWidth -= st.padding.left() + st.padding.right();
+		}
 		field->setGeometryToLeft(
 			st.padding.left() + st.fieldIconSkip,
 			st.padding.top(),
 			availableWidth,
 			field->height());
-		cancel->moveToRight(0, 0);
+		if (st.fieldCancelInside) {
+			cancel->moveToLeft(
+				st.padding.left() + st.fieldIconSkip + field->width() - cancel->width() - st.field.border,
+				field->y() + (field->height() - cancel->height()) / 2);
+		} else {
+			cancel->moveToRight(0, 0);
+		}
 		shadow->setGeometry(
 			0,
 			st.height - st::lineWidth,

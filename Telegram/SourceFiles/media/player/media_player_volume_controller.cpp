@@ -54,8 +54,10 @@ VolumeController::VolumeController(
 
 void VolumeController::setIsVertical(bool vertical) {
 	using Direction = Ui::MediaSlider::Direction;
+	_vertical = vertical;
 	_slider->setDirection(vertical ? Direction::Vertical : Direction::Horizontal);
 	_slider->setAlwaysDisplayMarker(vertical);
+	updateSliderGeometry();
 }
 
 void VolumeController::outerWheelEvent(not_null<QWheelEvent*> e) {
@@ -63,7 +65,16 @@ void VolumeController::outerWheelEvent(not_null<QWheelEvent*> e) {
 }
 
 void VolumeController::resizeEvent(QResizeEvent *e) {
-	_slider->setGeometry(rect());
+	updateSliderGeometry();
+}
+
+void VolumeController::updateSliderGeometry() {
+	if (!_vertical) {
+		_slider->setGeometry(rect());
+		return;
+	}
+	_slider->resize(st::mediaPlayerVolumeSliderSize);
+	_slider->move((width() - _slider->width()) / 2, (height() - _slider->height()) / 2);
 }
 
 void VolumeController::setVolume(float64 volume) {
@@ -95,14 +106,7 @@ void PrepareVolumeDropdown(
 	) | rpl::on_next([=](QSize size) {
 		const auto rect = QRect(QPoint(), size);
 		const auto inner = rect.marginsRemoved(dropdown->getMargin());
-		volume->setGeometry(
-			inner.x(),
-			inner.y() - st::lineWidth,
-			inner.width(),
-			(inner.height()
-				+ st::lineWidth
-				- ((st::mediaPlayerVolumeSize.width()
-					- st::mediaPlayerPanelPlayback.width) / 2)));
+		volume->setGeometry(inner);
 	}, volume->lifetime());
 
 	std::move(

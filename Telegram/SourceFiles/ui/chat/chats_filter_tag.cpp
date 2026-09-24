@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/chats_filter_tag.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/text/text_custom_emoji.h"
 #include "ui/emoji_config.h"
 #include "ui/integration.h"
@@ -262,7 +263,7 @@ QImage ChatsFilterTag(
 		{
 			auto hq = PainterHighQualityEnabler(p);
 			const auto radius = roundedFont->height / 3.;
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 		p.setPen(pen);
 		p.setFont(roundedFont);

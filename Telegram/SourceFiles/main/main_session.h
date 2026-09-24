@@ -35,6 +35,7 @@ class Changes;
 class GiftAuctions;
 class RecentInlineBots;
 class RecentPeers;
+class ProfileDetails;
 class RecentSharedMediaGifts;
 class ScheduledMessages;
 class WelcomeMessages;
@@ -146,6 +147,9 @@ public:
 	}
 	[[nodiscard]] Data::RecentPeers &recentPeers() const {
 		return *_recentPeers;
+	}
+	[[nodiscard]] Data::ProfileDetails &profileDetails() const {
+		return *_profileDetails;
 	}
 	[[nodiscard]] Data::RecentSharedMediaGifts &recentSharedGifts() const {
 		return *_recentSharedGifts;
@@ -318,6 +322,7 @@ private:
 	const std::unique_ptr<Storage::Facade> _storage;
 
 	// _data depends on _downloader / _uploader.
+	const std::unique_ptr<Data::ProfileDetails> _profileDetails;
 	const std::unique_ptr<Data::Session> _data;
 	const not_null<UserData*> _user;
 

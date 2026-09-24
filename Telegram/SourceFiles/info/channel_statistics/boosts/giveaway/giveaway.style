@@ -46,9 +46,7 @@ giveawayGiftCodeLinkMargin: margins(24px, 8px, 24px, 12px);
 giveawayGiftCodeGiftOption: PremiumOption(premiumGiftOption) {
 	badgeShift: point(5px, 0px);
 }
-giveawayGiftCodeStartButton: RoundButton(defaultActiveButton) {
-	height: 42px;
-	textTop: 12px;
+giveawayGiftCodeStartButton: RoundButton(classicWideBoxButton) {
 	radius: 6px;
 }
 giveawayGiftCodeQuantitySubtitle: FlatLabel(defaultFlatLabel) {
@@ -76,6 +74,24 @@ boostLinkStatsButton: IconButton(defaultIconButton) {
 
 giveawayGiftCodeTable: Table(defaultTable) {
 	labelMinWidth: 91px;
+	borderFg: classicWorkspaceBg;
+}
+giveawayGiftDetailsTable: Table(giveawayGiftCodeTable) {
+	defaultLabel: FlatLabel(defaultTableLabel) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
+	defaultValue: FlatLabel(defaultTableValue) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
+}
+giveawayGiftDetailsPeerName: FlatLabel(defaultTableValue) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 giveawayGiftCodeTableMargin: margins(24px, 4px, 24px, 4px);
 giveawayGiftCodeLabelMargin: margins(13px, 10px, 13px, 10px);
@@ -84,7 +100,7 @@ giveawayGiftCodeValueMultiline: FlatLabel(defaultTableValue) {
 	maxHeight: 100px;
 	style: TextStyle(defaultTextStyle) {
 		font: font(10px);
-		linkUnderline: kLinkUnderlineNever;
+		linkUnderline: kLinkUnderlineActive;
 	}
 }
 giveawayGiftMessage: FlatLabel(defaultTableValue) {
@@ -102,7 +118,21 @@ giveawayGiftMessageRemove: IconButton(defaultIconButton) {
 		color: lightButtonBgRipple;
 	}
 }
-giveawayGiftCodeValueMargin: margins(13px, 9px, 13px, 9px);
+giveawayGiftCodeValueMargin: margins(13px, 10px, 13px, 10px);
+giveawayGiftValueReadOnly: InputField(defaultInputField) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textFg: classicMenuText;
+	textBg: classicControlBg;
+	textMargins: margins(3px, 3px, 3px, 3px);
+	textAlign: align(left);
+	border: 1px;
+	borderActive: 0px;
+	borderRadius: 0px;
+	placeholderScale: 0.0;
+	placeholderFont: classicSettingsFont;
+}
 giveawayGiftCodePeerMargin: margins(11px, 6px, 11px, 4px);
 giveawayGiftCodeUserpic: UserpicButton(defaultUserpicButton) {
 	size: size(24px, 24px);
@@ -141,9 +171,9 @@ giveawayGiftCodeChannelsPeerList: PeerList(boostsListBox) {
 }
 giveawayGiftCodeMembersPeerList: PeerList(defaultPeerList) {
 	item: PeerListItem(defaultPeerListItem) {
-		height: 50px;
-		namePosition: point(62px, 7px);
-		statusPosition: point(62px, 27px);
+		height: 52px;
+		namePosition: point(62px, 8px);
+		statusPosition: point(62px, 28px);
 	}
 }
 giveawayRadioMembersPosition: point(21px, 14px);
@@ -161,14 +191,11 @@ giveawayGiftCodeFooter: FlatLabel(defaultFlatLabel) {
 	textFg: windowBoldFg;
 }
 giveawayGiftCodeFooterMargin: margins(0px, 9px, 0px, 4px);
-giveawayGiftCodeBoxButton: RoundButton(defaultActiveButton) {
-	height: 42px;
-	textTop: 12px;
-	style: semiboldTextStyle;
+giveawayGiftCodeBoxButton: RoundButton(classicWideBoxButton) {
 }
 giveawayGiftCodeBox: Box(defaultBox) {
 	buttonPadding: margins(22px, 11px, 22px, 22px);
-	buttonHeight: 42px;
+	buttonHeight: classicWideBoxButtonHeight;
 	buttonWide: true;
 	button: giveawayGiftCodeBoxButton;
 	shadowIgnoreTopSkip: true;

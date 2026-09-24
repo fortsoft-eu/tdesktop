@@ -16,7 +16,6 @@ namespace Ui {
 namespace {
 
 constexpr auto kAlmostIndex = float64(.99);
-constexpr auto kMinYScale = 0.2;
 
 using PaintItemCallback = VerticalDrumPicker::PaintItemCallback;
 
@@ -36,11 +35,6 @@ PaintItemCallback VerticalDrumPicker::DefaultPaintCallback(
 		const auto progress = std::abs(distanceFromCenter);
 		const auto revProgress = 1. - progress;
 		p.save();
-		p.translate(r.center());
-		const auto yScale = kMinYScale
-			+ (1. - kMinYScale) * anim::easeOutCubic(1., revProgress);
-		p.scale(1., yScale);
-		p.translate(-r.center());
 		p.setOpacity(revProgress);
 		p.setFont(font);
 		p.setPen(st::defaultFlatLabel.textFg);

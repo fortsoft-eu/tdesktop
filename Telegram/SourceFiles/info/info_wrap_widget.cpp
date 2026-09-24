@@ -6,6 +6,10 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/info_wrap_widget.h"
+#include "settings/settings_experimental.h"
+#include "styles/style_settings.h"
+#include "info/profile/info_profile_cover_classic.h"
+#include "ui/style/style_radius.h"
 
 #include "info/profile/info_profile_widget.h"
 #include "info/profile/info_profile_values.h"
@@ -67,7 +71,8 @@ const style::InfoTopBar &TopBarStyle(Wrap wrap) {
 [[nodiscard]] bool HasCustomTopBar(not_null<const Controller*> controller) {
 	const auto section = controller->section();
 	return (section.type() == Section::Type::BotStarRef)
-		|| (section.type() == Section::Type::Profile)
+		|| (section.type() == Section::Type::Profile
+			&& !Profile::UseClassicProfile(controller))
 		|| (section.type() == Section::Type::Community)
 		|| ((section.type() == Section::Type::Settings)
 			&& section.settingsType()->hasCustomTopBar())
@@ -426,7 +431,7 @@ void WrapWidget::setupTopBarMenuToggle() {
 	const auto key = _controller->key();
 	const auto section = _controller->section();
 	if (section.type() == Section::Type::Profile
-		&& (wrap() != Wrap::Side || hasStackHistory())) {
+		&& (wrap() != Wrap::Side || hasStackHistory() || Profile::UseClassicProfile(_controller.get()))) {
 		addTopBarMenuButton();
 		addProfileCallsButton();
 	} else if (section.type() == Section::Type::Settings) {
@@ -709,9 +714,14 @@ void WrapWidget::finishShowContent() {
 	updateContentGeometry();
 	_content->setIsStackBottom(!hasStackHistory());
 	if (_topBar) {
+		const auto section = _controller->section();
+		const auto settings = (section.type() == Section::Type::Settings);
+		const auto classic = settings || (section.type() == Section::Type::BotEarn);
 		_topBar->setTitle({
 			.title = _content->title(),
 			.subtitle = _content->subtitle(),
+			.titleStyle = classic ? &st::settingsTopBarTitle : &st::infoApplicationTitle,
+			.classicSettings = classic,
 		});
 		_topBar->setStories(_content->titleStories());
 	}
@@ -776,7 +786,16 @@ rpl::producer<Wrap> WrapWidget::wrapValue() const {
 }
 
 void WrapWidget::setWrap(Wrap wrap) {
+	if (_wrap.current() == wrap) {
+		return;
+	}
+	const auto profile = (_controller->section().type() == Section::Type::Profile);
+	const auto wasClassic = profile && Profile::UseClassicProfile(_controller.get());
+	const auto state = profile ? _content->createMemento() : nullptr;
 	_wrap = wrap;
+	if (state && wasClassic != Profile::UseClassicProfile(_controller.get())) {
+		showNewContent(state.get());
+	}
 }
 
 rpl::producer<bool> WrapWidget::contentTillBottomValue() const {
@@ -993,7 +1012,7 @@ void WrapWidget::showNewContent(
 			auto image = Ui::RippleAnimation::MaskByDrawer(s, false, [&](
 					QPainter &p) {
 				const auto r = QRect(0, 0, s.width(), s.height() * 2);
-				p.drawRoundedRect(r, st::boxRadius, st::boxRadius);
+				p.drawRoundedRect(r, style::CornerRadius(st::boxRadius), style::CornerRadius(st::boxRadius));
 			});
 			animationParams.topMask = Ui::PixmapFromImage(std::move(image));
 		}

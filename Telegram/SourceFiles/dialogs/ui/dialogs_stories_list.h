@@ -68,6 +68,7 @@ public:
 	~List();
 
 	void setExpandedHeight(int height, bool momentum = false);
+	void setCollapsedHidden(bool hidden);
 	void setLayoutConstraints(
 		QPoint positionSmall,
 		style::align alignSmall,
@@ -193,6 +194,7 @@ private:
 	QString _title;
 	int _titleWidth = 0;
 	bool _showTitle = false;
+	bool _collapsedHidden = false;
 
 	QPoint _lastMousePosition;
 	std::optional<QPoint> _mouseDownPosition;

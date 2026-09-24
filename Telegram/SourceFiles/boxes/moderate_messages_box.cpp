@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/moderate_messages_box.h"
 
+#include "ui/style/style_classic.h"
 #include "api/api_blocked_peers.h"
 #include "api/api_chat_participants.h"
 #include "api/api_messages_search.h"
@@ -731,7 +732,7 @@ void CreateModerateMessagesBox(
 				box,
 				QString(),
 				st::boxLabel)));
-	subtitle->entity()->setTextColorOverride(st::windowSubTextFg->c);
+	subtitle->entity()->setTextColorOverride(Ui::ClassicTextColor(box, st::windowSubTextFg)->c);
 	subtitle->hide(anim::type::instant);
 	Ui::AddSkip(inner);
 	if (reportSpam) {
@@ -1600,7 +1601,9 @@ void DeleteChatBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
 				: rpl::single(
 					tr::bold(userpicPeer->name())
 				) | rpl::type_erased,
-			box->getDelegate()->style().title));
+			peer->isSelf() || maybeUser
+				? box->getDelegate()->style().title
+				: st::deleteChatPeerTitle));
 
 	Ui::AddSkip(container);
 	Ui::AddSkip(container);
@@ -1705,7 +1708,10 @@ void DeleteChatBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
 		const auto stopBot = maybeBotCheckbox && maybeBotCheckbox->checked();
 		const auto removeFromChats = maybeChatsFiltersCheckbox
 			&& maybeChatsFiltersCheckbox->checked();
-		Core::App().closeChatFromWindows(peer);
+		const auto leaving = !revoke && peer->session().api().leaveConversation(peer);
+		if (!leaving) {
+			Core::App().closeChatFromWindows(peer);
+		}
 		if (stopBot) {
 			peer->session().api().blockedPeers().block(peer);
 		}
@@ -1738,7 +1744,9 @@ void DeleteChatBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
 		//if (const auto from = peer->migrateFrom()) {
 		//	peer->session().api().deleteConversation(from, false);
 		//}
-		peer->session().api().deleteConversation(peer, revoke);
+		if (!leaving) {
+			peer->session().api().deleteConversation(peer, revoke);
+		}
 		close();
 	}, st::attentionBoxButton);
 	box->addButton(tr::lng_cancel(), close);

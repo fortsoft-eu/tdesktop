@@ -112,7 +112,7 @@ void RequestsBar::setupInner() {
 	}, _inner->lifetime());
 
 	// Clicks.
-	_inner->setCursor(style::cur_pointer);
+	_inner->setCursor(style::cur_default);
 	_inner->events(
 	) | rpl::filter([=](not_null<QEvent*> event) {
 		return (event->type() == QEvent::MouseButtonPress);

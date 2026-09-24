@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/star_gift_cover_box.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/stickers_lottie.h"
 #include "core/application.h"
 #include "core/ui_integration.h"
@@ -632,7 +633,7 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
 			auto bg = _state->released.bg;
 			bg.setAlphaF(kGradientButtonBgOpacity * bg.alphaF());
 			p.setBrush(bg);
-			p.drawRoundedRect(_state->pretitle->rect(), radius, radius);
+			p.drawRoundedRect(_state->pretitle->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 			p.translate(-_state->pretitle->pos());
 			_state->released.stars->paint(p);
 		});
@@ -788,7 +789,7 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
 				p.setPen(Qt::NoPen);
 				p.setBrush(_state->released.bg);
 				p.setOpacity(0.5);
-				p.drawRoundedRect(left, 0, full, height, radius, radius);
+				p.drawRoundedRect(left, 0, full, height, style::CornerRadius(radius), style::CornerRadius(radius));
 			}, button->lifetime());
 		} else {
 			_state->released.subtitleButton = nullptr;
@@ -864,7 +865,7 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
 			const auto paint = [&](int x, const AttributeState &state) {
 				p.setPen(Qt::NoPen);
 				p.setBrush(bg);
-				p.drawRoundedRect(x, innert, single, innerh, radius, radius);
+				p.drawRoundedRect(x, innert, single, innerh, style::CornerRadius(radius), style::CornerRadius(radius));
 				p.setPen(QColor(255, 255, 255));
 				const auto padding = st::uniqueAttributePadding;
 				const auto inner = single - padding.left() - padding.right();
@@ -896,8 +897,8 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
 					st::uniqueAttributeType.font->height);
 				p.drawRoundedRect(
 					percent.marginsAdded(st::uniqueAttributePercentPadding),
-					r,
-					r);
+					style::CornerRadius(r),
+					style::CornerRadius(r));
 				p.setPen(QColor(255, 255, 255));
 				state.percent.draw(p, {
 					.position = percent.topLeft(),
@@ -1184,8 +1185,8 @@ QRect UniqueGiftCoverWidget::prepareCraftFrame(
 		p.setBrush(gradient);
 		p.drawRoundedRect(
 			rect.marginsAdded({ 0, 0, 0, more }),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	} else {
 		p.fillRect(rect, gradient);
 	}

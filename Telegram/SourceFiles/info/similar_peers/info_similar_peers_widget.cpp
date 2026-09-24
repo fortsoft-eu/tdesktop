@@ -155,7 +155,8 @@ void ListController::setupUnlock() {
 			? tr::lng_similar_channels_show_more()
 			: tr::lng_similar_bots_show_more()),
 		st::similarChannelsLock,
-		rpl::single(true));
+		rpl::single(true),
+		&st::similarChannelsLockIcon);
 	button->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 	button->setClickedCallback([=] {
 		const auto window = _controller->parentController();
@@ -191,12 +192,18 @@ void ListController::setupUnlock() {
 	) | rpl::on_next([=](QSize size, const auto &) {
 		auto top = st::similarChannelsLockFade
 			+ st::similarChannelsLockPadding.top();
-		button->setGeometry(
-			st::similarChannelsLockPadding.left(),
-			top,
-			(size.width()
+		const auto availableButtonWidth = std::max(
+			size.width()
 				- st::similarChannelsLockPadding.left()
-				- st::similarChannelsLockPadding.right()),
+				- st::similarChannelsLockPadding.right(),
+			0);
+		const auto buttonWidth = std::min(
+			availableButtonWidth,
+			st::similarChannelsLock.width);
+		button->setGeometry(
+			(size.width() - buttonWidth) / 2,
+			top,
+			buttonWidth,
 			button->height());
 		top += button->height() + st::similarChannelsLockPadding.bottom();
 
@@ -228,12 +235,14 @@ void ListController::setupUnlock() {
 		auto p = QPainter(_unlock);
 		const auto width = _unlock->width();
 		const auto fade = st::similarChannelsLockFade;
-		auto gradient = QLinearGradient(0, 0, 0, fade);
-		gradient.setStops({
-			{ 0., QColor(255, 255, 255, 0) },
-			{ 1., st::windowBg->c },
-		});
-		p.fillRect(0, 0, width, fade, gradient);
+		if (fade) {
+			auto gradient = QLinearGradient(0, 0, 0, fade);
+			gradient.setStops({
+				{ 0., QColor(255, 255, 255, 0) },
+				{ 1., st::windowBg->c },
+			});
+			p.fillRect(0, 0, width, fade, gradient);
+		}
 		p.fillRect(0, fade, width, _unlock->height() - fade, st::windowBg);
 	}, _unlock->lifetime());
 }

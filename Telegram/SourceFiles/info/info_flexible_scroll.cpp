@@ -57,7 +57,7 @@ void SetupFlexibleRegularScroll(
 		return e->type() == QEvent::Wheel;
 	}));
 
-	inner->widthValue(
+	scroll->widthValue(
 	) | rpl::on_next([=](int w) {
 		pinnedToTop->resize(w, pinnedToTop->height());
 	}, pinnedToTop->lifetime());
@@ -121,6 +121,10 @@ void SetupFlexibleRegularScroll(
 	});
 	scroll->setCustomWheelProcess([=](not_null<QWheelEvent*> e) {
 		const auto delta = e->angleDelta().y();
+		if (anim::Disabled()) {
+			state->animation.stop();
+			return false;
+		}
 		if (std::abs(delta) != 120 || e->phase() != Qt::NoScrollPhase) {
 			state->animation.stop();
 			return false;
@@ -246,6 +250,12 @@ void FlexibleScrollHelper::setupScrollHandling() {
 		}
 		const auto wheel = static_cast<QWheelEvent*>(e.get());
 		const auto delta = wheel->angleDelta().y();
+		if (anim::Disabled()) {
+			_scrollAnimation.stop();
+			const auto pixels = wheel->pixelDelta().y();
+			_scroll->scrollToY(_scroll->scrollTop() - (pixels ? pixels : delta * singleStep / 120));
+			return base::EventFilterResult::Cancel;
+		}
 		if (std::abs(delta) != 120 || (wheel->phase() != Qt::NoScrollPhase)) {
 			if (_scrollAnimation.animating()) {
 				_scrollAnimation.stop();

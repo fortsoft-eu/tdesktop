@@ -53,7 +53,7 @@ void SendAsButton::paintEvent(QPaintEvent *e) {
 		p.setBrush(_st.activeBg);
 		{
 			PainterHighQualityEnabler hq(p);
-			p.drawEllipse(left, top, _st.size, _st.size);
+			p.drawRect(left, top, _st.size, _st.size);
 		}
 
 		CrossAnimation::paint(

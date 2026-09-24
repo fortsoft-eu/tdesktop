@@ -280,10 +280,16 @@ void SetupSensitiveContent(
 	) | rpl::on_next([=] {
 		session->api().sensitiveContent().reload();
 	}, container->lifetime());
+	auto buttonStyle = st::settingsButtonNoIcon;
+	buttonStyle.toggleSkip = buttonStyle.padding.left();
+	buttonStyle.padding.setLeft(buttonStyle.toggleSkip
+		+ st::classicCheckSize
+		+ st::settingsExperimentalButton.padding.right());
 	const auto button = inner->add(object_ptr<Button>(
 		inner,
 		tr::lng_settings_sensitive_disable_filtering(),
-		st::settingsButtonNoIcon));
+		buttonStyle));
+	button->setProperty("classicCheckOnLeft", true);
 	button->toggleOn(rpl::merge(
 		session->api().sensitiveContent().enabled(),
 		disable->events() | rpl::map_to(false)
@@ -505,6 +511,7 @@ void SetupArchiveAndMute(
 		tr::lng_settings_auto_archive(),
 		st::settingsButtonNoIcon
 	));
+	button->setProperty("classicCheckOnLeft", true);
 	button->toggleOn(
 		privacy->archiveAndMute()
 	)->toggledChanges(
@@ -910,7 +917,7 @@ void BuildPrivacySection(SectionBuilder &builder) {
 	const auto messagesButton = builder.addButton({
 		.id = u"privacy/messages"_q,
 		.title = tr::lng_settings_messages_privacy(),
-		.st = &st::settingsButtonNoIcon,
+		.st = &st::settingsPrivacyButton,
 		.label = rpl::duplicate(messagesLabel),
 		.onClick = [=] {
 			controller->show(Box(EditMessagesPrivacyBox, controller, QString()));
@@ -922,7 +929,7 @@ void BuildPrivacySection(SectionBuilder &builder) {
 			messagesButton,
 			session,
 			std::move(messagesLabel),
-			st::settingsButtonNoIcon.padding);
+			st::settingsPrivacyButton.padding);
 	}
 
 	builder.addPrivacyButton({

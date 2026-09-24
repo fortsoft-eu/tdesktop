@@ -267,6 +267,12 @@ void Tray::addAction(rpl::producer<QString> text, Fn<void()> &&callback) {
 	}, _actionsLifetime);
 }
 
+void Tray::addSeparator() {
+	if (_menu) {
+		_menu->addSeparator();
+	}
+}
+
 void Tray::showTrayMessage() const {
 	if (!cSeenTrayTooltip() && _icon) {
 		_icon->showMessage(
@@ -312,11 +318,12 @@ Window::CounterLayerArgs Tray::CounterLayerArgs(
 		int size,
 		int counter,
 		bool muted) {
+	static const auto white = style::owned_color(Qt::white);
 	return Window::CounterLayerArgs{
 		.size = size,
 		.count = counter,
 		.bg = muted ? st::trayCounterBgMute : st::trayCounterBg,
-		.fg = st::trayCounterFg,
+		.fg = white.color(),
 	};
 }
 

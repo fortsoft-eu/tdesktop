@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/bot/starref/info_bot_starref_join_widget.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "apiwrap.h"
 #include "base/timer_rpl.h"
 #include "base/unixtime.h"
@@ -178,7 +181,7 @@ void Row::paintStatusText(
 		int outerWidth,
 		bool selected) {
 	const auto top = y
-		+ st::contactsStatusFont->ascent
+		+ st::classicSettingsFont->ascent
 		- st::starrefCommissionFont->ascent
 		- st::lineWidth;
 	p.drawImage(x, top, _badge);
@@ -257,7 +260,7 @@ void Row::refreshStatus() {
 	p.setBrush(st::historyPeer2UserpicBg2);
 	p.setPen(Qt::NoPen);
 	const auto radius = st::roundRadiusSmall;
-	p.drawRoundedRect(outer.translated(-outer.topLeft()), radius, radius);
+	p.drawRoundedRect(outer.translated(-outer.topLeft()), style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setFont(font);
 	p.setBrush(Qt::NoBrush);
 	p.setPen(st::historyPeerUserpicFg);
@@ -705,6 +708,7 @@ InnerWidget::InnerWidget(QWidget *parent, not_null<Controller*> controller)
 : RpWidget(parent)
 , _controller(controller)
 , _container(Ui::CreateChild<Ui::VerticalLayout>(this)) {
+	Ui::SetClassicSettingsStyle(this);
 	prepare();
 }
 
@@ -787,17 +791,14 @@ void InnerWidget::setupSort(not_null<Ui::RpWidget*> label) {
 		label->parentWidget(),
 		tr::lng_star_ref_sort_text(lt_sort, _sort.value() | rpl::map(phrase),
 		tr::marked),
-		st::defaultFlatLabel);
+		st::starrefProgramsSort);
 	rpl::combine(
 		label->geometryValue(),
 		widthValue(),
 		sort->widthValue()
 	) | rpl::on_next([=](QRect geometry, int outer, int sortWidth) {
 		const auto skip = st::boxRowPadding.right();
-		const auto top = geometry.y()
-			+ st::defaultSubsectionTitle.style.font->ascent
-			- st::defaultFlatLabel.style.font->ascent;
-		sort->moveToLeft(outer - sortWidth - skip, top, outer);
+		sort->moveToLeft(outer - sortWidth - skip, geometry.y(), outer);
 	}, sort->lifetime());
 	sort->setClickHandlerFilter([=](const auto &...) {
 		const auto menu = Ui::CreateChild<Ui::PopupMenu>(
@@ -829,7 +830,9 @@ not_null<ListController*> InnerWidget::setupSuggested() {
 	Ui::AddSkip(inner);
 	const auto subtitle = Ui::AddSubsectionTitle(
 		inner,
-		tr::lng_star_ref_list_subtitle());
+		tr::lng_star_ref_list_subtitle(),
+		{},
+		&st::starrefProgramsTitle);
 	setupSort(subtitle);
 
 	const auto delegate = lifetime().make_state<
@@ -936,6 +939,7 @@ Widget::Widget(
 	not_null<Controller*> controller)
 : ContentWidget(parent, controller)
 , _inner(setInnerWidget(object_ptr<InnerWidget>(this, controller))) {
+	Ui::SetClassicSettingsStyle(this);
 	_top = setupTop();
 }
 

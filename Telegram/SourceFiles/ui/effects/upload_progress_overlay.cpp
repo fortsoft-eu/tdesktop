@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/upload_progress_overlay.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "ui/effects/animation_value.h"
 #include "ui/painter.h"
@@ -158,9 +159,9 @@ void UploadProgressOverlay::paint(
 	p.setPen(Qt::NoPen);
 	p.setBrush(args.overlayFg);
 	if (args.roundRadius > 0.) {
-		p.drawRoundedRect(rect, args.roundRadius, args.roundRadius);
+		p.drawRoundedRect(rect, style::CornerRadius(args.roundRadius), style::CornerRadius(args.roundRadius));
 	} else {
-		p.drawEllipse(rect);
+		p.drawRect(rect);
 	}
 
 	if (_uploading) {

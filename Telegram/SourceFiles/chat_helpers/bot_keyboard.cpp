@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "chat_helpers/bot_keyboard.h"
 
+#include "ui/style/style_radius.h"
+
 #include "api/api_bot.h"
 #include "core/click_handler_types.h"
 #include "data/data_session.h"
@@ -43,6 +45,10 @@ public:
 		RectParts sides) const override;
 
 	const style::TextStyle &textStyle() const override;
+	bool buttonUsesDefaultCursor() const override;
+	QPoint buttonContentOffset(
+		bool pressed,
+		bool messageViewport) const override;
 	void repaint(not_null<const HistoryItem*> item) const override;
 
 protected:
@@ -52,7 +58,8 @@ protected:
 		const QRect &rect,
 		HistoryMessageMarkupButton::Color color,
 		Ui::BubbleRounding rounding,
-		float64 howMuchOver) const override;
+		float64 howMuchOver,
+		bool pressed) const override;
 	void paintButtonStart(
 		QPainter &p,
 		const Ui::ChatStyle *st,
@@ -62,7 +69,8 @@ protected:
 		const Ui::ChatStyle *st,
 		const QRect &rect,
 		int outerWidth,
-		HistoryMessageMarkupButton::Type type) const override;
+		HistoryMessageMarkupButton::Type type,
+		QPoint contentOffset) const override;
 	void paintButtonLoading(
 		QPainter &p,
 		const Ui::ChatStyle *st,
@@ -94,6 +102,14 @@ void Style::paintButtonStart(
 
 const style::TextStyle &Style::textStyle() const {
 	return st::botKbStyle;
+}
+
+bool Style::buttonUsesDefaultCursor() const {
+	return false;
+}
+
+QPoint Style::buttonContentOffset(bool, bool) const {
+	return {};
 }
 
 void Style::repaint(not_null<const HistoryItem*> item) const {
@@ -132,7 +148,8 @@ void Style::paintButtonBg(
 		const QRect &rect,
 		HistoryMessageMarkupButton::Color color,
 		Ui::BubbleRounding rounding,
-		float64 howMuchOver) const {
+		float64 howMuchOver,
+		bool) const {
 	using Color = HistoryMessageMarkupButton::Color;
 	using Corner = Ui::BubbleCornerRounding;
 	const auto bg = (color == Color::Normal)
@@ -155,7 +172,7 @@ void Style::paintButtonBg(
 	const auto bl = radius(2);
 	const auto br = radius(3);
 	if ((tl == tr) && (tl == bl) && (tl == br)) {
-		p.drawRoundedRect(rect, tl, tl);
+		p.drawRoundedRect(rect, style::CornerRadius(tl), style::CornerRadius(tl));
 	} else {
 		p.drawPath(Ui::ComplexRoundedRectPath(rect, tl, tr, bl, br));
 	}
@@ -166,7 +183,8 @@ void Style::paintButtonIcon(
 		const Ui::ChatStyle *st,
 		const QRect &rect,
 		int outerWidth,
-		HistoryMessageMarkupButton::Type type) const {
+		HistoryMessageMarkupButton::Type type,
+		QPoint contentOffset) const {
 	// Buttons with icons should not appear here.
 }
 

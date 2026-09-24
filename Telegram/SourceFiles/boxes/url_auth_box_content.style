@@ -28,8 +28,8 @@ urlAuthCheckboxAbout: FlatLabel(defaultPeerListAbout) {
 	}
 }
 urlAuthCodesButton: RoundButton(defaultLightButton) {
-	height: 58px;
-	textTop: 19px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	style: TextStyle(semiboldTextStyle) {
 		font: font(20px semibold);
 	}

@@ -216,10 +216,7 @@ void EmojiStatusPanel::create(const Descriptor &descriptor) {
 	const auto body = controller->window().widget()->bodyWidget();
 	auto features = ChatHelpers::ComposeFeatures();
 	features.collectibleStatus = descriptor.withCollectibles;
-	_panel = base::make_unique_q<ChatHelpers::TabbedPanel>(
-		body,
-		controller,
-		object_ptr<Selector>(
+	auto selector = object_ptr<Selector>(
 			nullptr,
 			Descriptor{
 				.show = controller->uiShow(),
@@ -235,7 +232,14 @@ void EmojiStatusPanel::create(const Descriptor &descriptor) {
 					: Mode::EmojiStatus),
 				.customTextColor = descriptor.customTextColor,
 				.features = features,
-			}));
+			});
+	auto panelDescriptor = ChatHelpers::TabbedPanelDescriptor{
+		.regularWindow = controller,
+		.ownedSelector = std::move(selector),
+		.separateWindow = true,
+		.windowTitle = tr::lng_menu_change_status(tr::now),
+	};
+	_panel = base::make_unique_q<ChatHelpers::TabbedPanel>(body, std::move(panelDescriptor));
 	_customTextColor = descriptor.customTextColor;
 	_backgroundEmojiMode = descriptor.backgroundEmojiMode;
 	_channelStatusMode = descriptor.channelStatusMode;

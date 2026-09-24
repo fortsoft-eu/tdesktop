@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_reply.h"
 
+#include "ui/style/style_radius.h"
 #include "core/click_handler_types.h"
 #include "core/ui_integration.h"
 #include "data/stickers/data_custom_emoji.h"
@@ -29,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/effects/spoiler_mess.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/custom_emoji_helper.h"
 #include "ui/text/text_options.h"
 #include "ui/text/text_utilities.h"
@@ -123,7 +125,7 @@ template <typename PaintShape>
 		const auto line = st::historyPollRadio.thickness;
 		p.setPen(Qt::NoPen);
 		p.setBrush(white);
-		p.drawRoundedRect(rect, line * 2, line * 2);
+		p.drawRoundedRect(rect, style::CornerRadius(line * 2), style::CornerRadius(line * 2));
 	});
 }
 
@@ -1028,16 +1030,21 @@ void Reply::paint(
 			}
 		} else {
 			p.setFont(st::msgDateFont);
-			p.setPen(cache->icon);
-			p.drawTextLeft(
-				textLeft,
-				(y
-					+ st::historyReplyPadding.top()
-					+ (st::msgDateFont->height / 2)),
-				w + 2 * x,
-				st::msgDateFont->elided(
-					_stateText,
-					x + w - textLeft - st::historyReplyPadding.right()));
+			const auto text = st::msgDateFont->elided(
+				_stateText,
+				x + w - textLeft - st::historyReplyPadding.right());
+			const auto top = y
+				+ st::historyReplyPadding.top()
+				+ (st::msgDateFont->height / 2);
+			if (inBubble) {
+				p.setPen(cache->icon);
+				p.drawTextLeft(textLeft, top, w + 2 * x, text);
+			} else {
+				const auto left = style::RightToLeft()
+					? (w + 2 * x - textLeft - p.fontMetrics().horizontalAdvance(text))
+					: textLeft;
+				Ui::PaintClassicText(p, QPoint(left, top + st::msgDateFont->ascent), text, Qt::white);
+			}
 		}
 	}
 }
@@ -1088,7 +1095,8 @@ TextWithEntities Reply::PeerEmoji(PeerData *peer) {
 TextWithEntities Reply::ComposePreviewName(
 		not_null<History*> history,
 		not_null<HistoryItem*> to,
-		const FullReplyTo &replyTo) {
+		const FullReplyTo &replyTo,
+		bool boldName) {
 	const auto sender = [&] {
 		if (const auto from = to->displayFrom()) {
 			return not_null(from);
@@ -1136,7 +1144,7 @@ TextWithEntities Reply::ComposePreviewName(
 		: tr::lng_preview_reply_to)(
 			tr::now,
 			lt_name,
-			nameFull,
+			(boldName ? tr::bold(nameFull) : nameFull),
 			tr::marked);
 
 }

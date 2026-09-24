@@ -694,7 +694,7 @@ BottomBar::BottomBar(not_null<Ui::RpWidget*> parent, bool fastShowChooseFrom)
 , _showList(base::make_unique_q<Ui::FlatButton>(
 	this,
 	QString(),
-	st::historyComposeButton))
+	st::historyCompactComposeButton))
 // Icons are swaped.
 , _previous({ base::make_unique_q<Ui::IconButton>(this, st::calendarNext) })
 , _next({ base::make_unique_q<Ui::IconButton>(this, st::calendarPrevious) })
@@ -722,7 +722,6 @@ BottomBar::BottomBar(not_null<Ui::RpWidget*> parent, bool fastShowChooseFrom)
 		_counter->sizeValue() | mapSize,
 		sizeValue()
 	) | rpl::on_next([=](const QSize &s) {
-		_showList->setGeometry(QRect(QPoint(), s));
 		_previous->moveToRight(0, (s.height() - _previous->height()) / 2);
 		_next->moveToRight(
 			_previous->width(),
@@ -731,8 +730,7 @@ BottomBar::BottomBar(not_null<Ui::RpWidget*> parent, bool fastShowChooseFrom)
 		auto left = st::topBarActionSkip;
 		const auto list = std::vector<not_null<Ui::RpWidget*>>{
 			_jumpToDate.get(),
-			_chooseFromUser.get(),
-			_counter.get() };
+			_chooseFromUser.get() };
 		for (const auto &w : list) {
 			if (w->isHidden()) {
 				continue;
@@ -740,6 +738,19 @@ BottomBar::BottomBar(not_null<Ui::RpWidget*> parent, bool fastShowChooseFrom)
 			w->moveToLeft(left, (s.height() - w->height()) / 2);
 			left += w->width();
 		}
+		const auto padding = st::classicButtonMinimumPadding;
+		const auto available = std::max(s.width() - left
+			- _previous->width() - _next->width(), 0);
+		const auto buttonWidth = std::min(available,
+			st::historyBottomButtonWidth);
+		_showList->resize(buttonWidth, _showList->height());
+		_showList->moveToLeft(left,
+			(s.height() - _showList->height()) / 2);
+		_counter->resizeToWidth(std::min(_counter->textMaxWidth(),
+			std::max(buttonWidth - 2 * padding, 0)));
+		_counter->moveToLeft(left + (buttonWidth - _counter->width()) / 2,
+			(s.height() - _counter->height()) / 2);
+		_showList->setVisible(_counter->textMaxWidth() > 0);
 	}, lifetime());
 
 	paintRequest(

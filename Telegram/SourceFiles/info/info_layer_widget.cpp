@@ -8,9 +8,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_layer_widget.h"
 
 #include "info/info_content_widget.h"
+#include "info/info_controller.h"
 #include "info/info_top_bar.h"
 #include "info/info_memento.h"
 #include "ui/rp_widget.h"
+#include "ui/style/style_classic.h"
 #include "ui/focus_persister.h"
 #include "ui/widgets/buttons.h"
 #include "ui/cached_round_corners.h"
@@ -270,6 +272,10 @@ int LayerWidget::MinimalSupportedWidth() {
 	return st::infoMinimalWidth + minimalMargins;
 }
 
+int LayerWidget::MaximumHeightForParent(int parentHeight) {
+	return parentHeight - 2 * std::clamp(parentHeight / 24, st::infoLayerTopMinimal, st::infoLayerTopMaximal);
+}
+
 int LayerWidget::resizeGetHeight(int newWidth) {
 	if (!parentWidget() || !_contentWrap || !newWidth) {
 		return 0;
@@ -301,37 +307,31 @@ QRect LayerWidget::countGeometry(int newWidth) {
 	const auto windowWidth = parentSize.width();
 	const auto windowHeight = parentSize.height();
 	const auto newLeft = (windowWidth - newWidth) / 2;
-	const auto newTop = std::clamp(
-		windowHeight / 24,
-		st::infoLayerTopMinimal,
-		st::infoLayerTopMaximal);
-	const auto newBottom = newTop;
+	const auto maximumHeight = MaximumHeightForParent(windowHeight);
+	const auto newTop = (windowHeight - maximumHeight) / 2;
 
-	const auto bottomRadius = st::boxRadius;
+	const auto border = 2 * st::lineWidth;
+	const auto bottomRadius = border ? border : st::boxRadius;
 	const auto maxVisibleHeight = windowHeight - newTop;
 	// Top rounding is included in _contentWrapHeight.
-	auto desiredHeight = _contentWrapHeight + bottomRadius;
-	accumulate_min(desiredHeight, maxVisibleHeight - newBottom);
+	auto desiredHeight = _contentWrapHeight + border + bottomRadius;
+	accumulate_min(desiredHeight, maximumHeight);
 
 	// First resize content to new width and get the new desired height.
-	const auto contentLeft = 0;
-	const auto contentTop = 0;
+	const auto contentLeft = border;
+	const auto contentTop = border;
 	const auto contentBottom = bottomRadius;
-	const auto contentWidth = newWidth;
+	const auto contentWidth = newWidth - 2 * border;
 	auto contentHeight = desiredHeight - contentTop - contentBottom;
-	const auto scrollTillBottom = _contentWrap->scrollTillBottom(
-		contentHeight);
-	auto additionalScroll = std::min(scrollTillBottom, newBottom);
+	auto additionalScroll = 0;
 
 	const auto expanding = (_desiredHeight > _contentWrapHeight);
 
-	desiredHeight += additionalScroll;
-	contentHeight += additionalScroll;
 	_tillBottom = (desiredHeight >= maxVisibleHeight);
-	if (_tillBottom) {
+	if (_tillBottom && !border) {
 		additionalScroll += contentBottom;
 	}
-	_contentTillBottom = _tillBottom && !_contentWrap->scrollBottomSkip();
+	_contentTillBottom = _tillBottom && !border && !_contentWrap->scrollBottomSkip();
 	if (_contentTillBottom) {
 		contentHeight += contentBottom;
 	}
@@ -359,35 +359,8 @@ void LayerWidget::paintEvent(QPaintEvent *e) {
 		return;
 	}
 	auto p = QPainter(this);
-
-	const auto clip = e->rect();
-	const auto radius = st::boxRadius;
-	const auto &corners = Ui::CachedCornerPixmaps(Ui::BoxCorners);
-	if (!_tillBottom) {
-		const auto bottom = QRect{ 0, height() - radius, width(), radius };
-		if (clip.intersects(bottom)) {
-			if (const auto rounding = _contentWrap->bottomSkipRounding()) {
-				rounding->paint(p, rect(), RectPart::FullBottom);
-			} else {
-				Ui::FillRoundRect(p, bottom, st::boxBg, {
-					.p = { QPixmap(), QPixmap(), corners.p[2], corners.p[3] }
-				});
-			}
-		}
-	} else if (!_contentTillBottom) {
-		const auto rounding = _contentWrap->bottomSkipRounding();
-		const auto &color = rounding ? rounding->color() : st::boxBg;
-		p.fillRect(0, height() - radius, width(), radius, color);
-	}
-	if (_contentWrap->animatingShow()) {
-		const auto top = QRect{ 0, 0, width(), radius };
-		if (clip.intersects(top)) {
-			Ui::FillRoundRect(p, top, st::boxBg, {
-				.p = { corners.p[0], corners.p[1], QPixmap(), QPixmap() }
-			});
-		}
-		p.fillRect(0, radius, width(), height() - 2 * radius, st::boxBg);
-	}
+	p.setClipRect(e->rect());
+	Ui::PaintClassicButton(p, rect(), this, false);
 }
 
 void LayerWidget::restoreFloatPlayerDelegate() {

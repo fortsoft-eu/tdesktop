@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/tag_info_box.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "boxes/peers/edit_participants_box.h"
 #include "boxes/peers/edit_tag_control.h"
 #include "data/data_channel.h"
@@ -114,8 +117,8 @@ constexpr auto kTextLinesAlpha = 0.1;
 				0,
 				imgWidth,
 				imgHeight,
-				imgHeight / 2.,
-				imgHeight / 2.);
+				style::CornerRadius(imgHeight / 2.),
+				style::CornerRadius(imgHeight / 2.));
 		}
 		p.setPen(color);
 		string.draw(p, {
@@ -225,7 +228,7 @@ void TagPreviewsWidget::paintPreview(
 
 	const auto local = QRect(0, 0, rect.width(), rect.height());
 	auto clipPath = QPainterPath();
-	clipPath.addRoundedRect(local, previewRadius, previewRadius);
+	clipPath.addRoundedRect(local, style::CornerRadius(previewRadius), style::CornerRadius(previewRadius));
 	p.setClipPath(clipPath);
 
 	Window::SectionWidget::PaintBackground(
@@ -278,7 +281,7 @@ void TagPreviewsWidget::paintBubbleToImage(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(stm.msgBg);
-		p.drawRoundedRect(bubbleRect, radius, radius);
+		p.drawRoundedRect(bubbleRect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 
 	const auto innerLeft = padding.left();
@@ -317,7 +320,7 @@ void TagPreviewsWidget::paintBubbleToImage(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(bgColor);
-		p.drawRoundedRect(pillRect, pillHeight / 2., pillHeight / 2.);
+		p.drawRoundedRect(pillRect, style::CornerRadius(pillHeight / 2.), style::CornerRadius(pillHeight / 2.));
 		p.setPen(badgeColor);
 		badgeString.draw(p, {
 			.position = QPoint(
@@ -370,8 +373,8 @@ void TagPreviewsWidget::paintBubbleToImage(
 			}
 			p.drawRoundedRect(
 				QRectF(innerLeft, y, w, lineHeight),
-				lineRadius,
-				lineRadius);
+				style::CornerRadius(lineRadius),
+				style::CornerRadius(lineRadius));
 			y += lineHeight + lineSpacing;
 			++lineIndex;
 		}
@@ -513,11 +516,17 @@ void TagInfoBox(
 				Fn<void(QString)>(nullptr)));
 		});
 	} else {
+		const auto text = tr::lng_tag_info_admins_only(tr::now);
+		auto label = object_ptr<Ui::RpWidget>(box);
+		const auto raw = label.data();
+		raw->resize(raw->width(), st::classicSettingsFont->height);
+		raw->paintRequest() | rpl::on_next([=] {
+			auto p = Painter(raw);
+			p.setFont(st::classicSettingsFont);
+			Ui::PaintClassicText(p, QPointF(0, st::classicSettingsFont->ascent), text, Qt::black);
+		}, raw->lifetime());
 		box->addRow(
-			object_ptr<Ui::FlatLabel>(
-				box,
-				tr::lng_tag_info_admins_only(),
-				st::tagInfoAdminsOnlyLabel),
+			std::move(label),
 			st::boxRowPadding + st::tagInfoAdminsOnlyPadding,
 			style::al_top);
 		box->addButton(

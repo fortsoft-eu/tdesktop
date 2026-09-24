@@ -86,7 +86,7 @@ namespace {
 	if (!messageText.isEmpty()) {
 		constexpr auto kMaxMessageLength = 100;
 		if (messageText.size() > kMaxMessageLength) {
-			messageText = messageText.left(kMaxMessageLength) + u"..."_q;
+			messageText = messageText.left(kMaxMessageLength) + u"…"_q;
 		}
 		if (peer->isChat() || peer->isMegagroup()) {
 			if (const auto from = item->from()) {
@@ -439,7 +439,7 @@ QString SubItemValue(
 		constexpr auto kMaxMessageLength = 100;
 		if (messageText.size() > kMaxMessageLength) {
 			messageText = messageText.left(kMaxMessageLength)
-				+ u"..."_q;
+				+ u"…"_q;
 		}
 		return messageText;
 	}

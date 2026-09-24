@@ -7,9 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 using "boxes/boxes.style";
 
-calendarTitleFont: boxTitleFont;
-calendarDaysFont: normalFont;
-calendarDaysFontOver: semiboldFont;
+calendarTitleFont: classicSettingsFont;
+calendarDaysFont: classicActionFont;
+calendarDateFont: classicSettingsFont;
+calendarDateContentFont: classicActionFont;
 calendarDaysFg: boxTitleAdditionalFg;
 calendarScroll: ScrollArea(defaultSolidScroll) {
 	deltat: 3px;

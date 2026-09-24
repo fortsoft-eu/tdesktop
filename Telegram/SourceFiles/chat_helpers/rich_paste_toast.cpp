@@ -145,8 +145,9 @@ void ShowRichPasteToast(RichPasteToastArgs &&args) {
 	const auto st = std::make_shared<style::Toast>(st::historyPremiumToast);
 	if (!button.isEmpty()) {
 		st->padding.setRight(
-			st::historyPremiumViewSet.style.font->width(button)
-			- st::historyPremiumViewSet.width);
+			st::richPasteToastButton.style.font->width(button)
+			- st::richPasteToastButton.width
+			+ 2 * st::richPasteToastButtonRightSkip);
 	}
 	const auto weak = Ui::Toast::Show(args.parent, Ui::Toast::Config{
 		.text = std::move(text),
@@ -157,6 +158,7 @@ void ShowRichPasteToast(RichPasteToastArgs &&args) {
 		.st = st.get(),
 		.attach = RectPart::Bottom,
 		.addToAttachSide = std::move(args.bottomOffset),
+		.adaptive = !button.isEmpty(),
 		.acceptinput = true,
 		.duration = kToastDuration,
 	});
@@ -179,7 +181,7 @@ void ShowRichPasteToast(RichPasteToastArgs &&args) {
 	const auto activate = Ui::CreateChild<Ui::RoundButton>(
 		widget.get(),
 		rpl::single(button),
-		st::historyPremiumViewSet);
+		st::richPasteToastButton);
 	activate->show();
 	activate->setClickedCallback([=, action = std::move(args.action)] {
 		if (const auto strong = weak.get()) {
@@ -194,7 +196,7 @@ void ShowRichPasteToast(RichPasteToastArgs &&args) {
 		activate->sizeValue()
 	) | rpl::on_next([=](QSize outer, QSize inner) {
 		activate->moveToRight(
-			0,
+			st::richPasteToastButtonRightSkip,
 			(outer.height() - inner.height()) / 2,
 			outer.width());
 	}, widget->lifetime());

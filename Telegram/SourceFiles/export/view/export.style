@@ -11,34 +11,34 @@ using "ui/widgets/widgets.style";
 using "boxes/boxes.style";
 
 exportPanelSize: size(364px, 480px);
-exportSettingPadding: margins(22px, 8px, 22px, 8px);
-exportSubSettingPadding: margins(56px, 4px, 22px, 12px);
+exportSettingPadding: margins(16px, 4px, 16px, 4px);
+exportSubSettingPadding: margins(36px, 3px, 16px, 6px);
 exportHeaderLabel: FlatLabel(boxTitle) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(15px semibold);
+		font: classicActionFont;
 	}
 }
-exportHeaderPadding: margins(22px, 20px, 22px, 9px);
+exportHeaderPadding: margins(16px, 12px, 16px, 5px);
 exportFileSizeSlider: MediaSlider(defaultContinuousSlider) {
 	seekSize: size(15px, 15px);
 }
 exportFileSizeLabel: LabelSimple(defaultLabelSimple) {
-	font: boxTextFont;
+	font: classicSettingsFont;
 }
-exportFileSizePadding: margins(22px, 8px, 22px, 8px);
+exportFileSizePadding: margins(16px, 4px, 16px, 4px);
 exportFileSizeLabelBottom: 18px;
 
 exportLocationLabel: FlatLabel(boxLabel) {
 	maxHeight: 21px;
 }
-exportLocationPadding: margins(22px, 8px, 22px, 8px);
+exportLocationPadding: margins(16px, 4px, 16px, 4px);
 exportLimitsPadding: margins(22px, 0px, 22px, 0px);
 
 exportAboutOptionLabel: FlatLabel(defaultFlatLabel) {
-	textFg: windowSubTextFg;
+	textFg: classicMenuText;
 	minWidth: 175px;
 }
-exportAboutOptionPadding: margins(22px, 0px, 22px, 16px);
+exportAboutOptionPadding: margins(16px, 0px, 16px, 8px);
 
 exportErrorLabel: FlatLabel(boxLabel) {
 	minWidth: 175px;
@@ -47,45 +47,34 @@ exportErrorLabel: FlatLabel(boxLabel) {
 }
 
 exportProgressDuration: 200;
-exportProgressRowHeight: 30px;
+exportProgressRowHeight: 45px;
 exportProgressRowPadding: margins(22px, 10px, 22px, 10px);
 exportProgressRowSkip: 10px;
 exportProgressLabel: FlatLabel(boxLabel) {
 	textFg: windowBoldFg;
 	maxHeight: 20px;
 	style: TextStyle(defaultTextStyle) {
-		font: font(14px semibold);
+		font: classicActionFont;
 	}
 }
 exportProgressInfoLabel: FlatLabel(boxLabel) {
-	textFg: windowSubTextFg;
+	textFg: classicMenuText;
 	maxHeight: 20px;
 	style: boxTextStyle;
 }
-exportProgressWidth: 3px;
+exportProgressWidth: 18px;
+exportProgressPadding: margins(3px, 3px, 3px, 3px);
 exportProgressFg: mediaPlayerActiveFg;
-exportProgressBg: mediaPlayerInactiveFg;
+exportProgressBg: classicControlBg;
 
-exportCancelButton: RoundButton(attentionBoxButton) {
-	width: 200px;
-	height: 44px;
-	textTop: 12px;
-	style: TextStyle(semiboldTextStyle) {
-		font: font(semibold 15px);
-	}
+exportCancelButton: RoundButton(classicProfileActionButton) {
 }
 exportCancelBottom: 30px;
-exportDoneButton: RoundButton(defaultActiveButton) {
-	width: 200px;
-	height: 44px;
-	textTop: 12px;
-	style: TextStyle(semiboldTextStyle) {
-		font: font(semibold 15px);
-	}
+exportDoneButton: RoundButton(classicProfileActionButton) {
 }
 
 exportAboutLabel: FlatLabel(boxLabel) {
-	textFg: windowSubTextFg;
+	textFg: classicMenuText;
 }
 exportAboutPadding: margins(22px, 10px, 22px, 0px);
 

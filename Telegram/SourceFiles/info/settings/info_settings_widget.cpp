@@ -8,10 +8,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/settings/info_settings_widget.h"
 
 #include "info/info_memento.h"
-#include "settings/sections/settings_main.h"
-#include "settings/sections/settings_information.h"
-#include "settings/settings_common_session.h"
 #include "menu/menu_send.h"
+#include "settings/sections/settings_active_sessions.h"
+#include "settings/sections/settings_information.h"
+#include "settings/sections/settings_main.h"
+#include "settings/settings_common_session.h"
+#include "ui/widgets/scroll_area.h"
 #include "ui/ui_utility.h"
 
 namespace Info {
@@ -63,6 +65,10 @@ Widget::Widget(
 		}))
 , _pinnedToTop(_inner->createPinnedToTop(this))
 , _pinnedToBottom(_inner->createPinnedToBottom(this)) {
+	if (_type == ::Settings::SessionsId()) {
+		scroll()->setBarAlwaysVisible(true);
+	}
+
 	_inner->sectionShowOther(
 	) | rpl::on_next([=](Type type) {
 		controller->showSettings(type);
@@ -86,7 +92,7 @@ Widget::Widget(
 	}, _inner->lifetime());
 
 	if (_pinnedToTop) {
-		_inner->widthValue(
+		widthValue(
 		) | rpl::on_next([=](int w) {
 			_pinnedToTop->resizeToWidth(w);
 			setScrollTopSkip(_pinnedToTop->height());
@@ -106,10 +112,9 @@ Widget::Widget(
 				height() - _pinnedToBottom->height());
 		};
 
-		_inner->sizeValue(
-		) | rpl::on_next([=](const QSize &s) {
-			_pinnedToBottom->resizeToWidth(s.width());
-			//processHeight();
+		widthValue(
+		) | rpl::on_next([=](int width) {
+			_pinnedToBottom->resizeToWidth(width);
 		}, _pinnedToBottom->lifetime());
 
 		rpl::combine(

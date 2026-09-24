@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/credits_graphics.h"
 #include "ui/layers/generic_box.h"
 #include "ui/rect.h"
+#include "ui/style/style_classic.h"
 #include "ui/toast/toast.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
@@ -57,7 +58,7 @@ void AddHeader(
 		object_ptr<Ui::FlatLabel>(
 			content,
 			text(),
-			st::channelEarnHeaderLabel),
+			st::botEarnHeaderLabel),
 		st::boxRowPadding);
 	header->resizeToWidth(header->width());
 }
@@ -68,6 +69,7 @@ InnerWidget::InnerWidget(QWidget *parent, not_null<Controller*> controller)
 : VerticalLayout(parent)
 , _controller(controller)
 , _show(controller->uiShow()) {
+	Ui::SetClassicSettingsStyle(this);
 }
 
 void InnerWidget::load() {

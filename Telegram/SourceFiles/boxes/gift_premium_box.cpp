@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/gift_premium_box.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_premium.h"
 #include "api/api_premium_option.h"
 #include "apiwrap.h"
@@ -223,8 +224,7 @@ using SpinnerState = Data::GiftUpgradeSpinner::State;
 		: (int(base::SafeRound(diff * 100)) / 100.);
 	const auto prefix = (use > 0) ? u"+"_q : QString();
 	const auto percent = Lang::FormatExactCountDecimal(use) + '%';
-	auto text = rpl::single(prefix + percent);
-	return MakeValueWithSmallButton(table, label, std::move(text)).widget;
+	return Ui::MakeValueWithReadOnlyField(table, label, prefix + percent);
 }
 
 [[nodiscard]] object_ptr<Ui::RpWidget> MakeMinimumPriceValue(
@@ -926,11 +926,7 @@ void GiftCodeBox(
 		close->moveToRight(0, 0);
 	}, box->lifetime());
 
-	box->addButton(rpl::conditional(
-		state->used.value(),
-		tr::lng_box_ok(),
-		tr::lng_gift_link_use()
-	), [=] {
+	const auto use = [=] {
 		if (state->used.current()) {
 			box->closeBox();
 		} else if (!state->sent) {
@@ -954,7 +950,12 @@ void GiftCodeBox(
 			});
 			controller->session().api().premium().applyGiftCode(slug, done);
 		}
-	});
+	};
+	state->used.value() | rpl::on_next([=](bool used) {
+		box->clearButtons();
+		box->setStyle(used ? st::creditsEntryOkBox : st::giveawayGiftCodeBox);
+		box->addButton(used ? tr::lng_box_ok() : tr::lng_gift_link_use(), use);
+	}, box->lifetime());
 }
 
 void GiftCodePendingBox(
@@ -1148,7 +1149,7 @@ void GiveawayInfoBox(
 			auto p = QPainter(result);
 			p.setPen(Qt::NoPen);
 			p.setBrush(st::boxDividerBg);
-			p.drawRoundedRect(result->rect(), st::boxRadius, st::boxRadius);
+			p.drawRoundedRect(result->rect(), style::CornerRadius(st::boxRadius), style::CornerRadius(st::boxRadius));
 		}, result->lifetime());
 		Ui::AddSkip(box->verticalLayout());
 	}
@@ -1489,14 +1490,14 @@ void AddStarGiftTable(
 		Fn<void()> convertToStars,
 		bool canStartUpgrade,
 		Fn<void(Fn<void()> removed)> removeDetails) {
+	const auto unique = entry.uniqueGift.get();
 	const auto table = container->add(
 		object_ptr<Ui::TableLayout>(
 			container,
-			st.table ? *st.table : st::giveawayGiftCodeTable),
+			st.table ? *st.table : unique ? st::giveawayGiftCodeTable : st::giveawayGiftDetailsTable),
 		st::giveawayGiftCodeTableMargin);
 	const auto peerId = PeerId(entry.barePeerId);
 	const auto session = &show->session();
-	const auto unique = entry.uniqueGift.get();
 	const auto selfBareId = session->userPeerId().value;
 	const auto giftToSelf = (peerId == session->userPeerId())
 		&& (entry.in || entry.bareGiftOwnerId == selfBareId);

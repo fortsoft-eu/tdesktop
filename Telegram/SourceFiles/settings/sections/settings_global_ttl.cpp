@@ -268,7 +268,7 @@ void RebuildButtons(
 				: tr::lng_settings_ttl_after(
 					lt_after_duration,
 					rpl::single(ttlText)),
-			st::settingsButtonNoIcon));
+			st::settingsTtlOption));
 		button->setClickedCallback([=] {
 			if (state->group->current() == ttl) {
 				return;
@@ -287,12 +287,16 @@ void RebuildButtons(
 			QString());
 		radio->setAttribute(Qt::WA_TransparentForMouseEvents);
 		radio->show();
-		const auto padding = button->st().padding;
 		button->sizeValue(
-		) | rpl::on_next([=](QSize s) {
+		) | rpl::on_next([=] {
+			const auto check = radio->checkRect();
+			const auto margins = radio->getMargins();
 			radio->moveToLeft(
-				s.width() - radio->checkRect().width() - padding.left(),
-				radio->checkRect().top());
+				st::settingsButtonNoIcon.padding.left()
+					+ margins.left() - check.left(),
+				st::settingsTtlOption.padding.top()
+					+ (st::settingsTtlOption.style.font->height - check.height()) / 2
+					+ margins.top() - check.top());
 		}, radio->lifetime());
 	}
 	state->buttons->resizeToWidth(state->buttons->width());

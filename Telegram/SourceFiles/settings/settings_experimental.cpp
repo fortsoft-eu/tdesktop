@@ -142,18 +142,23 @@ void SetupCopyDeepLink(
 		const QString &name,
 		const QString &description,
 		const style::SettingsButton &st) {
-	if (description.isEmpty()) {
-		return container->add(object_ptr<Button>(
-			container,
-			rpl::single(name),
-			st));
-	}
 	const auto &titlePadding = st::settingsExperimentalTitlePadding;
 	const auto &aboutPadding = st::settingsExperimentalAboutPadding;
+	auto buttonStyle = st;
+	buttonStyle.padding.setLeft(titlePadding.left());
+	if (description.isEmpty()) {
+		const auto button = container->add(object_ptr<Button>(
+			container,
+			rpl::single(name),
+			buttonStyle));
+		button->setProperty("classicCheckOnLeft", true);
+		return button;
+	}
 	const auto button = Ui::CreateChild<Button>(
 		container.get(),
 		rpl::single(QString()),
-		st);
+		buttonStyle);
+	button->setProperty("classicCheckOnLeft", true);
 	const auto title = container->add(
 		object_ptr<Ui::FlatLabel>(
 			container,
@@ -223,7 +228,7 @@ QString AddOption(
 		name,
 		description,
 		(option.relevant()
-			? st::settingsButtonNoIcon
+			? st::settingsExperimentalButton
 			: st::settingsOptionDisabled)
 	)->toggleOn(toggles->events_starting_with(option.value()));
 
@@ -256,7 +261,7 @@ QString AddOption(
 		}
 		option.set(toggled);
 		if (restarter) {
-			restarter->callOnce(st::settingsButtonNoIcon.toggle.duration);
+			restarter->callOnce(st::settingsExperimentalButton.toggle.duration);
 		}
 	}, inner->lifetime());
 
@@ -304,7 +309,7 @@ QString AddFavoriteLinkButton(
 		inner,
 		rpl::single(name),
 		std::move(label),
-		st::settingsButtonNoIcon);
+		st::settingsExperimentalButton);
 	button->setClickedCallback([=] {
 		window->show(Box(Window::EditFolderFavoriteLinkBox));
 	});
@@ -334,6 +339,10 @@ void SetupExperimental(
 		rpl::producer<> reloadOptionsRequests,
 		rpl::producer<QString> query,
 		Fn<void(const QString&, not_null<QWidget*>)> registerHighlight) {
+	container->setAutoFillBackground(true);
+	auto palette = container->palette();
+	palette.setColor(QPalette::Window, st::classicControlBg->c);
+	container->setPalette(palette);
 	const auto headerWrap = container->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 			container,
@@ -346,7 +355,7 @@ void SetupExperimental(
 		object_ptr<Ui::FlatLabel>(
 			header,
 			tr::lng_settings_experimental_about(),
-			st::boxLabel),
+			st::settingsExperimentalIntro),
 		st::defaultBoxDividerLabelPadding);
 
 	auto reset = (Button*)nullptr;
@@ -361,7 +370,7 @@ void SetupExperimental(
 		reset = inner->add(object_ptr<Button>(
 			inner,
 			tr::lng_settings_experimental_restore(),
-			st::settingsButtonNoIcon));
+			st::settingsExperimentalButton));
 		reset->addClickHandler([=] {
 			base::options::reset();
 			wrap->hide(anim::type::normal);
@@ -424,6 +433,7 @@ void SetupExperimental(
 		{
 			u"Media"_q,
 			{
+				"send-large-photos",
 				Media::Player::kOptionDisableAutoplayNext,
 				Window::kOptionExternalMediaViewer,
 				FFmpeg::kOptionFFmpegMultiThread,
@@ -486,7 +496,11 @@ void SetupExperimental(
 				object_ptr<Ui::VerticalLayout>(container)));
 		const auto inner = wrap->entity();
 		Ui::AddSkip(inner);
-		Ui::AddSubsectionTitle(inner, rpl::single(title));
+		Ui::AddSubsectionTitle(
+			inner,
+			rpl::single(title),
+			{},
+			&st::settingsExperimentalSectionTitle);
 		auto searchable = std::vector<QString>();
 		fill(inner, searchable);
 		Ui::AddSkip(inner);
@@ -605,10 +619,13 @@ void Experimental::showFinished() {
 
 base::weak_qptr<Ui::RpWidget> Experimental::createPinnedToTop(
 		not_null<QWidget*> parent) {
-	auto search = CreateSectionSearchRow(parent, _query.current());
-	_searchController = std::move(search.controller);
-	const auto row = search.row;
-	_searchField = search.field;
+	_searchController = std::make_unique<Ui::SearchFieldController>(
+		_query.current());
+	auto search = _searchController->createRowView(
+		parent, st::settingsExperimentalSearch);
+	const auto row = search.wrap.release();
+	_searchField = search.field.data();
+	row->show();
 
 	_searchController->queryValue(
 	) | rpl::on_next([=](QString text) {

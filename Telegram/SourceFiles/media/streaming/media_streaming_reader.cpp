@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "media/streaming/media_streaming_common.h"
 #include "media/streaming/media_streaming_loader.h"
 #include "storage/cache/storage_cache_database.h"
+#include "storage/streamed_file_downloader.h"
 
 namespace Media {
 namespace Streaming {
@@ -1077,6 +1078,10 @@ void Reader::sendDownloaderRequests() {
 	for (const auto offset : offsets) {
 		if ((!_cacheHelper || !downloaderWaitForCachedSlice(offset))
 			&& _downloaderOffsetsRequested.emplace(offset).second) {
+			if (_attachedDownloader && _attachedDownloader->cacheOnly()) {
+				_partsForDownloader.fire({ LoadedPart::kFailedOffset });
+				return;
+			}
 			_loader->load(offset);
 		}
 	}

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "chat_helpers/emoji_picker_overlay.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/emoji_keywords.h"
 #include "chat_helpers/stickers_list_footer.h"
 #include "core/application.h"
@@ -626,7 +627,7 @@ void EmojiPickerOverlay::paintEvent(QPaintEvent *e) {
 	_shadow.paint(p, shown, radius);
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::stickersEmojiPickerBg);
-	p.drawRoundedRect(shown, radius, radius);
+	p.drawRoundedRect(shown, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	if (progress < 1.) {
 		paintTailBubble(p, shown, 1. - progress);

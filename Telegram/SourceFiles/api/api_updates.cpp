@@ -6,7 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "api/api_updates.h"
-
+#include "data/components/profile_details.h"
 #include "api/api_authorizations.h"
 #include "api/api_user_names.h"
 #include "api/api_chat_participants.h"
@@ -2142,6 +2142,10 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 
 	case mtpc_updateUserPhone: {
 		const auto &d = update.c_updateUserPhone();
+		session().profileDetails().observe(
+			UserId(d.vuser_id()),
+			Data::ProfileDetail::Phone,
+			qs(d.vphone()));
 		if (const auto user = session().data().userLoaded(d.vuser_id())) {
 			const auto newPhone = qs(d.vphone());
 			if (newPhone != user->phone()) {

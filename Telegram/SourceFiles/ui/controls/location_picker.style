@@ -8,27 +8,23 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 using "chat_helpers/chat_helpers.style";
 
 pickLocationWindow: size(364px, 680px);
+pickLocationTitle: FlatLabel(separatePanelTitle) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+}
+pickLocationSubsectionTitle: FlatLabel(defaultSubsectionTitle) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+}
 pickLocationMapHeight: 220px;
 pickLocationCollapsedHeight: 92px;
-pickLocationButton: FlatButton {
-	height: pickLocationRowHeight;
-	bgColor: contactsBg;
-	overBgColor: contactsBgOver;
-	ripple: defaultRippleAnimation;
-}
-pickLocationButtonText: FlatLabel(defaultFlatLabel) {
-	minWidth: 128px;
-	maxHeight: 20px;
-	style: semiboldTextStyle;
-	textFg: windowBoldFg;
-}
-pickLocationButtonStatus: FlatLabel(defaultFlatLabel) {
-	minWidth: 128px;
-	maxHeight: 20px;
-	textFg: windowSubTextFg;
-}
 pickLocationButtonSkip: 6px;
-pickLocationSendIcon: icon{{ "chat/filled_location", windowFgActive }};
+pickLocationActionButtonWidth: 196px;
+pickLocationSendIcon: icon{{ "menu/payment_address", classicMenuText }};
 pickLocationVenueItem: PeerListItem(defaultPeerListItem) {
 	height: pickLocationRowHeight;
 	photoSize: 42px;
@@ -58,10 +54,11 @@ pickLocationLoading: InfiniteRadialAnimation(defaultInfiniteRadialAnimation) {
 }
 pickLocationPromoHeight: 32px;
 pickLocationChooseOnMap: RoundButton(defaultActiveButton) {
-	height: 44px;
-	textTop: 11px;
-	width: -96px;
-	style: TextStyle(semiboldTextStyle) {
-		font: font(15px semibold);
-	}
+	width: pickLocationActionButtonWidth;
+	height: 28px;
+}
+pickLocationSendButton: RoundButton(pickLocationChooseOnMap) {
+	icon: pickLocationSendIcon;
+	iconOver: pickLocationSendIcon;
+	iconPosition: point(-4px, -1px);
 }

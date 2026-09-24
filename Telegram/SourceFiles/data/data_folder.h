@@ -102,6 +102,7 @@ private:
 	std::vector<not_null<History*>> _lastHistories;
 
 	Ui::Text::String _listEntryCache;
+	int _chatListNameVersion = 1;
 	int _listEntryCacheVersion = 0;
 	int _chatListViewVersion = 0;
 	//rpl::variable<MessagePosition> _unreadPosition;

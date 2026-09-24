@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/peer_gifts/info_peer_gifts_common.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_global_privacy.h"
 #include "api/api_premium.h"
 #include "base/unixtime.h"
@@ -96,7 +97,15 @@ std::strong_ordering operator<=>(const GiftBadge &a, const GiftBadge &b) {
 	if (result5 != std::strong_ordering::equal) {
 		return result5;
 	}
-	return a.gradient <=> b.gradient;
+	const auto result6 = (a.gradient <=> b.gradient);
+	if (result6 != std::strong_ordering::equal) {
+		return result6;
+	}
+	const auto result7 = (a.small <=> b.small);
+	if (result7 != std::strong_ordering::equal) {
+		return result7;
+	}
+	return a.classic <=> b.classic;
 }
 
 rpl::producer<std::vector<GiftTypeStars>> GiftsStars(
@@ -228,14 +237,14 @@ void GiftButton::setDescriptor(const GiftDescriptor &descriptor, Mode mode) {
 		const auto months = data.months;
 		_text = Ui::Text::String(st::giftBoxGiftHeight / 4);
 		_text.setMarkedText(
-			st::defaultTextStyle,
+			st::giftBoxPremiumTextStyle,
 			tr::bold(
 				tr::lng_months(tr::now, lt_count, months)
 			).append('\n').append(
 				tr::lng_gift_premium_label(tr::now)
 			));
 		_price.setText(
-			st::semiboldTextStyle,
+			st::giftBoxPremiumPriceStyle,
 			Ui::FillAmountAndCurrency(
 				data.cost,
 				data.currency,
@@ -276,7 +285,7 @@ void GiftButton::setDescriptor(const GiftDescriptor &descriptor, Mode mode) {
 			return;
 		}
 		_price.setMarkedText(
-			st::semiboldTextStyle,
+			st::giftBoxResaleTextStyle,
 			(data.resale
 				? ((unique && data.forceTon)
 					? Data::FormatGiftResaleTon(*unique)
@@ -342,7 +351,7 @@ void GiftButton::setDescriptor(const GiftDescriptor &descriptor, Mode mode) {
 		return;
 	}
 	const auto buttonw = _price.maxWidth();
-	const auto buttonh = st::semiboldFont->height;
+	const auto buttonh = st::classicSettingsFont->height;
 	const auto inner = QRect(
 		QPoint(),
 		QSize(buttonw, buttonh)
@@ -893,8 +902,7 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 	auto hq = PainterHighQualityEnabler(p);
 	const auto premium = v::is<GiftTypePremium>(_descriptor);
 	const auto singlew = width - extend.left() - extend.right();
-	const auto font = st::semiboldFont;
-	p.setFont(font);
+	p.setFont(st::classicSettingsFont);
 
 	const auto badge = v::match(_descriptor, [&](GiftTypePremium data) {
 		if (data.discountPercent > 0) {
@@ -982,6 +990,7 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 					? QColor(255, 255, 255)
 					: st::windowBg->c),
 				.small = true,
+				.classic = data.resale,
 			};
 		}
 		return GiftBadge();
@@ -1067,7 +1076,7 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 		const auto x = extend.left() + skip + percentSkip;
 		const auto y = extend.top() + skip;
 		const auto width = font->width(percent) + 2 * space;
-		p.drawRoundedRect(x, y, width, height, radius, radius);
+		p.drawRoundedRect(x, y, width, height, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		p.setPen(st::white);
 		p.setFont(font);
@@ -1090,7 +1099,7 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 		}
 		const auto geometry = _button;
 		const auto radius = geometry.height() / 2.;
-		p.drawRoundedRect(geometry, radius, radius);
+		p.drawRoundedRect(geometry, style::CornerRadius(radius), style::CornerRadius(radius));
 		if (!premium || onsale) {
 			p.setOpacity(1.);
 		}
@@ -1099,7 +1108,7 @@ void GiftButton::paint(QPainter &p, float64 craftProgress) {
 				_stars->paint(p);
 			} else {
 				auto clipPath = QPainterPath();
-				clipPath.addRoundedRect(geometry, radius, radius);
+				clipPath.addRoundedRect(geometry, style::CornerRadius(radius), style::CornerRadius(radius));
 				p.setClipPath(clipPath);
 				_stars->paint(p);
 				p.setClipping(false);
@@ -1248,8 +1257,8 @@ QImage Delegate::background() {
 		p.setBrush(st::windowShadowFg);
 		p.drawRoundedRect(
 			QRectF(rect).translated(0, radius / 12.),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	bg = bg.scaled(
 		(bgSize * ratio) / 2,
@@ -1265,7 +1274,7 @@ QImage Delegate::background() {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::windowBg);
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 
 	_bg = std::move(bg);
@@ -1376,7 +1385,9 @@ QImage ValidateRotatedBadge(
 		const GiftBadge &badge,
 		QMargins padding,
 		bool left) {
-	const auto &font = badge.small
+	const auto &font = badge.classic
+		? st::classicSettingsFont
+		: badge.small
 		? st::giftBoxGiftBadgeFont
 		: st::msgServiceGiftBoxBadgeFont;
 	const auto twidth = font->width(badge.text)

@@ -308,6 +308,7 @@ AddContactBox::AddContactBox(
 }
 
 void AddContactBox::prepare() {
+	setProperty("classicFormFrame", true);
 	if (_invertOrder) {
 		setTabOrder(_last, _first);
 	}
@@ -354,7 +355,7 @@ void AddContactBox::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 	if (_retrying) {
 		p.setPen(st::boxTextFg);
-		p.setFont(st::boxTextFont);
+		p.setFont(st::classicSettingsFont);
 		const auto textHeight = height()
 			- st::contactPadding.top()
 			- st::contactPadding.bottom()
@@ -513,6 +514,7 @@ void AddContactBox::retry() {
 
 void AddContactBox::updateButtons() {
 	clearButtons();
+	setStyle(_retrying ? st::classicActionBox : st::defaultBox);
 	if (_retrying) {
 		addButton(tr::lng_try_other_contact(), [=] { retry(); });
 	} else {
@@ -998,14 +1000,14 @@ SetupChannelBox::SetupChannelBox(
 	- st::defaultRadio.diameter
 	- st::defaultBoxCheckbox.textPosition.x())
 , _aboutPublic(
-	st::defaultTextStyle,
+	st::boxLabelStyle,
 	(channel->isMegagroup()
 		? tr::lng_create_public_group_about
 		: tr::lng_create_public_channel_about)(tr::now),
 	kDefaultTextOptions,
 	_aboutPublicWidth)
 , _aboutPrivate(
-	st::defaultTextStyle,
+	st::boxLabelStyle,
 	(channel->isMegagroup()
 		? tr::lng_create_private_group_about
 		: tr::lng_create_private_channel_about)(tr::now),
@@ -1125,8 +1127,8 @@ void SetupChannelBox::keyPressEvent(QKeyEvent *e) {
 void SetupChannelBox::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 
-	p.fillRect(e->rect(), st::boxBg);
-	p.setPen(st::newGroupAboutFg);
+	p.fillRect(e->rect(), st::classicControlBg);
+	p.setPen(st::classicMenuText);
 
 	if (_public) {
 		const auto aboutPublic = QRect(
@@ -1543,21 +1545,28 @@ EditNameBox::EditNameBox(
 	Focus focus)
 : _user(user)
 , _api(&_user->session().mtp())
-, _first(
-	this,
-	st::defaultInputField,
-	tr::lng_signup_firstname(),
-	_user->firstName)
-, _last(
-	this,
-	st::defaultInputField,
-	tr::lng_signup_lastname(),
-	_user->lastName)
+, _first(nullptr)
+, _last(nullptr)
 , _invertOrder(langFirstNameGoesSecond())
 , _focus(focus) {
+	setProperty("classicSettingsStyle", false);
+	_first.create(
+		this,
+		st::addContactNamedInput,
+		tr::lng_signup_firstname(),
+		_user->firstName);
+	_last.create(
+		this,
+		st::addContactNamedInput,
+		tr::lng_signup_lastname(),
+		_user->lastName);
 }
 
 void EditNameBox::prepare() {
+	setProperty("classicFormFrame", true);
+	const auto boxStyle = lifetime().make_state<style::Box>(st::defaultBox);
+	boxStyle->title.style.font = st::classicActionFont;
+	setStyle(*boxStyle);
 	auto newHeight = st::contactPadding.top() + _first->height();
 
 	setTitle(tr::lng_edit_self_title());

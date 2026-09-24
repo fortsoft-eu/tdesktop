@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/effects/radial_animation.h"
 #include "ui/click_handler.h"
+#include "ui/style/style_classic.h"
 #include "lang/lang_keys.h"
 #include "webview/webview_embed.h"
 #include "webview/webview_interface.h"
@@ -72,6 +73,11 @@ Panel::Panel(not_null<PanelDelegate*> delegate)
 : _delegate(delegate)
 , _widget(std::make_unique<SeparatePanel>()) {
 	_widget->setWindowFlag(Qt::WindowStaysOnTopHint, false);
+	_widget->setProperty("classicFormFrame", true);
+	SetClassicSettingsStyle(_widget.get());
+	_widget->overrideTitleColor(st::classicControlBg->c);
+	_widget->overrideBodyColor(st::classicControlBg->c);
+	_widget->setTitleStyle(st::paymentsPanelTitle);
 	_widget->setInnerSize(st::paymentsPanelSize);
 
 	_widget->closeRequests(
@@ -168,7 +174,7 @@ QRect Panel::progressRect() const {
 	if (!progressWithBackground()) {
 		return rect;
 	}
-	const auto size = st::defaultBoxButton.height;
+	const auto size = st::compactBoxButton.height;
 	return QRect(
 		rect.x() + (rect.width() - size) / 2,
 		rect.y() + (rect.height() - size) / 2,
@@ -203,7 +209,7 @@ void Panel::setupProgressGeometry() {
 		_weakFormSummary->sizeValue(
 		) | rpl::on_next([=](QSize form) {
 			const auto full = _widget->innerGeometry();
-			const auto size = st::defaultBoxButton.height;
+			const auto size = st::compactBoxButton.height;
 			const auto inner = _weakFormSummary->contentHeight();
 			const auto left = full.height() - inner;
 			if (left >= 2 * size) {

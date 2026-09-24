@@ -72,6 +72,7 @@ struct ChatPaintContext;
 struct ChatThemeBackground;
 struct ChatThemeBackgroundData;
 class MessageSendingAnimationController;
+class StandaloneLayerStack;
 struct BoostCounters;
 struct ChatPaintContextArgs;
 struct PreparedList;
@@ -437,6 +438,9 @@ public:
 		object_ptr<Ui::BoxContent> content,
 		Ui::LayerOptions options = Ui::LayerOption::KeepOther,
 		anim::type animated = anim::type::normal);
+	void showToolBox(
+		object_ptr<Ui::BoxContent> content,
+		QString title);
 	void hideLayer(anim::type animated = anim::type::normal);
 
 	[[nodiscard]] auto sendingAnimation() const
@@ -829,6 +833,7 @@ private:
 	const bool _hasDialogs = false;
 
 	mutable std::shared_ptr<ChatHelpers::Show> _cachedShow;
+	std::unique_ptr<Ui::StandaloneLayerStack> _toolLayerStack;
 
 	QString _authedName;
 

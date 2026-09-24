@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/attach/attach_bot_webview.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/chat/attach/attach_bot_downloads.h"
 #include "ui/chat/attach/attach_bot_webview_linux_shell.h"
 #include "ui/effects/radial_animation.h"
@@ -1524,7 +1525,7 @@ QRect Panel::progressRect() const {
 	if (!progressWithBackground()) {
 		return rect;
 	}
-	const auto size = st::defaultBoxButton.height;
+	const auto size = st::compactBoxButton.height;
 	return QRect(
 		rect.x() + (rect.width() - size) / 2,
 		rect.y() + (rect.height() - size) / 2,
@@ -3415,8 +3416,8 @@ void Panel::createButton(std::unique_ptr<Button> &button) {
 			p.setBrush(_bottomBarColor.value_or(st::windowBg->c));
 			p.drawRoundedRect(
 				raw->rect().marginsAdded({ 0, 2 * st::callRadius, 0, 0 }),
-				st::callRadius,
-				st::callRadius);
+				style::CornerRadius(st::callRadius),
+				style::CornerRadius(st::callRadius));
 		}, raw->lifetime());
 	}
 	button = std::make_unique<Button>(

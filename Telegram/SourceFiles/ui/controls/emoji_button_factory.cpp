@@ -28,10 +28,14 @@ namespace Ui {
 		not_null<Window::SessionController*> controller,
 		not_null<ChatHelpers::TabbedPanel*> emojiPanel,
 		QPoint shift,
-		bool fadeOnFocusChange) {
+		bool fadeOnFocusChange,
+		EmojiToggleMode mode) {
 	const auto emojiToggle = Ui::CreateChild<Ui::EmojiButton>(
 		field->parentWidget(),
 		st::defaultComposeFiles.emoji);
+	if (shift.x() < 0) {
+		field->setFrameRightMargin(-shift.x());
+	}
 	const auto fade = Ui::CreateChild<Ui::FadeAnimation>(
 		emojiToggle,
 		emojiToggle,
@@ -43,7 +47,7 @@ namespace Ui {
 		) | rpl::on_next([=](const QRect &rect) {
 			auto p = QPainter(fadeTarget);
 			if (fade->animating()) {
-				p.fillRect(fadeTarget->rect(), st::boxBg);
+				p.fillRect(fadeTarget->rect(), st::classicControlBg);
 			}
 			fade->paint(p);
 		}, fadeTarget->lifetime());
@@ -63,21 +67,26 @@ namespace Ui {
 		fade->fadeOut(1);
 		fade->finish();
 	}
+	if (!fadeOnFocusChange) {
+		emojiToggle->show();
+	}
 
 
 	const auto outer = box->getDelegate()->outerContainer();
 	const auto allow = [](not_null<DocumentData*>) { return true; };
-	InitMessageFieldHandlers(
-		controller,
-		field,
-		Window::GifPauseReason::Layer,
-		allow);
+	if (mode == EmojiToggleMode::CustomEmoji) {
+		InitMessageFieldHandlers(
+			controller,
+			field,
+			Window::GifPauseReason::Layer,
+			allow);
+	}
 	Ui::Emoji::SuggestionsController::Init(
 		outer,
 		field,
 		&controller->session(),
 		Ui::Emoji::SuggestionsController::Options{
-			.suggestCustomEmoji = true,
+			.suggestCustomEmoji = (mode == EmojiToggleMode::CustomEmoji),
 			.allowCustomWithoutPremium = allow,
 		});
 	const auto updateEmojiPanelGeometry = [=] {
@@ -99,14 +108,16 @@ namespace Ui {
 		box->sizeValue(),
 		field->geometryValue()
 	) | rpl::on_next([=](QSize outer, QRect inner) {
+		const auto frame = field->textFrameRect();
 		emojiToggle->moveToLeft(
 			rect::right(inner) + shift.x(),
-			inner.y() + shift.y());
+			inner.y() + frame.y() + (frame.height() - emojiToggle->height()) / 2);
 		emojiToggle->update();
 	}, emojiToggle->lifetime());
 
 	emojiToggle->installEventFilter(emojiPanel);
 	emojiToggle->addClickHandler([=] {
+		field->setFocus();
 		updateEmojiPanelGeometry();
 		emojiPanel->toggleAnimated();
 	});

@@ -118,11 +118,12 @@ PinnedWidget::PinnedWidget(
 , _clearButton(std::make_unique<Ui::FlatButton>(
 	this,
 	QString(),
-	st::historyComposeButton))
+	st::historyCompactComposeButton))
 , _cornerButtons(
 		_scroll.get(),
 		controller->chatStyle(),
-		static_cast<HistoryView::CornerButtonsDelegate*>(this)) {
+		static_cast<HistoryView::CornerButtonsDelegate*>(this),
+		true) {
 	controller->chatStyle()->paletteChanged(
 	) | rpl::on_next([=] {
 		_scroll->updateBars();
@@ -511,6 +512,10 @@ void PinnedWidget::refreshClearButtonText() {
 			lt_count,
 			std::max(_messagesCount, 1)).toUpper()
 		: tr::lng_pinned_hide_all(tr::now).toUpper());
+	const auto buttonWidth = std::min(width(),
+		st::historyBottomButtonWidth);
+	_clearButton->resizeToWidth(buttonWidth);
+	_clearButton->move((width() - buttonWidth) / 2, _clearButton->y());
 }
 
 void PinnedWidget::updateControlsGeometry() {
@@ -522,9 +527,13 @@ void PinnedWidget::updateControlsGeometry() {
 	_topBar->resizeToWidth(contentWidth);
 	_topBarShadow->resize(contentWidth, st::lineWidth);
 
-	const auto bottom = height() - _clearButton->height();
-	_clearButton->resizeToWidth(width());
-	_clearButton->move(0, bottom);
+	const auto barHeight = st::historyComposeButton.height;
+	const auto bottom = height() - barHeight;
+	const auto buttonWidth = std::min(width(),
+		st::historyBottomButtonWidth);
+	_clearButton->setGeometry((width() - buttonWidth) / 2,
+		bottom + (barHeight - _clearButton->height()) / 2,
+		buttonWidth, _clearButton->height());
 	const auto controlsHeight = 0;
 	auto top = _topBar->height();
 	_translateBar->move(0, top);
@@ -535,7 +544,10 @@ void PinnedWidget::updateControlsGeometry() {
 	if (_scroll->size() != scrollSize) {
 		_skipScrollEvent = true;
 		_scroll->resize(scrollSize);
-		_inner->resizeToWidth(scrollSize.width(), _scroll->height());
+		_inner->resizeToWidth(
+			std::max(scrollSize.width() - st::classicScrollBarWidth, 0),
+			_scroll->height());
+		_inner->moveToLeft(0, _inner->y(), scrollSize.width());
 		_skipScrollEvent = false;
 	}
 	_scroll->move(0, top);
@@ -561,6 +573,9 @@ void PinnedWidget::paintEvent(QPaintEvent *e) {
 	const auto bg = e->rect().intersected(
 		QRect(0, aboveHeight, width(), height() - aboveHeight));
 	SectionWidget::PaintBackground(controller(), _theme.get(), this, bg);
+	const auto barHeight = st::historyComposeButton.height;
+	QPainter(this).fillRect(
+		QRect(0, height() - barHeight, width(), barHeight), st::windowBg);
 }
 
 void PinnedWidget::onScroll() {

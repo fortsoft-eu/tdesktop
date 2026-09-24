@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/labels.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/box_content_divider.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
@@ -35,7 +36,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "chat_helpers/emoji_suggestions_widget.h"
 #include "boxes/add_contact_box.h"
-#include "boxes/premium_limits_box.h"
 #include "boxes/username_box.h"
 #include "boxes/peers/edit_peer_color_box.h"
 #include "data/business/data_business_chatbots.h"
@@ -72,6 +72,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_window.h"
 
 #include <QtGui/QGuiApplication>
+#include <QtGui/QAbstractTextDocumentLayout>
+#include <QtGui/QTextBlock>
+#include <QtGui/QTextLayout>
+#include <QtWidgets/QTextEdit>
 #include <QtCore/QBuffer>
 
 namespace Settings {
@@ -303,10 +307,13 @@ void SetupPhoto(
 		}
 	}, upload->lifetime());
 
+	const auto classicStyle = wrap->property("classicSettingsStyle");
+	wrap->setProperty("classicSettingsStyle", false);
 	const auto name = Ui::CreateChild<Ui::FlatLabel>(
 		wrap,
 		Info::Profile::NameValue(self),
 		st::settingsCoverName);
+	wrap->setProperty("classicSettingsStyle", classicStyle);
 	const auto status = Ui::CreateChild<Ui::FlatLabel>(
 		wrap,
 		StatusValue(self),
@@ -370,12 +377,13 @@ not_null<Ui::SettingsButton*> AddRow(
 		IconDescriptor &&descriptor,
 		bool markedValue = false,
 		Fn<void(not_null<Ui::PopupMenu*>)> menuExtender = nullptr,
-		const style::icon *copyIcon = nullptr) {
+		const style::icon *copyIcon = nullptr,
+		const style::SettingsButton &st = st::settingsButton) {
 	const auto wrap = markedValue
 		? AddButtonWithIcon(
 			container,
 			rpl::duplicate(label),
-			st::settingsButton,
+			st,
 			std::move(descriptor))
 		: AddButtonWithLabel(
 			container,
@@ -383,13 +391,13 @@ not_null<Ui::SettingsButton*> AddRow(
 			rpl::duplicate(value) | rpl::map([](const auto &t) {
 				return t.text;
 			}),
-			st::settingsButton,
+			st,
 			std::move(descriptor));
 	if (markedValue) {
 		CreateRightLabel(
 			wrap,
 			rpl::duplicate(value),
-			st::settingsButton,
+			st,
 			rpl::duplicate(label));
 	}
 	const auto forcopy = Ui::CreateChild<QString>(wrap.get());
@@ -597,13 +605,23 @@ void SetupRows(
 		}
 		controller->show(Box<EditNameBox>(self));
 	};
+	const auto nameStyle = container->lifetime().make_state<
+		style::SettingsButton>(Ui::ClassicSettingsStyle(st::settingsInfoNameButton));
+	nameStyle->rightLabel.style = st::settingsCoverName.style;
+	const auto classicStyle = container->property("classicSettingsStyle");
+	container->setProperty("classicSettingsStyle", false);
 	const auto nameButton = AddRow(
 		container,
 		tr::lng_settings_name_label(),
 		Info::Profile::NameValue(self) | rpl::map(tr::marked),
 		tr::lng_profile_copy_fullname(tr::now),
 		showEditName,
-		{ &st::menuIconProfile });
+		{ &st::menuIconProfile },
+		false,
+		nullptr,
+		nullptr,
+		*nameStyle);
+	container->setProperty("classicSettingsStyle", classicStyle);
 	if (targets) {
 		targets->name = nameButton;
 	}
@@ -691,13 +709,7 @@ void SetupBio(
 	const auto limits = Data::PremiumLimits(&self->session());
 	const auto defaultLimit = limits.aboutLengthDefault();
 	const auto premiumLimit = limits.aboutLengthPremium();
-	const auto bioStyle = [=] {
-		auto result = st::settingsBio;
-		result.textMargins.setRight(st::boxTextFont->spacew
-			+ st::boxTextFont->width('-' + QString::number(premiumLimit)));
-		return result;
-	};
-	const auto style = Ui::AttachAsChild(container, bioStyle());
+	const auto style = Ui::AttachAsChild(container, st::settingsBio);
 	const auto current = Ui::AttachAsChild(container, self->about());
 	const auto changed = Ui::CreateChild<rpl::event_stream<bool>>(
 		container.get());
@@ -706,9 +718,9 @@ void SetupBio(
 			container,
 			*style,
 			Ui::InputField::Mode::MultiLine,
-			tr::lng_bio_placeholder(),
-			*current),
+			tr::lng_bio_placeholder()),
 		st::settingsBioMargins);
+	bio->setText(*current);
 	if (targets) {
 		targets->bio = bio;
 	}
@@ -718,14 +730,30 @@ void SetupBio(
 		QString(),
 		st::settingsBioCountdown);
 
+	const auto updateCountdown = [=] {
+		const auto layout = bio->document()->firstBlock().layout();
+		if (!layout || !layout->lineCount()) {
+			return;
+		}
+		const auto line = layout->lineAt(0);
+		const auto top = bio->rawTextEdit()->viewport()->mapTo(
+			container,
+			QPoint()).y();
+		const auto baseline = top + int(base::SafeRound(
+			layout->position().y() + line.y() + line.ascent()));
+		countdown->move(
+			bio->x() + bio->width() + st::settingsBioCountdownSkip,
+			baseline - countdown->st().style.font->ascent);
+	};
 	rpl::combine(
 		bio->geometryValue(),
 		countdown->widthValue()
-	) | rpl::on_next([=](QRect geometry, int width) {
-		countdown->move(
-			geometry.x() + geometry.width() - width,
-			geometry.y() + style->textMargins.top());
-	}, countdown->lifetime());
+	) | rpl::on_next(updateCountdown, countdown->lifetime());
+	QObject::connect(
+		bio->document()->documentLayout(),
+		&QAbstractTextDocumentLayout::documentSizeChanged,
+		countdown,
+		updateCountdown);
 
 	const auto assign = [=](QString text) {
 		auto position = bio->textCursor().position();
@@ -764,7 +792,6 @@ void SetupBio(
 			*current = bio->getLastText();
 		}
 	}, bio->lifetime());
-
 	const auto generation = Ui::CreateChild<int>(bio);
 	changed->events(
 	) | rpl::on_next([=](bool changed) {
@@ -827,8 +854,7 @@ void SetupAccountsWrap(
 		QWidget *parent,
 		not_null<Window::SessionController*> window,
 		not_null<::Main::Account*> account,
-		Fn<void(Qt::KeyboardModifiers)> callback,
-		bool locked) {
+		Fn<void(Qt::KeyboardModifiers)> callback) {
 	const auto active = (account == &window->session().account());
 	const auto session = &account->session();
 	const auto user = session->user();
@@ -843,7 +869,7 @@ void SetupAccountsWrap(
 	auto result = object_ptr<Ui::SettingsButton>(
 		parent,
 		rpl::duplicate(text),
-		st::mainMenuAddAccountButton);
+		st::mainMenuAccountButton);
 	const auto raw = result.data();
 
 	{
@@ -878,7 +904,7 @@ void SetupAccountsWrap(
 		+ userpicSkip * 2;
 	raw->heightValue(
 	) | rpl::on_next([=](int height) {
-		const auto left = st::mainMenuAddAccountButton.iconLeft
+		const auto left = st::mainMenuAccountButton.iconLeft
 			+ (st::settingsIconAdd.width() - userpicSize) / 2;
 		const auto top = (height - userpicSize) / 2;
 		state->userpic.setGeometry(left, top, userpicSize, userpicSize);
@@ -896,12 +922,11 @@ void SetupAccountsWrap(
 			const auto shift = st::lineWidth + (line * 0.5);
 			const auto diameter = full - 2 * shift;
 			const auto rect = QRectF(shift, shift, diameter, diameter);
-			auto hq = PainterHighQualityEnabler(p);
 			auto pen = st::windowBgActive->p; // The same as '+' in add.
 			pen.setWidthF(line);
 			p.setPen(pen);
 			p.setBrush(Qt::NoBrush);
-			p.drawEllipse(rect);
+			p.drawRect(rect);
 		}
 	}, state->userpic.lifetime());
 
@@ -939,17 +964,15 @@ void SetupAccountsWrap(
 				Info::Profile::PhoneValue(session->user()));
 		}, &st::menuIconCopy);
 
-		if (!locked) {
-			if (!isActive) {
-				addAction(tr::lng_menu_activate(tr::now), [=] {
-					callback({});
-				}, &st::menuIconProfile);
-			}
-			MarkAsReadMenu::AddAllChatsAction(
-				session,
-				window->uiShow(),
-				addAction);
+		if (!isActive) {
+			addAction(tr::lng_menu_activate(tr::now), [=] {
+				callback({});
+			}, &st::menuIconProfile);
 		}
+		MarkAsReadMenu::AddAllChatsAction(
+			session,
+			window->uiShow(),
+			addAction);
 
 		if (!isActive) {
 			auto logoutCallback = [=] {
@@ -1028,14 +1051,6 @@ void AccountsList::setup() {
 		}
 		rebuild();
 	}, _outer->lifetime());
-
-	Core::App().domain().maxAccountsChanges(
-	) | rpl::on_next([=] {
-		for (auto i = _watched.begin(); i != _watched.end(); i++) {
-			i->second = nullptr;
-		}
-		rebuild();
-	}, _outer->lifetime());
 }
 
 
@@ -1059,18 +1074,7 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
 		auto &domain = _controller->session().domain();
 		domain.removeRedundantAccounts();
 
-		auto found = false;
-		for (const auto &[index, account] : domain.accounts()) {
-			const auto raw = account.get();
-			if (!raw->sessionExists()
-				&& raw->mtp().environment() == environment) {
-				found = true;
-			}
-		}
-		if (!found && domain.accounts().size() >= domain.maxAccounts()) {
-			_controller->show(
-				Box(AccountsLimitBox, &_controller->session()));
-		} else if (newWindow) {
+		if (newWindow) {
 			domain.addActivated(environment, true);
 		} else {
 			_controller->window().preventOrInvoke([=] {
@@ -1142,7 +1146,6 @@ void AccountsList::rebuild() {
 		}
 	}, inner->lifetime());
 
-	const auto premiumLimit = _controller->session().domain().maxAccounts();
 	const auto list = _controller->session().domain().orderedAccounts();
 	for (const auto &account : list) {
 		auto i = _watched.find(account);
@@ -1152,7 +1155,6 @@ void AccountsList::rebuild() {
 		if (!account->sessionExists() || list.size() == 1) {
 			button = nullptr;
 		} else if (!button) {
-			const auto nextIsLocked = (inner->count() >= premiumLimit);
 			auto callback = [=](Qt::KeyboardModifiers modifiers) {
 				if (_reordering) {
 					return;
@@ -1187,21 +1189,12 @@ void AccountsList::rebuild() {
 				inner,
 				_controller,
 				account,
-				std::move(callback),
-				nextIsLocked)));
+				std::move(callback))));
 		}
 	}
 	inner->resizeToWidth(_outer->width());
 
-	const auto count = int(list.size());
-
-	_reorder->addPinnedInterval(
-		premiumLimit,
-		std::max(1, count - premiumLimit));
-
-	_addAccount->toggle(
-		(count < ::Main::Domain::kPremiumMaxAccounts),
-		anim::type::instant);
+	_addAccount->toggle(true, anim::type::instant);
 
 	_reorder->start();
 }

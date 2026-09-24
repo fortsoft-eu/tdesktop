@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/launcher.h"
+#include "core/personal_defaults.h"
 
 #include "platform/platform_launcher.h"
 #include "platform/platform_specific.h"
@@ -34,6 +35,7 @@ base::options::toggle OptionHighDpiDownscale({
 	.name = "High DPI downscale",
 	.description = "Follow system interface scale settings exactly"
 		" (another approach, likely better quality).",
+	.defaultValue = false,
 	.scope = [] {
 		return !Platform::IsMac()
 			&& QLibraryInfo::version() >= QVersionNumber(6, 8);
@@ -45,6 +47,7 @@ base::options::toggle OptionFreeType({
 	.id = kOptionFreeType,
 	.name = "FreeType font engine",
 	.description = "Use the font engine from Linux instead of the system one.",
+	.defaultValue = true,
 	.scope = base::options::windows | base::options::macos,
 	.restartRequired = true,
 });
@@ -301,6 +304,7 @@ base::options::toggle OptionFractionalScalingEnabled({
 	.id = kOptionFractionalScalingEnabled,
 	.name = "Enable precise High DPI scaling",
 	.description = "Follow system interface scale settings exactly.",
+	.defaultValue = true,
 	.scope = base::options::windows | base::options::linux,
 	.restartRequired = true,
 });
@@ -352,6 +356,12 @@ void Launcher::init() {
 }
 
 void Launcher::initHighDpi() {
+#ifdef Q_OS_WIN
+	qputenv("TDESKTOP_UNIFONT_PIXEL_FONT", "1");
+	qputenv("TDESKTOP_BLACK_NEUTRAL_TEXT", "1");
+	qputenv("QT_SCALE_FACTOR", "1");
+	QApplication::setAttribute(Qt::AA_DisableHighDpiScaling, true);
+#endif // Q_OS_WIN
 #if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
 	qputenv("QT_DPI_ADJUSTMENT_POLICY", "AdjustDpi");
 #endif // Qt < 6.2.0
@@ -391,6 +401,7 @@ int Launcher::exec() {
 
 	// Must be started before Platform is started.
 	Logs::start();
+	ApplyPersonalExperimentalDefaults(cWorkingDir() + u"tdata/"_q);
 	base::options::init(cWorkingDir() + "tdata/experimental_options.json");
 
 	// Must be called after options are inited.

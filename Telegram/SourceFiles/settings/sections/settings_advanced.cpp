@@ -670,27 +670,26 @@ void BuildSystemIntegrationSection(SectionBuilder &builder) {
 #endif // Q_OS_MAC || Q_OS_WIN
 
 	if (Platform::AutostartSupported()) {
-		const auto minimizedToggled = [=] {
-			return cStartMinimized()
-				&& controller
-				&& !controller->session().domain().local().hasLocalPasscode();
-		};
-
 		const auto autostart = builder.addCheckbox({
 			.id = u"advanced/autostart"_q,
 			.title = tr::lng_settings_auto_start(),
 			.checked = cAutoStart(),
 			.keywords = { u"autostart"_q, u"startup"_q, u"boot"_q },
 		});
+		const auto minimizedEnabled = [=] {
+			const auto starts = autostart ? autostart->checked() : cAutoStart();
+			const auto locked = controller && controller->session().domain().local().hasLocalPasscode();
+			return starts && !locked;
+		};
+		const auto minimizedToggled = [=] {
+			return cStartMinimized() && minimizedEnabled();
+		};
 
 		const auto minimized = builder.addCheckbox({
 			.id = u"advanced/start_minimized"_q,
 			.title = tr::lng_settings_start_min(),
 			.checked = minimizedToggled(),
 			.keywords = { u"minimized"_q, u"startup"_q, u"hidden"_q },
-			.shown = autostart
-				? autostart->checkedValue()
-				: rpl::single(cAutoStart()),
 		});
 
 		if (autostart) {
@@ -712,7 +711,7 @@ void BuildSystemIntegrationSection(SectionBuilder &builder) {
 					if (enabled || !minimized || !minimized->checked()) {
 						Local::writeSettings();
 					} else if (minimized) {
-						minimized->setChecked(false);
+						minimized->setChecked(false, Ui::Checkbox::NotifyAboutChange::DontNotify);
 					}
 				}));
 			}, autostart->lifetime());
@@ -724,25 +723,36 @@ void BuildSystemIntegrationSection(SectionBuilder &builder) {
 			}
 		}
 
-		if (minimized && controller) {
+		if (minimized) {
+			const auto updateMinimizedState = [=] {
+				minimized->setDisabled(!minimizedEnabled());
+				minimized->setChecked(minimizedToggled(), Ui::Checkbox::NotifyAboutChange::DontNotify);
+			};
+			updateMinimizedState();
+			if (autostart) {
+				autostart->checkedValue() | rpl::on_next([=] {
+					updateMinimizedState();
+				}, minimized->lifetime());
+			}
+
 			minimized->checkedChanges(
 			) | rpl::filter([=](bool checked) {
 				return (checked != minimizedToggled());
 			}) | rpl::on_next([=](bool checked) {
-				if (controller->session().domain().local().hasLocalPasscode()) {
-					minimized->setChecked(false);
-					controller->show(Ui::MakeInformBox(
-						tr::lng_error_start_minimized_passcoded()));
+				if (!minimizedEnabled()) {
+					updateMinimizedState();
 				} else {
 					cSetStartMinimized(checked);
 					Local::writeSettings();
 				}
 			}, minimized->lifetime());
 
-			controller->session().domain().local().localPasscodeChanged(
-			) | rpl::on_next([=] {
-				minimized->setChecked(minimizedToggled());
-			}, minimized->lifetime());
+			if (controller) {
+				controller->session().domain().local().localPasscodeChanged(
+				) | rpl::on_next([=] {
+					updateMinimizedState();
+				}, minimized->lifetime());
+			}
 		}
 	}
 
@@ -1966,24 +1976,26 @@ void ArchiveSettingsBox(
 
 	struct State {
 		Ui::SlideWrap<Ui::VerticalLayout> *foldersWrap = nullptr;
-		Ui::SettingsButton *folders = nullptr;
+		Ui::Checkbox *folders = nullptr;
 	};
 	const auto state = box->lifetime().make_state<State>();
 	const auto privacy = &controller->session().api().globalPrivacy();
 
 	const auto container = box->verticalLayout();
 	AddSkip(container);
-	AddSubsectionTitle(container, tr::lng_settings_unmuted_chats());
+	AddSubsectionTitle(container, tr::lng_settings_unmuted_chats(), {}, &st::settingsArchiveSectionTitle);
 
 	using Unarchive = Api::UnarchiveOnNewMessage;
-	container->add(object_ptr<Button>(
+	const auto always = container->add(object_ptr<Ui::Checkbox>(
 		container,
 		tr::lng_settings_always_in_archive(),
-		st::settingsButtonNoIcon
-	))->toggleOn(privacy->unarchiveOnNewMessage(
-	) | rpl::map(
-		rpl::mappers::_1 == Unarchive::None
-	))->toggledChanges(
+		privacy->unarchiveOnNewMessageCurrent() == Unarchive::None,
+		st::settingsArchiveCheckbox),
+		st::settingsCheckboxPadding);
+	privacy->unarchiveOnNewMessage() | rpl::on_next([=](Unarchive value) {
+		always->setChecked(value == Unarchive::None, Ui::Checkbox::NotifyAboutChange::DontNotify);
+	}, always->lifetime());
+	always->checkedChanges(
 	) | rpl::filter([=](bool toggled) {
 		const auto current = privacy->unarchiveOnNewMessageCurrent();
 		state->foldersWrap->toggle(!toggled, anim::type::normal);
@@ -1991,13 +2003,13 @@ void ArchiveSettingsBox(
 	}) | rpl::on_next([=](bool toggled) {
 		privacy->updateUnarchiveOnNewMessage(toggled
 			? Unarchive::None
-			: state->folders->toggled()
+			: state->folders->checked()
 			? Unarchive::NotInFoldersUnmuted
 			: Unarchive::AnyUnmuted);
 	}, container->lifetime());
 
 	AddSkip(container);
-	AddDividerText(container, tr::lng_settings_unmuted_chats_about());
+	AddDividerText(container, tr::lng_settings_unmuted_chats_about(), st::defaultBoxDividerLabelPadding, st::settingsArchiveDivider);
 
 	state->foldersWrap = container->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -2005,17 +2017,18 @@ void ArchiveSettingsBox(
 			object_ptr<Ui::VerticalLayout>(container)));
 	const auto inner = state->foldersWrap->entity();
 	AddSkip(inner);
-	AddSubsectionTitle(inner, tr::lng_settings_chats_from_folders());
+	AddSubsectionTitle(inner, tr::lng_settings_chats_from_folders(), {}, &st::settingsArchiveSectionTitle);
 
-	state->folders = inner->add(object_ptr<Button>(
+	state->folders = inner->add(object_ptr<Ui::Checkbox>(
 		inner,
 		tr::lng_settings_always_in_archive(),
-		st::settingsButtonNoIcon
-	))->toggleOn(privacy->unarchiveOnNewMessage(
-	) | rpl::map(
-		rpl::mappers::_1 != Unarchive::AnyUnmuted
-	));
-	state->folders->toggledChanges(
+		privacy->unarchiveOnNewMessageCurrent() != Unarchive::AnyUnmuted,
+		st::settingsArchiveCheckbox),
+		st::settingsCheckboxPadding);
+	privacy->unarchiveOnNewMessage() | rpl::on_next([=](Unarchive value) {
+		state->folders->setChecked(value != Unarchive::AnyUnmuted, Ui::Checkbox::NotifyAboutChange::DontNotify);
+	}, state->folders->lifetime());
+	state->folders->checkedChanges(
 	) | rpl::filter([=](bool toggled) {
 		const auto current = privacy->unarchiveOnNewMessageCurrent();
 		return toggled != (current != Unarchive::AnyUnmuted);
@@ -2029,7 +2042,7 @@ void ArchiveSettingsBox(
 	}, inner->lifetime());
 
 	AddSkip(inner);
-	AddDividerText(inner, tr::lng_settings_chats_from_folders_about());
+	AddDividerText(inner, tr::lng_settings_chats_from_folders_about(), st::defaultBoxDividerLabelPadding, st::settingsArchiveDivider);
 
 	state->foldersWrap->toggle(
 		privacy->unarchiveOnNewMessageCurrent() != Unarchive::None,

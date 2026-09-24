@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/star_gift_resale_box.h"
 
+#include "ui/style/style_radius.h"
 #include "boxes/star_gift_box.h"
 #include "boxes/transfer_gift_box.h"
 #include "chat_helpers/compose/compose_show.h"
@@ -52,7 +53,7 @@ using Data::ResaleGiftsDescriptor;
 [[nodiscard]] Text::String ResaleTabText(QString text) {
 	auto result = Text::String();
 	result.setMarkedText(
-		st::semiboldTextStyle,
+		st::giftBoxResaleTextStyle,
 		TextWithEntities{ text }.append(st::giftBoxResaleTabsDropdown),
 		kMarkupTextOptions);
 	return result;
@@ -72,7 +73,7 @@ using Data::ResaleGiftsDescriptor;
 	}();
 	auto result = Text::String();
 	result.setMarkedText(
-		st::semiboldTextStyle,
+		st::giftBoxResaleTextStyle,
 		text,
 		kMarkupTextOptions);
 	return result;
@@ -471,7 +472,7 @@ struct ResaleTabs {
 			p.setBrush(st::giftBoxTabBgActive);
 			p.setPen(Qt::NoPen);
 			const auto radius = geometry.height() / 2.;
-			p.drawRoundedRect(geometry, radius, radius);
+			p.drawRoundedRect(geometry, style::CornerRadius(radius), style::CornerRadius(radius));
 			p.setPen(st::giftBoxTabFgActive);
 
 			button.text.draw(p, {
@@ -521,7 +522,7 @@ void GiftResaleBox(
 		object_ptr<Ui::FlatLabel>(
 			titleWrap,
 			rpl::single(descriptor.title),
-			st::boxTitle),
+			st::giftBoxResaleTitle),
 		QMargins(st::boxRowPadding.left(), 0, st::boxRowPadding.right(), 0));
 
 	const auto countLabel = titleWrap->add(
@@ -533,13 +534,13 @@ void GiftResaleBox(
 					lt_count,
 					descriptor.count)
 				: tr::lng_gift_resale_count_none(tr::now)),
-			st::defaultFlatLabel),
+			st::giftBoxResaleLabel),
 		QMargins(
 			st::boxRowPadding.left(),
 			0,
 			st::boxRowPadding.right(),
 			st::defaultVerticalListSkip));
-	countLabel->setTextColorOverride(st::windowSubTextFg->c);
+	countLabel->setTextColorOverride(st::classicMenuText->c);
 
 	const auto content = box->verticalLayout();
 	content->paintRequest() | rpl::on_next([=](QRect clip) {

@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common_session.h"
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/wrap/slide_wrap.h"
@@ -261,7 +262,7 @@ struct SetupShortcutsResult {
 					object_ptr<Ui::SettingsButton>(
 						entry.inner,
 						rpl::duplicate(entry.label),
-						st::settingsButtonNoIcon));
+						st::settingsShortcutsButton));
 				if (highlights && index == 0) {
 					const auto id = ShortcutsHighlightId(entry.command);
 					if (!id.isEmpty()) {
@@ -273,7 +274,7 @@ struct SetupShortcutsResult {
 				}
 				const auto keys = Ui::CreateChild<Ui::FlatLabel>(
 					widget,
-					st::settingsButtonNoIcon.rightLabel);
+					st::settingsShortcutsButton.rightLabel);
 				keys->show();
 				rpl::combine(
 					widget->widthValue(),
@@ -287,7 +288,7 @@ struct SetupShortcutsResult {
 						const QKeySequence &key,
 						Button *recording,
 						bool removed) {
-					const auto &st = st::settingsButtonNoIcon;
+					const auto &st = st::settingsShortcutsButton;
 					const auto available = width
 						- st.padding.left()
 						- st.padding.right()
@@ -492,7 +493,7 @@ struct SetupShortcutsResult {
 	const auto reset = modifiedInner->add(object_ptr<Ui::SettingsButton>(
 		modifiedInner,
 		tr::lng_shortcuts_reset(),
-		st::settingsButtonNoIcon));
+		st::settingsShortcutsButton));
 	reset->setClickedCallback([=] {
 		stopRecording();
 		for (auto &entry : state->entries) {
@@ -567,9 +568,9 @@ struct SetupShortcutsResult {
 				style::margins(),
 				style::al_justify);
 			separator->setDuration(0);
-			AddSkip(separator->entity());
+			AddSkip(separator->entity(), st::settingsShortcutsButton.padding.top());
 			AddDivider(separator->entity());
-			AddSkip(separator->entity());
+			AddSkip(separator->entity(), st::settingsShortcutsButton.padding.top());
 			state->separators.push_back(separator);
 			continue;
 		}
@@ -661,9 +662,17 @@ rpl::producer<QString> Shortcuts::title() {
 
 base::weak_qptr<Ui::RpWidget> Shortcuts::createPinnedToTop(
 		not_null<QWidget*> parent) {
-	auto search = CreateSectionSearchRow(parent);
-	_searchController = std::move(search.controller);
-	const auto row = search.row;
+	_searchController = std::make_unique<Ui::SearchFieldController>(QString());
+	auto view = _searchController->createRowView(
+		parent,
+		st::settingsShortcutsSearch);
+	view.field->setAdditionalMargins(QMargins(
+		3 * st::lineWidth - view.field->st().textMargins.left(),
+		0,
+		0,
+		0));
+	const auto row = view.wrap.release();
+	row->show();
 
 	_searchController->queryChanges(
 	) | rpl::on_next([=](const QString &query) {

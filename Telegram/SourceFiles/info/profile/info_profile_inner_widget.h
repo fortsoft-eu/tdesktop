@@ -40,6 +40,7 @@ class Memento;
 class Members;
 class TabsHost;
 class TopBar;
+class ClassicCover;
 struct Origin;
 
 class InnerWidget final : public Ui::RpWidget {
@@ -105,6 +106,7 @@ private:
 	Data::ForumTopic * const _topic = nullptr;
 	Data::SavedSublist * const _sublist = nullptr;
 	const bool _savedMessages = false;
+	const bool _classicProfile = false;
 
 	bool _inResize = false;
 	int _lastDesiredHeight = -1;
@@ -121,6 +123,7 @@ private:
 	rpl::variable<std::optional<QColor>> _topBarColor;
 
 	Members *_members = nullptr;
+	ClassicCover *_classicCover = nullptr;
 	base::weak_qptr<TopBar> _topBar;
 	Ui::SlideWrap<RpWidget> *_sharedMediaWrap = nullptr;
 	TabsHost *_tabsHost = nullptr;

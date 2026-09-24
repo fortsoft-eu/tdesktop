@@ -13,16 +13,15 @@ paymentsPanelSize: size(392px, 600px);
 
 paymentsPanelButton: RoundButton(defaultBoxButton) {
 	width: -36px;
-	height: 36px;
-	style: TextStyle(defaultTextStyle) {
-		font: boxButtonFont;
-	}
 }
-paymentsPanelSubmit: RoundButton(defaultActiveButton) {
+paymentsPanelSubmit: RoundButton(defaultBoxButton) {
 	width: -36px;
-	height: 36px;
+}
+paymentsPanelTitle: FlatLabel(defaultFlatLabel) {
+	textFg: classicMenuText;
+	maxHeight: 26px;
 	style: TextStyle(defaultTextStyle) {
-		font: boxButtonFont;
+		font: classicActionFont;
 	}
 }
 paymentsPanelPadding: margins(8px, 12px, 15px, 12px);
@@ -30,22 +29,36 @@ paymentsPanelPadding: margins(8px, 12px, 15px, 12px);
 paymentsCoverPadding: margins(26px, 0px, 26px, 13px);
 paymentsDescription: FlatLabel(defaultFlatLabel) {
 	minWidth: 160px;
-	textFg: windowFg;
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentsTitle: FlatLabel(paymentsDescription) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
 }
 paymentsSeller: FlatLabel(paymentsDescription) {
 	textFg: windowSubTextFg;
 }
 paymentsWebviewBottom: FlatLabel(defaultFlatLabel) {
 	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentsPriceLabel: paymentsDescription;
-paymentsPriceAmount: defaultFlatLabel;
+paymentsPriceAmount: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
 paymentsFullPriceLabel: paymentsTitle;
 paymentsFullPriceAmount: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
 }
 
 paymentsTitleTop: 0px;
@@ -68,6 +81,9 @@ paymentsTipButton: RoundButton(defaultLightButton) {
 	width: -16px;
 	height: 28px;
 	textTop: 5px;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentsTipChosen: RoundButton(paymentsTipButton) {
 	textFg: windowFgActive;
@@ -78,31 +94,60 @@ paymentsTipButtonsPadding: margins(26px, 6px, 26px, 6px);
 
 paymentsSectionsTopSkip: 11px;
 paymentsSectionButton: SettingsButton(infoProfileButton) {
+	textBg: classicControlBg;
+	textBgOver: classicControlBg;
 	padding: margins(68px, 11px, 14px, 9px);
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 
 paymentsIconPaymentMethod: icon {{ "payments/payment_card", windowBoldFg }};
+paymentsMethodButton: RoundButton(classicProfileActionButton) {
+	icon: icon {{ "payments/payment_card-28x28", classicMenuText }};
+	iconPosition: point(4px, 0px);
+}
+paymentsMethodLabel: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textFg: classicMenuText;
+	align: align(center);
+}
 paymentsIconShippingAddress: icon {{ "payments/payment_address", windowBoldFg }};
 paymentsIconName: icon {{ "payments/payment_name", windowBoldFg }};
 paymentsIconEmail: icon {{ "payments/payment_email", windowBoldFg }};
 paymentsIconPhone: icon {{ "payments/payment_phone", windowBoldFg }};
 paymentsIconShippingMethod: icon {{ "payments/payment_shipping", windowBoldFg }};
 
-paymentsField: defaultInputField;
+paymentsField: InputField(defaultInputField) {
+	textBg: windowBg;
+	textBgActive: windowBg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	placeholderFont: classicSettingsFont;
+}
 paymentsMoneyField: InputField(paymentsField) {
 	textMargins: margins(0px, 4px, 0px, 4px);
 	heightMin: 30px;
 }
 paymentsFieldAdditional: FlatLabel(defaultFlatLabel) {
-	style: boxTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 
 paymentsFieldPadding: margins(28px, 0px, 28px, 2px);
 paymentsSaveCheckboxPadding: margins(28px, 20px, 28px, 8px);
+paymentsSaveCheckbox: Checkbox(defaultBoxCheckbox) {
+}
 paymentsExpireCvcSkip: 34px;
 
 paymentsBillingInformationTitle: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
 	textFg: windowActiveTextFg;
 	minWidth: 240px;
 }
@@ -110,10 +155,15 @@ paymentsBillingInformationTitlePadding: margins(28px, 26px, 28px, 1px);
 
 paymentsShippingMargin: margins(27px, 11px, 27px, 20px);
 paymentsShippingLabel: FlatLabel(defaultFlatLabel) {
-	style: boxTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentsShippingPrice: FlatLabel(defaultFlatLabel) {
 	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentsShippingLabelPosition: point(43px, 8px);
 paymentsShippingPricePosition: point(43px, 29px);
@@ -121,6 +171,9 @@ paymentsShippingPricePosition: point(43px, 29px);
 paymentTipsErrorLabel: FlatLabel(defaultFlatLabel) {
 	minWidth: 275px;
 	textFg: boxTextFgError;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentTipsErrorPadding: margins(22px, 6px, 22px, 0px);
 
@@ -134,6 +187,9 @@ paymentsCriticalError: FlatLabel(boxLabel) {
 	minWidth: 340px;
 	align: align(top);
 	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 paymentsCriticalErrorPadding: margins(10px, 40px, 10px, 0px);
 
@@ -147,11 +203,11 @@ botWebViewPanelSize: size(384px, 694px);
 botWebViewBottomPadding: margins(12px, 12px, 12px, 12px);
 botWebViewBottomSkip: point(12px, 8px);
 botWebViewBottomButton: RoundButton(paymentsPanelSubmit) {
-	height: 40px;
+	height: classicButtonHeight;
 	style: TextStyle(defaultTextStyle) {
 		font: boxButtonFont;
 	}
-	textTop: 11px;
+	textTop: classicButtonTextTop;
 }
 botWebViewRadialStroke: 3px;
 botWebViewMenu: PopupMenu(popupMenuWithIcons) {

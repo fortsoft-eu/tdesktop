@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/boxes/collectible_info_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/unixtime.h"
 #include "core/file_utilities.h"
 #include "lang/lang_keys.h"
@@ -91,7 +92,7 @@ namespace {
 			auto hq = PainterHighQualityEnabler(p);
 			p.setPen(Qt::NoPen);
 			p.setBrush(st->textBg);
-			p.drawRoundedRect(x, 0, use, size, size / 2., size / 2.);
+			p.drawRoundedRect(x, 0, use, size, style::CornerRadius(size / 2.), style::CornerRadius(size / 2.));
 
 			if (!*subscribed) {
 				*subscribed = true;

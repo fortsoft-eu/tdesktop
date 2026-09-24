@@ -19,10 +19,21 @@ newGroupSkip: 27px;
 newGroupInfoPadding: margins(0px, -4px, 0px, 1px);
 newGroupLinkPadding: margins(4px, 27px, 4px, 21px);
 newGroupLinkTop: 3px;
-newGroupLinkFont: font(16px);
+newGroupLinkFont: classicSettingsFont;
 newGroupNamePosition: point(27px, 5px);
 newGroupDescriptionPadding: margins(0px, 13px, 0px, 4px);
 setupChannelLink: InputField(defaultInputField) {
-	textMargins: margins(0px, 6px, 0px, 4px);
-	heightMin: 32px;
+	textMargins: classicSingleLineInputPadding;
+	textAlign: align(left);
+	textBg: windowBg;
+	textBgActive: windowBg;
+	textFg: classicMenuText;
+	placeholderScale: 0.;
+	placeholderFg: classicMenuText;
+	placeholderFgActive: classicMenuText;
+	heightMin: classicSingleLineInputHeight;
+	heightMax: classicSingleLineInputHeight;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }

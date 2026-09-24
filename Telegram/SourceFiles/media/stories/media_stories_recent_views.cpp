@@ -311,7 +311,7 @@ void RecentViews::setupWidget() {
 			_userpicsPosition.x(),
 			_userpicsPosition.y(),
 			st::storiesWhoViewed.userpics.size);
-		p.setPen(st::storiesComposeWhiteText);
+		p.setPen(st::mediaviewControlFg);
 		_text.drawElided(
 			p,
 			_textPosition.x(),
@@ -327,6 +327,7 @@ void RecentViews::setupViewsReactions() {
 		_likeWrap.get(),
 		st::storiesComposeControls.like);
 	_likeIcon->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_likeIcon->setIconOverride(&st::storiesLikesIcon, &st::storiesLikesIcon);
 
 	_controller->layoutValue(
 	) | rpl::on_next([=](const Layout &layout) {
@@ -412,7 +413,7 @@ void RecentViews::updatePartsGeometry() {
 	const auto uheight = st::storiesWhoViewed.userpics.size;
 	const auto uy = _outer.y() + (_outer.height() - uheight) / 2 + add;
 	const auto tx = ux + _userpicsWidth + skip;
-	const auto theight = st::normalFont->height;
+	const auto theight = st::storiesRecentViewsTextStyle.font->height;
 	const auto ty = _outer.y() + (_outer.height() - theight) / 2 + add;
 	const auto my = std::min(uy, ty);
 	const auto mheight = std::max(uheight, theight);
@@ -432,7 +433,7 @@ void RecentViews::updateText() {
 				? (u"  "_q + QChar(10084) + QString::number(_data.reactions))
 				: QString()))
 		: tr::lng_stories_no_views(tr::now);
-	_text.setText(st::defaultTextStyle, text);
+	_text.setText(st::storiesRecentViewsTextStyle, text);
 	updatePartsGeometry();
 }
 

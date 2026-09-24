@@ -29,8 +29,8 @@ WarningWidget::WarningWidget(QWidget *parent)
 : RpWidget(parent)
 , _timer([=] { handleTimer(); })
 , _secondsLeft(kWaitBeforeRevertMs / 1000)
-, _keepChanges(this, tr::lng_theme_keep_changes(), st::defaultBoxButton)
-, _revert(this, tr::lng_theme_revert(), st::defaultBoxButton) {
+, _keepChanges(this, tr::lng_theme_keep_changes(), st::compactBoxButton)
+, _revert(this, tr::lng_theme_revert(), st::compactBoxButton) {
 	_keepChanges->setClickedCallback([] { KeepApplied(); });
 	_revert->setClickedCallback([] { Revert(); });
 	updateText();

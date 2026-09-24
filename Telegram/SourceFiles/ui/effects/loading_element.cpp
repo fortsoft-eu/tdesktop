@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/loading_element.h"
 
+#include "ui/style/style_radius.h"
 #include "base/object_ptr.h"
 #include "base/random.h"
 #include "styles/palette.h"
@@ -60,8 +61,8 @@ void LoadingText::paint(QPainter &p, int width) {
 		height() - h - (height() - _st.font->height),
 		width,
 		h,
-		h / 2,
-		h / 2);
+		style::CornerRadius(h / 2),
+		style::CornerRadius(h / 2));
 }
 
 [[nodiscard]] const style::PeerListItem &PeerListItemFromDialogRow(
@@ -119,8 +120,8 @@ public:
 			_st.namePosition.y() + offset,
 			kNameWidth,
 			h1,
-			h1 / 2,
-			h1 / 2);
+			style::CornerRadius(h1 / 2),
+			style::CornerRadius(h1 / 2));
 
 		{
 			const auto h2 = st::defaultTextStyle.font->ascent;
@@ -131,7 +132,7 @@ public:
 				kStatusWidth,
 				h2);
 			if (rect::bottom(rect) < height()) {
-				p.drawRoundedRect(rect, radius, radius);
+				p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 			}
 		}
 	}
@@ -212,9 +213,9 @@ object_ptr<Ui::RpWidget> CreateLoadingElementWidget(
 			[=] { raw->update(); },
 			kTimeout,
 			kDuration);
-		if (width) {
-			state->lastLineWidth = (width / 4) + base::RandomIndex(width / 2);
-		}
+		state->lastLineWidth = (width > 1)
+			? (width / 4) + base::RandomIndex(width / 2)
+			: width;
 	}, widget->lifetime());
 
 	return widget;

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_main_menu.h"
 
+#include "ui/style/style_radius.h"
 #include "apiwrap.h"
 #include "base/event_filter.h"
 #include "base/qt_signal_producer.h"
@@ -69,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat.h" // popupMenuExpandedSeparator
+#include "styles/style_info.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
 #include "styles/style_window.h"
@@ -286,7 +288,7 @@ void MainMenu::ResetScaleButton::paintEvent(QPaintEvent *e) {
 	const auto top = margin / 2;
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::mainMenuCloudBg);
-	p.drawRoundedRect(left, top, innerWidth, innerHeight, radius, radius);
+	p.drawRoundedRect(left, top, innerWidth, innerHeight, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	st::settingsIconInterfaceScale.paint(
 		p,
@@ -313,7 +315,7 @@ MainMenu::MainMenu(
 	_controller->session().user(),
 	st::mainMenuUserpic)
 , _toggleAccounts(this, &controller->session().account())
-, _setEmojiStatus(this, SetStatusLabel(&controller->session()))
+, _setEmojiStatus(this, SetStatusLabel(&controller->session()), st::infoApplicationLink)
 , _emojiStatusPanel(std::make_unique<Info::Profile::EmojiStatusPanel>())
 , _badge(std::make_unique<Info::Profile::Badge>(
 	this,
@@ -477,11 +479,11 @@ void MainMenu::moveBadge() {
 		- _toggleAccounts->rightSkip()
 		- _badge->widget()->width();
 	const auto left = st::mainMenuCoverNameLeft
-		+ std::min(_name.maxWidth() + st::semiboldFont->spacew, available);
+		+ std::min(_name.maxWidth() + st::mainMenuAccountNameStyle.font->spacew, available);
 	_badge->move(
 		left,
 		st::mainMenuCoverNameTop,
-		st::mainMenuCoverNameTop + st::semiboldFont->height);
+		st::mainMenuCoverNameTop + st::mainMenuAccountNameStyle.font->height);
 }
 
 void MainMenu::setupArchive() {
@@ -520,7 +522,7 @@ void MainMenu::setupArchive() {
 	const auto button = AddButtonWithIcon(
 		inner,
 		tr::lng_archived_name(),
-		st::mainMenuButton,
+		st::mainMenuArchiveButton,
 		{ &st::menuIconArchiveOpen });
 	inner->add(
 		object_ptr<Ui::PlainShadow>(inner),
@@ -891,12 +893,12 @@ void MainMenu::drawName(Painter &p) {
 	if (_nameVersion < user->nameVersion()) {
 		_nameVersion = user->nameVersion();
 		_name.setText(
-			st::semiboldTextStyle,
+			st::mainMenuAccountNameStyle,
 			user->name(),
 			Ui::NameTextOptions());
 		moveBadge();
 	}
-	p.setFont(st::semiboldFont);
+	p.setFont(st::mainMenuAccountNameStyle.font);
 	p.setPen(st::windowBoldFg);
 	_name.drawLeftElided(
 		p,
@@ -904,7 +906,7 @@ void MainMenu::drawName(Painter &p) {
 		st::mainMenuCoverNameTop,
 		(widthText
 			- (_badge->widget()
-				? (st::semiboldFont->spacew + _badge->widget()->width())
+				? (st::mainMenuAccountNameStyle.font->spacew + _badge->widget()->width())
 				: 0)),
 		width());
 }

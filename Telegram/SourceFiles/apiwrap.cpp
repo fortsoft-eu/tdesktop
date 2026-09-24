@@ -1947,6 +1947,62 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
 	}
 }
 
+void ApiWrap::joinChat(not_null<ChatData*> chat) {
+	if (chat->amIn() || _chatAmInRequests.contains(chat)) {
+		return;
+	}
+	const auto requestId = request(MTPmessages_AddChatUser(
+		chat->inputChat(),
+		_session->user()->inputUser(),
+		MTP_int(0)
+	)).done([=](const MTPmessages_InvitedUsers &result) {
+		_chatAmInRequests.remove(chat);
+		applyUpdates(result.data().vupdates());
+	}).fail([=](const MTP::Error &error) {
+		_chatAmInRequests.remove(chat);
+		if (const auto show = ShowForPeer(chat)) {
+			MTP::ShowErrorFallback(show, error);
+		}
+	}).send();
+	_chatAmInRequests.emplace(chat, requestId);
+}
+
+bool ApiWrap::leaveConversation(not_null<PeerData*> peer) {
+	const auto channel = peer->asChannel();
+	const auto chat = peer->asChat();
+	if (!(channel && channel->amIn()) && !(chat && chat->amIn())) {
+		return false;
+	}
+	const auto history = peer->owner().history(peer);
+	if (history->keepAfterLeave()
+		|| (channel && _channelAmInRequests.contains(channel))
+		|| (chat && _chatAmInRequests.contains(chat))) {
+		return true;
+	}
+	history->setKeepAfterLeave(true);
+	if (channel) {
+		channel->ptsSetWaitingForShortPoll(-1);
+		leaveChannel(channel);
+	} else {
+		const auto requestId = request(MTPmessages_DeleteChatUser(
+			MTP_flags(0),
+			chat->inputChat(),
+			_session->user()->inputUser()
+		)).done([=](const MTPUpdates &result) {
+			_chatAmInRequests.remove(chat);
+			applyUpdates(result);
+		}).fail([=](const MTP::Error &error) {
+			_chatAmInRequests.remove(chat);
+			history->setKeepAfterLeave(false);
+			if (const auto show = ShowForPeer(peer)) {
+				MTP::ShowErrorFallback(show, error);
+			}
+		}).send();
+		_chatAmInRequests.emplace(chat, requestId);
+	}
+	return true;
+}
+
 void ApiWrap::leaveChannel(not_null<ChannelData*> channel) {
 	if (!channel->amIn()) {
 		session().changes().peerUpdated(
@@ -1958,8 +2014,15 @@ void ApiWrap::leaveChannel(not_null<ChannelData*> channel) {
 		)).done([=](const MTPUpdates &result) {
 			_channelAmInRequests.remove(channel);
 			applyUpdates(result);
-		}).fail([=] {
+		}).fail([=](const MTP::Error &error) {
 			_channelAmInRequests.remove(channel);
+			const auto history = channel->owner().historyLoaded(channel);
+			if (history && history->keepAfterLeave()) {
+				history->setKeepAfterLeave(false);
+				if (const auto show = ShowForPeer(channel)) {
+					MTP::ShowErrorFallback(show, error);
+				}
+			}
 		}).send();
 
 		_channelAmInRequests.emplace(channel, requestId);
@@ -2216,6 +2279,9 @@ void ApiWrap::deleteHistory(
 		int retries) {
 	auto deleteTillId = MsgId(0);
 	const auto history = _session->data().history(peer);
+	if (!justClear) {
+		history->setKeepAfterLeave(false);
+	}
 	if (justClear) {
 		// In case of clear history we need to know the last server message.
 		while (history->lastMessageKnown()) {

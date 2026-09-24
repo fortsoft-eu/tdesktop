@@ -76,6 +76,7 @@ private:
 	QRect _clipOuter;
 
 	QImage _overControlImage;
+	QImage _footerImage;
 
 	QImage _topShadowCache;
 	QColor _topShadowColor;

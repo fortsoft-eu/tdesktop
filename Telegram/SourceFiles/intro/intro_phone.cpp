@@ -111,7 +111,8 @@ QString PhoneWidget::accessibilityName() {
 void PhoneWidget::setupQrLogin() {
 	const auto qrLogin = Ui::CreateChild<Ui::LinkButton>(
 		this,
-		tr::lng_phone_to_qr(tr::now));
+		tr::lng_phone_to_qr(tr::now),
+		st::introLink);
 	qrLogin->show();
 
 	DEBUG_LOG(("PhoneWidget.qrLogin link created and shown."));
@@ -135,7 +136,7 @@ void PhoneWidget::resizeEvent(QResizeEvent *e) {
 	_country->moveToLeft(contentLeft(), contentTop() + st::introStepFieldTop);
 	auto phoneTop = _country->y() + _country->height() + st::introPhoneTop;
 	_code->moveToLeft(contentLeft(), phoneTop);
-	_phone->moveToLeft(contentLeft() + _country->width() - st::introPhone.width, phoneTop);
+	_phone->moveToLeft(contentLeft() + st::introCountryCode.width + st::introPhoneSkip, phoneTop);
 }
 
 void PhoneWidget::showPhoneError(rpl::producer<QString> text) {

@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace style {
 struct InfoTopBar;
+struct FlatLabel;
 } // namespace style
 
 namespace Dialogs::Stories {
@@ -44,6 +45,8 @@ class Section;
 struct TitleDescriptor {
 	rpl::producer<QString> title;
 	rpl::producer<QString> subtitle;
+	const style::FlatLabel *titleStyle = nullptr;
+	bool classicSettings = false;
 };
 
 class TopBar : public Ui::RpWidget {
@@ -173,6 +176,7 @@ private:
 	rpl::event_stream<> _backClicks;
 	rpl::event_stream<uint64> _storyClicks;
 
+	bool _classicSettings = false;
 	SelectedItems _selectedItems;
 	bool _canDelete = false;
 	bool _canForward = false;

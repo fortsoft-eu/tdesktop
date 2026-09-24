@@ -133,13 +133,9 @@ void Preload(
 			: 1;
 		if (state->current.index - skip > 0) {
 			preload(state->current.index - skip - 1);
-		} else if (!state->current.index && state->current.count > 1) {
-			preload(state->userSlice->size() - 1);
 		}
 		if (state->current.index - skip + 1 < state->userSlice->size()) {
 			preload(state->current.index - skip + 1);
-		} else if (!skip && state->current.index > 0) {
-			preload(0);
 		}
 	}
 }
@@ -428,11 +424,14 @@ bool ProcessCurrent(
 		) | rpl::filter([=] {
 			return (state->current.count > 1);
 		}) | rpl::on_next([=](int shift) {
-			state->current.index = std::clamp(
-				((state->current.index + shift + state->current.count)
-					% state->current.count),
+			const auto index = std::clamp(
+				state->current.index + shift,
 				0,
 				state->current.count - 1);
+			if (index == state->current.index) {
+				return;
+			}
+			state->current.index = index;
 			push(true);
 		}, lifetime);
 

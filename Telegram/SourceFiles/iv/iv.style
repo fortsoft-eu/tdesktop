@@ -87,19 +87,19 @@ ivWrongLayoutLink: LinkButton(defaultLinkButton) {
 }
 ivEditorWindowMinSize: size(384px, 480px);
 ivEditorWindowDefaultSize: size(800px, 600px);
-ivEditorBodyPadding: margins(0px, 8px, 0px, 8px);
-ivEditorToolbarButtonSize: 36px;
-ivEditorEmojiColumnCloseSize: 30px;
-ivEditorToolbarPadding: margins(9px, 10px, 9px, 10px);
+ivEditorBodyPadding: margins(1px, 1px, 1px, 1px);
+ivEditorBottomCircleSize: 40px;
+ivEditorToolbarButtonSize: ivEditorBottomCircleSize;
+ivEditorEmojiColumnCloseSize: ivEditorBottomCircleSize;
+ivEditorToolbarPadding: margins(0px, 0px, 0px, 0px);
 ivEditorToolbarGroupsSkip: 6px;
 ivEditorBottomControlsPadding: margins(9px, 10px, 9px, 10px);
-ivEditorPillPadding: 2px;
-ivEditorPillButtonSkip: 6px;
+ivEditorPillPadding: 0px;
+ivEditorPillButtonSkip: 0px;
 ivEditorScroll: ScrollArea(boxScroll) {
-	width: ivEditorToolbarPadding.left;
+	width: 9px;
 	deltax: 3px;
 }
-ivEditorBottomCircleSize: 40px;
 ivEditorSendLockBadgeShift: point(-5px, -5px);
 ivComposeSendLockBadgePosition: point(1px, 2px);
 ivEditorSendLockBadgePadding: 3px;
@@ -127,9 +127,21 @@ ivEditorSuggestionsScroll: ScrollArea(defaultSolidScroll) {
 	width: 10px;
 }
 ivEditorPillShadow: BoxShadow {
-	blurRadius: 3px;
-	offset: point(0px, 1px);
-	opacity: 0.09;
+	blurRadius: 0px;
+	offset: point(0px, 0px);
+	opacity: 0.;
+}
+ivEditorTooltip: ImportantTooltip(defaultImportantTooltip) {
+	bg: tooltipBg;
+	radius: 0px;
+	arrow: 0px;
+	padding: margins(5px, 2px, 5px, 2px);
+}
+ivEditorTooltipLabel: FlatLabel(defaultImportantTooltipLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	textFg: tooltipFg;
 }
 ivEditorEmojiColumnCloseScrollSkip: 4px;
 ivEditorToolbarUndoIcon: icon {{ "menu/tabs_undo-24x24", menuIconColor }};
@@ -770,7 +782,7 @@ defaultMarkdownTable: MarkdownTable {
 }
 defaultMarkdownDetailsSummaryStyle: TextStyle(defaultTextStyle) {
 	font: font(12px);
-	linkUnderline: kLinkUnderlineNever;
+	linkUnderline: kLinkUnderlineActive;
 	lineHeight: 18px;
 }
 defaultMarkdownDetails: MarkdownDetails {
@@ -1145,7 +1157,7 @@ messageMarkdownFooterStyle: TextStyle(messageMarkdownBodyStyle) {
 	lineHeight: 19px;
 }
 messageMarkdownDetailsSummaryStyle: TextStyle(messageMarkdownBodyStyle) {
-	linkUnderline: kLinkUnderlineNever;
+	linkUnderline: kLinkUnderlineActive;
 }
 messageMarkdownAudioTitleStyle: TextStyle(messageMarkdownBodyStyle) {
 	font: font(14px semibold);

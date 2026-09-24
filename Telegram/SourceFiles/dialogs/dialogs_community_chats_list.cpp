@@ -154,7 +154,7 @@ void CommunityChatsList::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 
 	const auto clip = e->rect();
-	p.fillRect(clip, st::dialogsBg);
+	p.fillRect(clip, st::windowBg);
 	if (_view.empty()) {
 		return;
 	}
@@ -163,7 +163,7 @@ void CommunityChatsList::paintEvent(QPaintEvent *e) {
 	auto context = Ui::PaintContext{
 		.st = _st,
 		.community = _community,
-		.currentBg = st::dialogsBg,
+		.currentBg = st::windowBg,
 		.now = crl::now(),
 		.width = width(),
 		.paused = paused,

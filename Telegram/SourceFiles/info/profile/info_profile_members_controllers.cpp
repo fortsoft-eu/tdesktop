@@ -198,9 +198,9 @@ void MemberListRow::elementAddRipple(
 		}
 		if (!_tagRipple) {
 			const auto size = tagSize();
-			const auto radius = size.height() / 2;
-			auto mask = Ui::RippleAnimation::RoundRectMask(
-				size, radius);
+			auto mask = (_tagMode == TagMode::AdminPill)
+				? Ui::RippleAnimation::RectMask(size)
+				: Ui::RippleAnimation::RoundRectMask(size, size.height() / 2);
 			_tagRipple = std::make_unique<Ui::RippleAnimation>(
 				st::defaultLightButton.ripple,
 				std::move(mask),
@@ -328,7 +328,7 @@ void MemberListRow::paintColoredPill(
 	const auto &pad = st::memberTagPillPadding;
 	auto bgColor = color;
 	bgColor.setAlphaF(over ? 0.16 : 0.12);
-	paintPill(p, x, y, w, bgColor);
+	p.fillRect(x, y, w, pillHeight(), bgColor);
 	if (ripple) {
 		auto rippleColor = color;
 		rippleColor.setAlphaF(0.12);

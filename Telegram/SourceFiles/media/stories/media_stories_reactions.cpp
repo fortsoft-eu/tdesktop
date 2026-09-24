@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/stories/media_stories_reactions.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/event_filter.h"
 #include "base/unixtime.h"
 #include "boxes/premium_preview_box.h"
@@ -45,6 +48,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_media_view.h"
 #include "styles/style_widgets.h"
 #include "styles/style_window.h"
+
+#include <QtGui/QCloseEvent>
+#include <QtGui/QKeyEvent>
+#include <QtGui/QScreen>
+#include <QtGui/QWindow>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QStyle>
 
 namespace Media::Stories {
 namespace {
@@ -755,7 +765,10 @@ void WeatherView::cacheBackground() {
 	const auto left = _rect.x() + (_rect.width() - fullWidth) / 2;
 	_wrapped = QRect(left, _rect.y(), fullWidth, _rect.height());
 
-	p.drawRoundedRect(_wrapped, _radius, _radius);
+	p.drawRoundedRect(
+		_wrapped,
+		style::CornerRadius(_radius),
+		style::CornerRadius(_radius));
 
 	p.setPen(_fg);
 	p.setFont(_font);
@@ -811,41 +824,30 @@ public:
 	void attachToReactionButton(not_null<Ui::RpWidget*> button);
 
 private:
-	struct Hiding;
-
 	void create();
 	void updateShowState();
-	void fadeOutSelector();
-	void startAnimation();
 
 	const not_null<Controller*> _controller;
 
 	std::unique_ptr<Ui::RpWidget> _parent;
 	std::unique_ptr<HistoryView::Reactions::Selector> _selector;
-	std::vector<std::unique_ptr<Hiding>> _hiding;
 	rpl::event_stream<Chosen> _chosen;
 	Ui::Animations::Simple _showing;
-	rpl::variable<float64> _shownValue;
 	rpl::variable<bool> _expanded;
 	rpl::variable<Mode> _mode;
 	rpl::variable<bool> _shown = false;
 
 };
 
-struct Reactions::Panel::Hiding {
-	explicit Hiding(not_null<QWidget*> parent) : widget(parent) {
-	}
-
-	Ui::RpWidget widget;
-	Ui::Animations::Simple animation;
-	QImage frame;
-};
-
 Reactions::Panel::Panel(not_null<Controller*> controller)
 : _controller(controller) {
 }
 
-Reactions::Panel::~Panel() = default;
+Reactions::Panel::~Panel() {
+	if (_selector) {
+		_selector->beforeDestroy();
+	}
+}
 
 auto Reactions::Panel::chosen() const -> rpl::producer<Chosen> {
 	return _chosen.events();
@@ -869,6 +871,9 @@ void Reactions::Panel::show(Mode mode) {
 	_showing.start([=] { updateShowState(); }, 0., 1., duration);
 	updateShowState();
 	_parent->show();
+	_parent->raise();
+	_parent->activateWindow();
+	_selector->setFocus();
 }
 
 void Reactions::Panel::hide(Mode mode) {
@@ -876,14 +881,14 @@ void Reactions::Panel::hide(Mode mode) {
 		return;
 	}
 	_selector->beforeDestroy();
-	if (!anim::Disabled()) {
-		fadeOutSelector();
-	}
 	_shown = false;
 	_expanded = false;
 	_showing.stop();
 	_selector = nullptr;
-	_parent = nullptr;
+	if (const auto parent = _parent.release()) {
+		parent->hide();
+		parent->deleteLater();
+	}
 }
 
 void Reactions::Panel::hideIfCollapsed(Mode mode) {
@@ -920,26 +925,34 @@ void Reactions::Panel::create() {
 			&& _controller->videoStream())) {
 		return;
 	}
-	_parent = std::make_unique<Ui::RpWidget>(_controller->wrap().get());
-	_parent->show();
+	const auto wrap = _controller->wrap().get();
+	_parent = std::make_unique<Ui::RpWidget>(wrap);
+	Ui::SetClassicSettingsStyle(_parent.get());
+	_parent->setWindowFlags(Qt::WindowFlags(Qt::Tool)
+		| Qt::WindowTitleHint
+		| Qt::WindowSystemMenuHint
+		| Qt::WindowCloseButtonHint);
+	_parent->setWindowTitle(tr::lng_notification_reactions(tr::now));
+	_parent->setAttribute(Qt::WA_QuitOnClose, false);
+	_parent->setFocusPolicy(Qt::StrongFocus);
+	const auto parent = _parent.get();
 
 	const auto mode = _mode.current();
 
-	_parent->events() | rpl::on_next([=](not_null<QEvent*> e) {
-		if (e->type() == QEvent::MouseButtonPress) {
-			const auto event = static_cast<QMouseEvent*>(e.get());
-			if (event->button() == Qt::LeftButton) {
-				if (!_selector
-					|| !_selector->geometry().contains(event->pos())) {
-					if (mode == Mode::Message) {
-						collapse(mode);
-					} else {
-						hide(mode);
-					}
-				}
+	parent->events() | rpl::on_next([=](not_null<QEvent*> e) {
+		if (e->type() == QEvent::Close) {
+			static_cast<QCloseEvent*>(e.get())->ignore();
+			if (_parent.get() == parent) {
+				hide(mode);
+			}
+		} else if (e->type() == QEvent::KeyPress
+			&& static_cast<QKeyEvent*>(e.get())->key() == Qt::Key_Escape) {
+			e->accept();
+			if (_parent.get() == parent) {
+				hide(mode);
 			}
 		}
-	}, _parent->lifetime());
+	}, parent->lifetime());
 
 	_selector = std::make_unique<HistoryView::Reactions::Selector>(
 		_parent.get(),
@@ -952,8 +965,10 @@ void Reactions::Panel::create() {
 		[=](bool fast) { hide(mode); },
 		nullptr, // iconFactory
 		nullptr, // paused
-		true,
-		_controller->wrap().get());
+		false, // child
+		wrap);
+	Ui::SetClassicSettingsStyle(_selector.get());
+	_selector->setAutoFillBackground(false);
 
 	_selector->chosen(
 	) | rpl::on_next([=](
@@ -966,42 +981,54 @@ void Reactions::Panel::create() {
 	const auto maxWidth = desiredWidth * 2;
 	const auto width = _selector->countWidth(desiredWidth, maxWidth);
 	const auto margins = _selector->marginsForShadow();
-	const auto categoriesTop = _selector->extendTopForCategoriesAndAbout(
-		width);
+	const auto about = _selector->opaqueExtendTopAbout(width);
 	const auto full = margins.left() + width + margins.right();
+	const auto collapsed = margins.top() + about
+		+ st::reactStripHeight + margins.bottom();
+	const auto frameHeight = QApplication::style()->pixelMetric(
+		QStyle::PM_TitleBarHeight, nullptr, parent)
+		+ 2 * QApplication::style()->pixelMetric(
+			QStyle::PM_DefaultFrameWidth, nullptr, parent);
+	const auto expanded = std::max(collapsed, std::min(
+		wrap->screen()->availableGeometry().height() - frameHeight,
+		margins.top() + st::emojiPanMaxHeight + margins.bottom()));
+	parent->setFixedSize(full, collapsed);
+	_selector->setOpaqueHeightExpand(expanded - collapsed, [=](int bottom) {
+		parent->setFixedSize(full, std::clamp(bottom, collapsed, expanded));
+	});
+	_selector->initGeometry(margins.top());
+	_selector->show();
 
-	_shownValue = 0.;
 	rpl::combine(
 		_controller->layoutValue(),
-		_shownValue.value()
-	) | rpl::on_next([=](const Layout &layout, float64 shown) {
+		parent->sizeValue()
+	) | rpl::on_next([=](const Layout &layout, QSize size) {
 		const auto story = _controller->story();
 		const auto viewsReactionsMode = story && story->peer()->isChannel();
-		const auto width = margins.left()
-			+ _selector->countAppearedWidth(shown)
-			+ margins.right();
-		const auto height = layout.reactions.height();
-		const auto shift = (width / 2);
+		const auto width = size.width();
+		const auto height = size.height();
 		const auto right = (mode == Mode::Message)
-			? (layout.reactions.x() + layout.reactions.width() / 2 + shift)
+			? (layout.reactions.center().x() + width / 2)
 			: viewsReactionsMode
 			? (layout.content.x() + layout.content.width())
 			: (layout.controlsBottomPosition.x()
 				+ layout.controlsWidth
 				- st::storiesLikeReactionsPosition.x());
-		const auto top = (mode == Mode::Message)
-			? layout.reactions.y()
+		const auto bottom = (mode == Mode::Message)
+			? (layout.reactions.y() + layout.reactions.height()
+				- st::storiesReactionsBottomSkip)
 			: (layout.controlsBottomPosition.y()
-				- height
 				- st::storiesLikeReactionsPosition.y());
-		_parent->setGeometry(QRect((right - width), top, full, height));
-		const auto innerTop = height
-			- st::storiesReactionsBottomSkip
-			- st::reactStripHeight;
-		const auto maxAdded = innerTop - margins.top() - categoriesTop;
-		const auto added = std::min(maxAdded, st::storiesReactionsAddedTop);
-		_selector->setSpecialExpandTopSkip(added);
-		_selector->initGeometry(innerTop);
+		const auto position = wrap->mapToGlobal({ right - width, bottom - height });
+		const auto frame = parent->windowHandle()
+			? parent->windowHandle()->frameMargins()
+			: QMargins(0, frameHeight, 0, 0);
+		const auto available = wrap->screen()->availableGeometry().marginsRemoved(frame);
+		parent->move(
+			std::clamp(position.x(), available.x(), std::max(
+				available.x(), available.x() + available.width() - width)),
+			std::clamp(position.y(), available.y(), std::max(
+				available.y(), available.y() + available.height() - height)));
 	}, _selector->lifetime());
 
 	_selector->willExpand(
@@ -1010,56 +1037,18 @@ void Reactions::Panel::create() {
 	}, _selector->lifetime());
 
 	_selector->escapes() | rpl::on_next([=] {
-		if (mode == Mode::Message) {
-			collapse(mode);
-		} else {
-			hide(mode);
-		}
+		hide(mode);
 	}, _selector->lifetime());
 }
 
-void Reactions::Panel::fadeOutSelector() {
-	const auto wrap = _controller->wrap().get();
-	const auto geometry = Ui::MapFrom(
-		wrap,
-		_parent.get(),
-		_selector->geometry());
-	_hiding.push_back(std::make_unique<Hiding>(wrap));
-	const auto raw = _hiding.back().get();
-	raw->frame = Ui::GrabWidgetToImage(_selector.get());
-	raw->widget.setGeometry(geometry);
-	raw->widget.show();
-	raw->widget.paintRequest(
-	) | rpl::on_next([=] {
-		if (const auto opacity = raw->animation.value(0.)) {
-			auto p = QPainter(&raw->widget);
-			p.setOpacity(opacity);
-			p.drawImage(0, 0, raw->frame);
-		}
-	}, raw->widget.lifetime());
-	Ui::PostponeCall(&raw->widget, [=] {
-		raw->animation.start([=] {
-			if (raw->animation.animating()) {
-				raw->widget.update();
-			} else {
-				const auto i = ranges::find(
-					_hiding,
-					raw,
-					&std::unique_ptr<Hiding>::get);
-				if (i != end(_hiding)) {
-					_hiding.erase(i);
-				}
-			}
-		}, 1., 0., st::slideWrapDuration);
-	});
-}
-
 void Reactions::Panel::updateShowState() {
+	if (!_selector) {
+		return;
+	}
 	const auto progress = _showing.value(_shown.current() ? 1. : 0.);
 	const auto opacity = 1.;
 	const auto appearing = _showing.animating();
 	const auto toggling = false;
-	_shownValue = progress;
 	_selector->updateShowState(progress, opacity, appearing, toggling);
 }
 
@@ -1103,34 +1092,6 @@ auto Reactions::makeWeatherAreaWidget(
 		&_controller->uiShow()->session(),
 		data,
 		std::move(weatherInCelsius));
-}
-
-void Reactions::setReplyFieldState(
-		rpl::producer<bool> focused,
-		rpl::producer<bool> hasSendText) {
-	std::move(
-		focused
-	) | rpl::on_next([=](bool focused) {
-		_replyFocused = focused;
-		if (!_replyFocused) {
-			_panel->hideIfCollapsed(Reactions::Mode::Message);
-		} else if (!_hasSendText) {
-			_panel->show(Reactions::Mode::Message);
-		}
-	}, _lifetime);
-
-	std::move(
-		hasSendText
-	) | rpl::on_next([=](bool has) {
-		_hasSendText = has;
-		if (_replyFocused) {
-			if (_hasSendText) {
-				_panel->hide(Reactions::Mode::Message);
-			} else {
-				_panel->show(Reactions::Mode::Message);
-			}
-		}
-	}, _lifetime);
 }
 
 void Reactions::attachToReactionButton(not_null<Ui::RpWidget*> button) {

@@ -305,15 +305,19 @@ void SettingsBox(
 		? layout->add(object_ptr<Ui::SettingsButton>(
 			layout,
 			tr::lng_group_call_new_muted(),
-			st::groupCallSettingsButton))->toggleOn(rpl::single(joinMuted))
+			st::groupCallSettingsCheckbox))->toggleOn(rpl::single(joinMuted))
 		: nullptr;
 	const auto enableMessages = addMessages
 		? layout->add(object_ptr<Ui::SettingsButton>(
 			layout,
 			tr::lng_group_call_enable_messages(),
-			st::groupCallSettingsButton))->toggleOn(
-				rpl::single(messagesEnabled))
+			st::groupCallSettingsCheckbox))->toggleOn(rpl::single(messagesEnabled))
 		: nullptr;
+	for (const auto button : { muteJoined, enableMessages }) {
+		if (button) {
+			button->setProperty("classicCheckOnLeft", true);
+		}
+	}
 	if (addCheck || addMessages) {
 		Ui::AddSkip(layout);
 	}
@@ -377,13 +381,15 @@ void SettingsBox(
 		//Ui::AddDivider(layout);
 		//Ui::AddSkip(layout);
 
-		layout->add(object_ptr<Ui::SettingsButton>(
+		const auto noiseSuppression = layout->add(object_ptr<Ui::SettingsButton>(
 			layout,
 			tr::lng_group_call_noise_suppression(),
-			st::groupCallSettingsButton
+			st::groupCallSettingsCheckbox
 		))->toggleOn(rpl::single(
 			settings.groupCallNoiseSuppression()
-		))->toggledChanges(
+		));
+		noiseSuppression->setProperty("classicCheckOnLeft", true);
+		noiseSuppression->toggledChanges(
 		) | rpl::on_next([=](bool enabled) {
 			Core::App().settings().setGroupCallNoiseSuppression(enabled);
 			call->setNoiseSuppression(enabled);
@@ -424,10 +430,11 @@ void SettingsBox(
 				object_ptr<Ui::SettingsButton>(
 					layout,
 					tr::lng_group_call_push_to_talk(),
-					st::groupCallSettingsButton
+					st::groupCallSettingsCheckbox
 			))->toggleOn(rpl::single(
 				settings.groupCallPushToTalk()
 			) | rpl::then(state->pushToTalkToggles.events()));
+			pushToTalk->setProperty("classicCheckOnLeft", true);
 			const auto pushToTalkWrap = layout->add(
 				object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 					layout,

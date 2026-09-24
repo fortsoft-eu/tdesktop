@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace style {
 struct DialogRow;
+struct TextPalette;
 struct VerifiedBadge;
 } // namespace style
 
@@ -69,6 +70,7 @@ struct PaintContext {
 	crl::time now = 0;
 	QStringView searchLowerText;
 	int width = 0;
+	int rowHeight = 0;
 	bool active = false;
 	bool selected = false;
 	bool topicJumpSelected = false;
@@ -80,6 +82,9 @@ struct PaintContext {
 };
 
 extern const char kOptionDialogsMuteIcon[];
+
+[[nodiscard]] const style::color &SelectionTextColor();
+[[nodiscard]] const style::TextPalette &SelectionTextPalette();
 
 [[nodiscard]] const style::icon *ChatTypeIcon(
 	not_null<PeerData*> peer,

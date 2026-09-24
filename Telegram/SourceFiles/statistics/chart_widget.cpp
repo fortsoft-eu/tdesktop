@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "statistics/chart_widget.h"
 
+#include "ui/style/style_radius.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "lang/lang_keys.h"
 #include "statistics/chart_lines_filter_controller.h"
@@ -467,8 +468,8 @@ void ChartWidget::Footer::paintEvent(QPaintEvent *e) {
 	auto inactivePath = QPainterPath();
 	inactivePath.addRoundedRect(
 		innerRect,
-		st::statisticsChartFooterSideRadius,
-		st::statisticsChartFooterSideRadius);
+		style::CornerRadius(st::statisticsChartFooterSideRadius),
+		style::CornerRadius(st::statisticsChartFooterSideRadius));
 
 	auto sidesPath = QPainterPath();
 	sidesPath.addRoundedRect(
@@ -476,8 +477,8 @@ void ChartWidget::Footer::paintEvent(QPaintEvent *e) {
 		0,
 		_rightSide.max - _leftSide.min,
 		r.height(),
-		st::statisticsChartFooterSideRadius,
-		st::statisticsChartFooterSideRadius);
+		style::CornerRadius(st::statisticsChartFooterSideRadius),
+		style::CornerRadius(st::statisticsChartFooterSideRadius));
 	inactivePath = inactivePath.subtracted(sidesPath);
 	sidesPath.addRect(
 		_leftSide.max,

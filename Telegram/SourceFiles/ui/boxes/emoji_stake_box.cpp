@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/boxes/emoji_stake_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/event_filter.h"
 #include "base/object_ptr.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -37,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/basic_click_handlers.h" // UrlClickHandler
 #include "ui/painter.h"
 #include "ui/rect.h"
+#include "ui/ui_utility.h"
 #include "ui/vertical_list.h"
 #include "styles/style_boxes.h"
 #include "styles/style_calls.h" // confcallLinkFooterOr
@@ -48,9 +50,37 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_widgets.h"
 
 #include <QtSvg/QSvgRenderer>
+#include <QtGui/QTextBlock>
+#include <QtGui/QTextLayout>
+#include <QtWidgets/QScrollBar>
+#include <QtWidgets/QTextEdit>
 
 namespace Ui {
 namespace {
+
+[[nodiscard]] int PriceInputBaseline(not_null<QWidget*> field) {
+	if (const auto input = dynamic_cast<InputField*>(field.get())) {
+		const auto edit = input->rawTextEdit();
+		const auto block = edit->document()->begin();
+		const auto cursor = QTextCursor(block);
+		const auto cursorTop = edit->cursorRect(cursor).top();
+		const auto layout = block.layout();
+		if (layout->lineCount() > 0) {
+			const auto line = layout->lineAt(0);
+			return qRound(edit->viewport()->mapTo(field, QPoint()).y()
+				+ layout->position().y()
+				+ line.y()
+				+ line.ascent()
+				- edit->verticalScrollBar()->value());
+		}
+		return edit->viewport()->mapTo(field, QPoint()).y()
+			+ cursorTop + input->st().style.font->ascent;
+	}
+	const auto metrics = field->fontMetrics();
+	const auto rect = field->contentsRect();
+	return rect.top() + (rect.height() - metrics.height() + 1) / 2
+		+ metrics.ascent();
+}
 
 [[nodiscard]] not_null<RpWidget*> AddMoneyInputIcon(
 		not_null<QWidget*> parent,
@@ -60,9 +90,30 @@ namespace {
 	return CreateChild<FlatLabel>(
 		parent,
 		rpl::single(std::move(text)),
-		st::defaultFlatLabel,
+		st::suggestPriceEstimate,
 		st::defaultPopupMenu,
 		helper.context());
+}
+
+void SetMoneyInputMargins(not_null<InputField*> field, int right) {
+	field->setAdditionalMargins({ 0, 0, right, 0 });
+	Ui::SendPendingMoveResizeEvents(field->rawTextEdit());
+	const auto metrics = QFontMetrics(field->st().style.font->f);
+	const auto baseline = (field->height() - metrics.height() + 1) / 2 + metrics.ascent();
+	const auto shift = baseline - PriceInputBaseline(field);
+	field->setAdditionalMargins({ 0, shift, right, -shift });
+}
+
+void LayoutMoneyInput(not_null<RpWidget*> wrap, not_null<QWidget*> field, not_null<RpWidget*> icon) {
+	rpl::combine(
+		wrap->widthValue(),
+		icon->sizeValue()
+	) | rpl::on_next([=](int width, QSize iconSize) {
+		const auto left = iconSize.width() + st::moneyInputIconSkip;
+		icon->moveToLeft(0, (field->height() - iconSize.height()) / 2, width);
+		field->setGeometry(style::rtlrect(QRect(left, 0, std::max(0, width - left), field->height()), width));
+		wrap->resize(width, field->height());
+	}, wrap->lifetime());
 }
 
 [[nodiscard]] QImage MakeEmojiFrame(int index, int size) {
@@ -132,7 +183,10 @@ namespace {
 		const auto half = border / 2.;
 		const auto add = QMargins(border, border, border, border);
 		const auto inner = raw->rect().marginsRemoved(add);
-		path.addRoundedRect(inner, st.radius, st.radius);
+		path.addRoundedRect(
+			inner,
+			style::CornerRadius(st.radius),
+			style::CornerRadius(st.radius));
 		{
 			const auto y = border + inner.height() / 2.;
 			path.moveTo(border + half, y);
@@ -218,24 +272,21 @@ not_null<NumberInput*> AddStarsInputField(
 	const auto wrap = container->add(
 		object_ptr<FixedHeightWidget>(
 			container,
-			st::editTagField.heightMin),
+			st::suggestStarsField.heightMin),
 		st::boxRowPadding);
 	const auto result = CreateChild<NumberInput>(
 		wrap,
-		st::editTagField,
+		args.style ? *args.style : st::suggestStarsField,
 		rpl::single(u"0"_q),
 		args.value ? QString::number(*args.value) : QString(),
 		args.max ? args.max : std::numeric_limits<int>::max());
 	const auto icon = AddMoneyInputIcon(
-		result,
-		Earn::IconCreditsEmoji());
-
-	wrap->widthValue() | rpl::on_next([=](int width) {
-		icon->move(st::starsFieldIconPosition);
-		result->move(0, 0);
-		result->resize(width, result->height());
-		wrap->resize(width, result->height());
-	}, wrap->lifetime());
+		wrap,
+		Earn::IconCreditsEmoji({
+			.size = st::classicSettingsFont->height,
+			.margin = QMargins(),
+		}));
+	LayoutMoneyInput(wrap, result, icon);
 
 	return result;
 }
@@ -246,22 +297,20 @@ not_null<InputField*> AddTonInputField(
 	const auto wrap = container->add(
 		object_ptr<FixedHeightWidget>(
 			container,
-			st::editTagField.heightMin),
+			st::suggestStarsField.heightMin),
 		st::boxRowPadding);
 	const auto result = CreateTonAmountInput(
 		wrap,
 		rpl::single('0' + TonAmountSeparator() + '0'),
 		args.value);
+	SetMoneyInputMargins(result, 0);
 	const auto icon = AddMoneyInputIcon(
-		result,
-		Earn::IconCurrencyEmoji());
-
-	wrap->widthValue() | rpl::on_next([=](int width) {
-		icon->move(st::tonFieldIconPosition);
-		result->move(0, 0);
-		result->resize(width, result->height());
-		wrap->resize(width, result->height());
-	}, wrap->lifetime());
+		wrap,
+		Earn::IconCurrencyEmoji({
+			.size = st::classicSettingsFont->height,
+			.margin = QMargins(),
+		}));
+	LayoutMoneyInput(wrap, result, icon);
 
 	return result;
 }
@@ -284,16 +333,27 @@ void AddApproximateUsd(
 		field,
 		std::move(value),
 		st::suggestPriceEstimate);
+	usd->setAttribute(Qt::WA_TransparentForMouseEvents);
 	const auto move = [=] {
-		usd->moveToRight(0, st::suggestPriceEstimateTop);
+		usd->moveToRight(
+			st::classicSingleLineInputPadding.right(),
+			PriceInputBaseline(field) - st::suggestPriceEstimate.style.font->ascent);
 	};
 	base::install_event_filter(field, [=](not_null<QEvent*> e) {
 		if (e->type() == QEvent::Resize) {
-			move();
+			Ui::PostponeCall(usd, move);
 		}
 		return base::EventFilterResult::Continue;
 	});
-	usd->widthValue() | rpl::on_next(move, usd->lifetime());
+	usd->widthValue() | rpl::on_next([=](int width) {
+		const auto margins = QMargins(0, 0, width + st::moneyInputEstimateSkip, 0);
+		if (const auto input = dynamic_cast<InputField*>(field.get())) {
+			SetMoneyInputMargins(input, margins.right());
+		} else if (const auto number = dynamic_cast<NumberInput*>(field.get())) {
+			number->QLineEdit::setTextMargins(margins);
+		}
+		move();
+	}, usd->lifetime());
 }
 
 void InsufficientTonBox(
@@ -338,16 +398,9 @@ void InsufficientTonBox(
 		st::boxWidth - st::boxRowPadding.left() - st::boxRowPadding.right());
 
 	const auto url = tr::lng_suggest_low_ton_fragment_url(tr::now);
-	const auto button = box->addButton(
+	box->addButton(
 		tr::lng_suggest_low_ton_fragment(),
 		[=] { UrlClickHandler::Open(url); });
-	const auto buttonWidth = st::boxWidth
-		- rect::m::sum::h(st::suggestPriceBox.buttonPadding);
-	button->widthValue() | rpl::filter([=] {
-		return (button->widthNoMargins() != buttonWidth);
-	}) | rpl::on_next([=] {
-		button->resizeToWidth(buttonWidth);
-	}, button->lifetime());
 }
 
 void AddStakePresets(

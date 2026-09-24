@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/mtproto_config.h"
 #include "ui/chat/attach/attach_bot_webview.h"
 #include "ui/effects/radial_animation.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
@@ -63,6 +64,17 @@ constexpr auto kResolveAddressDelay = 3 * crl::time(1000);
 constexpr auto kSearchDebounceDelay = crl::time(900);
 
 Core::GeoLocation LastExactLocation;
+
+std::unique_ptr<SeparatePanel> MakeLocationWindow() {
+	auto result = std::make_unique<SeparatePanel>();
+	result->setProperty("classicFormFrame", true);
+	SetClassicSettingsStyle(result.get());
+	result->setTitleStyle(st::pickLocationTitle);
+	result->overrideTitleColor(st::classicControlBg->c);
+	result->overrideBodyColor(st::classicControlBg->c);
+	result->overrideBottomBarColor(st::classicControlBg->c);
+	return result;
+}
 
 using VenueData = Data::InputVenue;
 
@@ -197,7 +209,7 @@ private:
 		auto p = QPainter(raw);
 		p.fillRect(clip, st::windowBg);
 		p.setPen(st::windowSubTextFg);
-		p.setFont(st::normalFont);
+		p.setFont(st::classicSettingsFont);
 		p.drawText(
 			raw->rect().marginsRemoved({ 0, skip, 0, 0 }),
 			tr::lng_maps_venues_source(tr::now),
@@ -434,82 +446,6 @@ void VenuesController::rowPaintIcon(
 )"_q;
 }
 
-[[nodiscard]] object_ptr<AbstractButton> MakeChooseLocationButton(
-		QWidget *parent,
-		rpl::producer<QString> label,
-		rpl::producer<QString> address) {
-	auto result = object_ptr<FlatButton>(
-		parent,
-		QString(),
-		st::pickLocationButton);
-	const auto raw = result.data();
-
-	const auto st = &st::pickLocationVenueItem;
-	const auto icon = CreateChild<RpWidget>(raw);
-	icon->setGeometry(
-		st->photoPosition.x(),
-		st->photoPosition.y(),
-		st->photoSize,
-		st->photoSize);
-	icon->paintRequest() | rpl::on_next([=] {
-		auto p = QPainter(icon);
-		auto hq = PainterHighQualityEnabler(p);
-		p.setPen(Qt::NoPen);
-		p.setBrush(st::windowBgActive);
-		p.drawEllipse(icon->rect());
-		st::pickLocationSendIcon.paintInCenter(p, icon->rect());
-	}, icon->lifetime());
-	icon->show();
-
-	const auto hadAddress = std::make_shared<bool>(false);
-	auto statusText = std::move(
-		address
-	) | rpl::map([=](const QString &text) {
-		if (!text.isEmpty()) {
-			*hadAddress = true;
-			return text;
-		}
-		return *hadAddress ? tr::lng_contacts_loading(tr::now) : QString();
-	});
-	const auto name = CreateChild<FlatLabel>(
-		raw,
-		std::move(label),
-		st::pickLocationButtonText);
-	name->show();
-	const auto status = CreateChild<FlatLabel>(
-		raw,
-		rpl::duplicate(statusText),
-		st::pickLocationButtonStatus);
-	status->showOn(rpl::duplicate(
-		statusText
-	) | rpl::map([](const QString &text) {
-		return !text.isEmpty();
-	}) | rpl::distinct_until_changed());
-	rpl::combine(
-		result->widthValue(),
-		std::move(statusText)
-	) | rpl::on_next([=](int width, const QString &statusText) {
-		const auto available = width
-			- st->namePosition.x()
-			- st->button.padding.right();
-		const auto namePosition = st->namePosition;
-		const auto statusPosition = st->statusPosition;
-		name->resizeToWidth(available);
-		const auto nameTop = statusText.isEmpty()
-			? ((st->height - name->height()) / 2)
-			: namePosition.y();
-		name->moveToLeft(namePosition.x(), nameTop, width);
-		status->resizeToNaturalWidth(available);
-		status->moveToLeft(statusPosition.x(), statusPosition.y(), width);
-	}, name->lifetime());
-
-	icon->setAttribute(Qt::WA_TransparentForMouseEvents);
-	name->setAttribute(Qt::WA_TransparentForMouseEvents);
-	status->setAttribute(Qt::WA_TransparentForMouseEvents);
-
-	return result;
-}
-
 void SetupLoadingView(not_null<RpWidget*> container) {
 	class Loading final : public RpWidget {
 	public:
@@ -690,7 +626,6 @@ not_null<RpWidget*> SetupMapPlaceholder(
 		result,
 		tr::lng_maps_select_on_map(),
 		st::pickLocationChooseOnMap);
-	button->setFullRadius(true);
 	button->setClickedCallback(choose);
 
 	parent->sizeValue() | rpl::on_next([=](QSize size) {
@@ -737,7 +672,7 @@ LocationPicker::LocationPicker(Descriptor &&descriptor)
 : _config(std::move(descriptor.config))
 , _callback(std::move(descriptor.callback))
 , _quit(std::move(descriptor.quit))
-, _window(std::make_unique<SeparatePanel>())
+, _window(MakeLocationWindow())
 , _body((_window->setInnerSize(st::pickLocationWindow)
 	, _window->showInner(base::make_unique_q<RpWidget>(_window.get()))
 	, _window->inner()))
@@ -823,7 +758,7 @@ void LocationPicker::setupWindow(const Descriptor &descriptor) {
 
 	_container = CreateChild<RpWidget>(_body.get());
 	_mapPlaceholderAdded = st::pickLocationButtonSkip
-		+ st::pickLocationButton.height
+		+ st::pickLocationSendButton.height
 		+ st::pickLocationButtonSkip
 		+ st::boxDividerHeight;
 	const auto min = st::pickLocationCollapsedHeight + _mapPlaceholderAdded;
@@ -845,7 +780,11 @@ void LocationPicker::setupWindow(const Descriptor &descriptor) {
 	const auto toppad = mapControls->add(object_ptr<RpWidget>(controls));
 
 	AddSkip(mapControls);
-	AddSubsectionTitle(mapControls, tr::lng_maps_or_choose());
+	AddSubsectionTitle(
+		mapControls,
+		tr::lng_maps_or_choose(),
+		{},
+		&st::pickLocationSubsectionTitle);
 
 	auto state = _venueState.value();
 	SetupVenues(controls, uiShow(), std::move(state), [=](VenueData info) {
@@ -875,7 +814,7 @@ void LocationPicker::setupWindow(const Descriptor &descriptor) {
 	}, _container->lifetime());
 
 	_container->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(_container).fillRect(clip, st::windowBg);
+		QPainter(_container).fillRect(clip, st::classicControlBg);
 	}, _container->lifetime());
 
 	_container->show();
@@ -915,13 +854,17 @@ void LocationPicker::setupWebview() {
 		object_ptr<BoxContentDivider>(mapControls)
 	)->show();
 
-	_mapButton = mapControls->insert(
+	auto mapButtonWrapOwned = object_ptr<RpWidget>(mapControls);
+	const auto mapButtonWrap = mapButtonWrapOwned.data();
+	mapButtonWrap->resize(mapButtonWrap->width(), st::pickLocationSendButton.height);
+	mapControls->insert(
 		1,
-		MakeChooseLocationButton(
-			mapControls,
-			_chooseButtonLabel.value(),
-			_geocoderAddress.value()),
+		std::move(mapButtonWrapOwned),
 		{ 0, st::pickLocationButtonSkip, 0, st::pickLocationButtonSkip });
+	_mapButton = CreateChild<RoundButton>(mapButtonWrap, _chooseButtonLabel.value(), st::pickLocationSendButton);
+	mapButtonWrap->widthValue() | rpl::on_next([=](int width) {
+		_mapButton->moveToLeft((width - _mapButton->width()) / 2, 0, width);
+	}, mapButtonWrap->lifetime());
 	_mapButton->setClickedCallback([=] {
 		_webview->eval("LocationPicker.send();");
 	});
@@ -1267,7 +1210,8 @@ void LocationPicker::venuesSearchEnableAt(Core::GeoLocation location) {
 			tr::lng_dlg_filter(),
 			[=](std::optional<QString> query) {
 				venuesSearchChanged(query);
-			});
+			},
+			&st::dialogsFilter);
 	}
 	_venuesSearchLocation = location;
 }

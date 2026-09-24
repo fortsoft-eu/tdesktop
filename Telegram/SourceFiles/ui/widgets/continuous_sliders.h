@@ -10,6 +10,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/animations.h"
 #include "ui/rp_widget.h"
 
+class QSlider;
+
 namespace base {
 class Timer;
 } // namespace base
@@ -29,10 +31,7 @@ public:
 		Horizontal,
 		Vertical,
 	};
-	void setDirection(Direction direction) {
-		_direction = direction;
-		update();
-	}
+	void setDirection(Direction direction);
 
 	float64 value() const;
 	void setValue(float64 value);
@@ -68,6 +67,9 @@ public:
 	}
 
 protected:
+	void resizeEvent(QResizeEvent *e) override;
+	bool eventFilter(QObject *object, QEvent *event) override;
+	QSlider *nativeSlider() const { return _native; }
 	void mouseMoveEvent(QMouseEvent *e) override;
 	void mousePressEvent(QMouseEvent *e) override;
 	void mouseReleaseEvent(QMouseEvent *e) override;
@@ -109,6 +111,7 @@ private:
 	void updateDownValueFromPos(const QPoint &pos);
 
 	Direction _direction = Direction::Horizontal;
+	QSlider *_native = nullptr;
 	bool _disabled = false;
 
 	std::unique_ptr<base::Timer> _byWheelFinished;

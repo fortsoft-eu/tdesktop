@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_password_check.h"
 
+#include "ui/style/style_classic.h"
 #include "intro/intro_widget.h"
 #include "core/core_cloud_password.h"
 #include "ui/boxes/confirm_box.h"
@@ -35,8 +36,8 @@ PasswordCheckWidget::PasswordCheckWidget(
 , _pwdField(this, st::introPassword, tr::lng_signin_password())
 , _pwdHint(this, st::introPasswordHint)
 , _codeField(this, st::introPassword, tr::lng_signin_code())
-, _toRecover(this, tr::lng_signin_recover(tr::now))
-, _toPassword(this, tr::lng_signin_try_password(tr::now)) {
+, _toRecover(this, tr::lng_signin_recover(tr::now), st::introLink)
+, _toPassword(this, tr::lng_signin_try_password(tr::now), st::introLink) {
 	Expects(_passwordState.hasPassword);
 
 	Lang::Updated(

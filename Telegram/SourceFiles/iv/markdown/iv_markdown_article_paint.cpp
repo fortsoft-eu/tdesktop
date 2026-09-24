@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/markdown/iv_markdown_article_paint.h"
+
+#include "ui/style/style_radius.h"
 #include "iv/markdown/iv_markdown_article.h"
 #include "iv/markdown/iv_markdown_article_text.h"
 #include "ui/dynamic_image.h"
@@ -1078,8 +1080,8 @@ using TableOwnershipGrid = std::vector<std::vector<TableOwnershipSlot>>;
 				half,
 				half,
 			}),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	} else {
 		path.addRect(block.visibleTableRect);
 	}
@@ -1595,14 +1597,14 @@ void PaintHorizontalScrollbar(
 		p.setBrush(trackBg);
 		p.drawRoundedRect(
 			QRectF(block.scrollScrollbarTrackRect),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 		if (!block.scrollScrollbarThumbRect.isEmpty()) {
 			p.setBrush(thumbBg);
 			p.drawRoundedRect(
 				QRectF(block.scrollScrollbarThumbRect),
-				radius,
-				radius);
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 		}
 	} else {
 		p.fillRect(block.scrollScrollbarTrackRect, trackBg);
@@ -1988,7 +1990,7 @@ void PaintQuoteBlock(
 			p.setPen(Qt::NoPen);
 			p.setBrush(context.caches.blockquote->bg);
 			auto hq = PainterHighQualityEnabler(p);
-			p.drawRoundedRect(block.outer, quoteStyle.radius, quoteStyle.radius);
+			p.drawRoundedRect(block.outer, style::CornerRadius(quoteStyle.radius), style::CornerRadius(quoteStyle.radius));
 			if (!quoteStyle.icon.empty()) {
 				const auto icon = quoteStyle.icon.instance(
 					context.caches.blockquote->icon);
@@ -2192,10 +2194,10 @@ void PaintPlaceholderBlock(
 					block.placeholderRuntime->clickHandler);
 				p.setPen(Qt::NoPen);
 				p.setBrush(paintSt.placeholder.bg);
-				p.drawRoundedRect(block.mediaRect, radius, radius);
+				p.drawRoundedRect(block.mediaRect, style::CornerRadius(radius), style::CornerRadius(radius));
 				if (active || pressed) {
 					p.setBrush(paintSt.placeholder.bgActive);
-					p.drawRoundedRect(block.mediaRect, radius, radius);
+					p.drawRoundedRect(block.mediaRect, style::CornerRadius(radius), style::CornerRadius(radius));
 				}
 				if (const auto &ripple = block.placeholderRuntime->ripple) {
 					ripple->paint(
@@ -2209,7 +2211,7 @@ void PaintPlaceholderBlock(
 				pen.setWidth(border);
 				p.setPen(pen);
 				p.setBrush(Qt::NoBrush);
-				p.drawRoundedRect(borderRect, radius, radius);
+				p.drawRoundedRect(borderRect, style::CornerRadius(radius), style::CornerRadius(radius));
 				if (block.placeholderRuntime->loading) {
 					const auto size = QSize(
 						st.placeholder.spinnerSize,
@@ -2247,8 +2249,8 @@ void PaintPlaceholderBlock(
 					block.labelRect.marginsRemoved(
 						{ skip, 0, skip, 0 }
 					).marginsAdded(st.placeholder.padding),
-					radius,
-					radius);
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 				p.setPen(paintSt.placeholder.labelFg->c);
 				PaintTextLeaf(
 					p,
@@ -2296,7 +2298,7 @@ void PaintPlaceholderBlock(
 
 [[nodiscard]] QPainterPath RoundedRectPath(QRect rect, int radius) {
 	auto path = QPainterPath();
-	path.addRoundedRect(QRectF(rect), radius, radius);
+	path.addRoundedRect(QRectF(rect), style::CornerRadius(radius), style::CornerRadius(radius));
 	return path;
 }
 
@@ -2529,7 +2531,7 @@ void PaintCardSurface(
 			auto hq = PainterHighQualityEnabler(p);
 			p.setPen(Qt::NoPen);
 			p.setBrush(bg->c);
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		} else {
 			p.fillRect(rect, bg->c);
 		}
@@ -2546,7 +2548,7 @@ void PaintCardSurface(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(QPen(borderFg->c, border));
 		p.setBrush(bg->c);
-		p.drawRoundedRect(inner, radius, radius);
+		p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 	} else {
 		p.fillRect(rect, bg->c);
 		p.setPen(QPen(borderFg->c, border));

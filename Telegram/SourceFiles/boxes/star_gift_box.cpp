@@ -7,6 +7,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/star_gift_box.h"
 
+#include "ui/style/style_classic.h"
+#include <QtWidgets/QTabBar>
+#include <QtCore/QSignalBlocker>
+#include "ui/style/style_radius.h"
+
 #include "boxes/star_gift_cover_box.h"
 
 #include "apiwrap.h"
@@ -131,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_premium.h"
 #include "styles/style_settings.h"
 #include "styles/style_widgets.h"
+#include "styles/style_window.h"
 
 #include <QtWidgets/QApplication>
 
@@ -358,7 +364,7 @@ void TextBubblePart::draw(
 	const auto radius = height() / 2.;
 	const auto left = (outerWidth - width()) / 2;
 	const auto r = QRect(left, 0, width(), height());
-	p.drawRoundedRect(r, radius, radius);
+	p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	MediaGenericTextPart::draw(p, owner, context, outerWidth);
 }
@@ -452,14 +458,15 @@ auto GenerateGiftMedia(
 				TextWithEntities text,
 				QMargins margins = {},
 				const base::flat_map<uint16, ClickHandlerPtr> &links = {},
-				Ui::Text::MarkedContext context = {}) {
+				Ui::Text::MarkedContext context = {},
+				const style::TextStyle &textStyle = st::defaultTextStyle) {
 			if (text.empty()) {
 				return;
 			}
 			push(std::make_unique<MediaGenericTextPart>(
 				std::move(text),
 				margins,
-				st::defaultTextStyle,
+				textStyle,
 				links,
 				std::move(context)));
 		};
@@ -489,8 +496,8 @@ auto GenerateGiftMedia(
 		}, [&](const GiftTypeStars &gift) {
 			return recipient->isSelf()
 				? ((gift.info.unique && gift.info.unique->crafted)
-					? tr::lng_action_gift_crafted_subtitle(tr::now, tr::bold)
-					: tr::lng_action_gift_self_subtitle(tr::now, tr::bold))
+					? tr::lng_action_gift_crafted_subtitle(tr::now, tr::marked)
+					: tr::lng_action_gift_self_subtitle(tr::now, tr::marked))
 				: tr::lng_action_gift_got_subtitle(
 					tr::now,
 					lt_user,
@@ -501,7 +508,7 @@ auto GenerateGiftMedia(
 									recipient->session().user())))
 						.append(' ')
 						.append(recipient->session().user()->shortName()),
-					tr::bold);
+					tr::marked);
 		});
 		auto textFallback = v::match(descriptor, [&](GiftTypePremium gift) {
 			return tr::lng_action_gift_premium_about(
@@ -539,7 +546,8 @@ auto GenerateGiftMedia(
 			std::move(title),
 			st::giftBoxPreviewTitlePadding,
 			{},
-			context);
+			context,
+			st::giftBoxPreviewTextStyle);
 
 		if (v::is<GiftTypeStars>(descriptor)) {
 			const auto &stars = v::get<GiftTypeStars>(descriptor);
@@ -559,9 +567,10 @@ auto GenerateGiftMedia(
 			std::move(description),
 			st::giftBoxPreviewTextPadding,
 			{},
-			context);
+			context,
+			st::giftBoxPreviewTextStyle);
 
-		push(HistoryView::MakeGenericButtonPart(
+		push(HistoryView::MakeGenericClassicButtonPart(
 			(data.upgraded
 				? tr::lng_gift_view_unpack(tr::now)
 				: tr::lng_sticker_premium_view(tr::now)),
@@ -946,27 +955,13 @@ struct GiftPriceTabs {
 	auto widget = object_ptr<RpWidget>((QWidget*)nullptr);
 	const auto raw = widget.data();
 
-	struct Button {
-		QRect geometry;
-		Text::String text;
-		int price = 0;
-		bool active = false;
-	};
 	struct State {
 		rpl::variable<std::vector<int>> prices;
 		rpl::variable<int> priceTab = kPriceTabAll;
-		rpl::variable<int> fullWidth;
-		std::vector<Button> buttons;
-		int dragx = 0;
-		int pressx = 0;
-		float64 dragscroll = 0.;
-		float64 scroll = 0.;
-		int scrollMax = 0;
-		int tabsShift = 0;
-		int selected = -1;
-		int pressed = -1;
-		int active = -1;
 	};
+	const auto tabs = CreateClassicTabBar(raw);
+	tabs->show();
+
 	const auto user = peer->asUser();
 	const auto disallowed = user
 		? user->disallowedGiftTypes()
@@ -975,10 +970,6 @@ struct GiftPriceTabs {
 		hasMyUnique = false;
 	}
 	const auto state = raw->lifetime().make_state<State>();
-	const auto scroll = [=] {
-		return QPoint(int(base::SafeRound(state->scroll)), 0)
-			- QPoint(state->tabsShift, 0);
-	};
 
 	state->prices = std::move(
 		gifts
@@ -1004,176 +995,33 @@ struct GiftPriceTabs {
 		return result;
 	});
 
-	const auto setSelected = [=](int index) {
-		const auto was = (state->selected >= 0);
-		const auto now = (index >= 0);
-		state->selected = index;
-		if (was != now) {
-			raw->setCursor(now ? style::cur_pointer : style::cur_default);
+	state->prices.value() | rpl::on_next([=](const std::vector<int> &prices) {
+		const auto blocker = QSignalBlocker(tabs);
+		auto current = state->priceTab.current();
+		if (!ranges::contains(prices, current)) {
+			current = kPriceTabAll;
 		}
-	};
-	const auto setActive = [=](int index) {
-		const auto was = state->active;
-		if (was == index) {
-			return;
+		while (tabs->count()) {
+			tabs->removeTab(tabs->count() - 1);
 		}
-		if (was >= 0 && was < state->buttons.size()) {
-			state->buttons[was].active = false;
-		}
-		state->active = index;
-		state->buttons[index].active = true;
-		raw->update();
-
-		state->priceTab = state->buttons[index].price;
-	};
-
-	state->prices.value(
-	) | rpl::on_next([=](const std::vector<int> &prices) {
-		auto x = st::giftBoxTabsMargin.left();
-		auto y = st::giftBoxTabsMargin.top();
-
-		setSelected(-1);
-		state->buttons.resize(prices.size());
-		const auto padding = st::giftBoxTabPadding;
-		auto currentPrice = state->priceTab.current();
-		if (!ranges::contains(prices, currentPrice)) {
-			currentPrice = kPriceTabAll;
-		}
-		state->active = -1;
-		for (auto i = 0, count = int(prices.size()); i != count; ++i) {
-			const auto price = prices[i];
-			auto &button = state->buttons[i];
-			if (button.text.isEmpty() || button.price != price) {
-				button.price = price;
-				button.text = TabTextForPrice(price);
+		for (const auto price : prices) {
+			const auto index = tabs->addTab(TabTextForPrice(price).toString());
+			tabs->setTabData(index, price);
+			if (price == current) {
+				tabs->setCurrentIndex(index);
 			}
-			button.active = (price == currentPrice);
-			if (button.active) {
-				state->active = i;
-			}
-			const auto width = button.text.maxWidth();
-			const auto height = st::giftBoxTabStyle.font->height;
-			const auto r = QRect(0, 0, width, height).marginsAdded(padding);
-			button.geometry = QRect(QPoint(x, y), r.size());
-			x += r.width() + st::giftBoxTabSkip;
 		}
-		state->fullWidth = x
-			- st::giftBoxTabSkip
-			+ st::giftBoxTabsMargin.right();
-		const auto height = state->buttons.empty()
-			? 0
-			: (y
-				+ state->buttons.back().geometry.height()
-				+ st::giftBoxTabsMargin.bottom());
-		raw->resize(raw->width(), height);
-		raw->update();
+		state->priceTab = current;
+		raw->resize(raw->width(), tabs->sizeHint().height());
+		tabs->resize(raw->size());
 	}, raw->lifetime());
-
-	rpl::combine(
-		raw->widthValue(),
-		state->fullWidth.value()
-	) | rpl::on_next([=](int outer, int inner) {
-		state->scrollMax = std::max(0, inner - outer);
-		state->tabsShift = (outer - inner) / 2;
-	}, raw->lifetime());
-
-	raw->setMouseTracking(true);
-	raw->events() | rpl::on_next([=](not_null<QEvent*> e) {
-		const auto type = e->type();
-		switch (type) {
-		case QEvent::Leave: setSelected(-1); break;
-		case QEvent::MouseMove: {
-			const auto me = static_cast<QMouseEvent*>(e.get());
-			const auto mousex = me->pos().x() - state->tabsShift;
-			const auto drag = QApplication::startDragDistance();
-			if (state->dragx > 0) {
-				state->scroll = std::clamp(
-					state->dragscroll + state->dragx - mousex,
-					0.,
-					state->scrollMax * 1.);
-				raw->update();
-				break;
-			} else if (state->pressx > 0
-				&& std::abs(state->pressx - mousex) > drag) {
-				state->dragx = state->pressx;
-				state->dragscroll = state->scroll;
-			}
-			const auto position = me->pos() + scroll();
-			for (auto i = 0, c = int(state->buttons.size()); i != c; ++i) {
-				if (state->buttons[i].geometry.contains(position)) {
-					setSelected(i);
-					break;
-				}
-			}
-		} break;
-		case QEvent::Wheel: {
-			const auto me = static_cast<QWheelEvent*>(e.get());
-			state->scroll = std::clamp(
-				state->scroll - ScrollDeltaF(me).x(),
-				0.,
-				state->scrollMax * 1.);
-			raw->update();
-		} break;
-		case QEvent::MouseButtonPress: {
-			const auto me = static_cast<QMouseEvent*>(e.get());
-			if (me->button() != Qt::LeftButton) {
-				break;
-			}
-			state->pressed = state->selected;
-			state->pressx = me->pos().x() - state->tabsShift;
-		} break;
-		case QEvent::MouseButtonRelease: {
-			const auto me = static_cast<QMouseEvent*>(e.get());
-			if (me->button() != Qt::LeftButton) {
-				break;
-			}
-			const auto dragx = std::exchange(state->dragx, 0);
-			const auto pressed = std::exchange(state->pressed, -1);
-			state->pressx = 0;
-			if (!dragx && pressed >= 0 && state->selected == pressed) {
-				setActive(pressed);
-			}
-		} break;
+	QObject::connect(tabs, &QTabBar::currentChanged, raw, [=](int index) {
+		if (index >= 0) {
+			state->priceTab = tabs->tabData(index).toInt();
 		}
-	}, raw->lifetime());
-
-	raw->paintRequest() | rpl::on_next([=] {
-		auto p = QPainter(raw);
-		auto hq = PainterHighQualityEnabler(p);
-		const auto padding = st::giftBoxTabPadding;
-		const auto shift = -scroll();
-		for (const auto &button : state->buttons) {
-			const auto geometry = button.geometry.translated(shift);
-			if (button.active) {
-				p.setBrush(st::giftBoxTabBgActive);
-				p.setPen(Qt::NoPen);
-				const auto radius = geometry.height() / 2.;
-				p.drawRoundedRect(geometry, radius, radius);
-				p.setPen(st::giftBoxTabFgActive);
-			} else {
-				p.setPen(st::giftBoxTabFg);
-			}
-			button.text.draw(p, {
-				.position = geometry.marginsRemoved(padding).topLeft(),
-				.availableWidth = button.text.maxWidth(),
-			});
-		}
-		{
-			const auto &icon = st::defaultEmojiSuggestions;
-			const auto w = icon.fadeRight.width();
-			const auto &c = st::boxDividerBg->c;
-			const auto r = QRect(0, 0, w, raw->height());
-			const auto s = std::abs(float64(shift.x()));
-			constexpr auto kF = 0.5;
-			const auto opacityRight = (state->scrollMax - s)
-				/ (icon.fadeRight.width() * kF);
-			p.setOpacity(std::clamp(std::abs(opacityRight), 0., 1.));
-			icon.fadeRight.fill(p, r.translated(raw->width() -  w, 0), c);
-
-			const auto opacityLeft = s / (icon.fadeLeft.width() * kF);
-			p.setOpacity(std::clamp(std::abs(opacityLeft), 0., 1.));
-			icon.fadeLeft.fill(p, r, c);
-		}
+	});
+	raw->sizeValue() | rpl::on_next([=](QSize size) {
+		tabs->resize(size);
 	}, raw->lifetime());
 
 	return {
@@ -1414,7 +1262,8 @@ void AddUpgradeButton(
 		object_ptr<SettingsButton>(
 			container,
 			rpl::single(QString()),
-			st::settingsButtonNoIcon));
+			st::giftBoxAnonymousButton));
+	button->setProperty("classicCheckOnLeft", true);
 	button->toggleOn(rpl::single(false))->toggledValue(
 	) | rpl::on_next(toggled, button->lifetime());
 
@@ -1434,14 +1283,10 @@ void AddUpgradeButton(
 	label->show();
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);
 	button->widthValue() | rpl::on_next([=](int outer) {
-		const auto padding = st::settingsButtonNoIcon.padding;
+		const auto padding = st::giftBoxAnonymousButton.padding;
 		const auto inner = outer
 			- padding.left()
-			- padding.right()
-			- st::settingsButtonNoIcon.toggleSkip
-			- 2 * st::settingsButtonNoIcon.toggle.border
-			- 2 * st::settingsButtonNoIcon.toggle.diameter
-			- 2 * st::settingsButtonNoIcon.toggle.width;
+			- padding.right();
 		label->resizeToWidth(inner);
 		label->moveToLeft(padding.left(), padding.top(), outer);
 	}, label->lifetime());
@@ -1520,10 +1365,16 @@ void AddSoldLeftSlider(
 			0,
 			slider->width() - (edge - (radius * 3)),
 			state->height,
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 		p.setBrush(st::windowBgActive);
-		p.drawRoundedRect(0, 0, edge, state->height, radius, radius);
+		p.drawRoundedRect(
+			0,
+			0,
+			edge,
+			state->height,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 
 		p.setPen(st::windowFgActive);
 		state->still.draw(p, {
@@ -1569,8 +1420,8 @@ void FillBg(not_null<RpWidget*> box) {
 		p.setBrush(st::boxDividerBg);
 		p.drawRoundedRect(
 			box->rect().marginsAdded({ 0, 0, 0, 2 * radius }),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}, box->lifetime());
 }
 
@@ -1579,6 +1430,7 @@ struct AddBlockArgs {
 	rpl::producer<TextWithEntities> about;
 	Fn<bool(const ClickHandlerPtr&, Qt::MouseButton)> aboutFilter;
 	object_ptr<RpWidget> content;
+	const style::FlatLabel *aboutStyle = &st::giftBoxAbout;
 };
 
 void AddBlock(
@@ -1594,9 +1446,9 @@ void AddBlock(
 		style::al_top);
 	const auto about = content->add(
 		object_ptr<FlatLabel>(
-			content,
+			nullptr,
 			std::move(args.about),
-			st::giftBoxAbout),
+			*args.aboutStyle),
 		st::giftBoxAboutMargin,
 		style::al_top);
 	about->setClickHandlerFilter(std::move(args.aboutFilter));
@@ -1852,6 +1704,7 @@ void GiftBox(
 				peer,
 				std::move(my),
 				std::move(tabSelected)),
+			.aboutStyle = &st::giftBoxRecipientAbout,
 		});
 	}
 }
@@ -2290,6 +2143,10 @@ not_null<InputField*> AddStarGiftMessageField(
 			std::move(placeholder),
 			current),
 		st::giftBoxTextPadding);
+	field->setTextTopExtension(st::lineWidth);
+	field->setFrameRightMargin(st::giftBoxEmojiRightSkip);
+	field->setMinHeight(st::windowFilterNameInput.heightMin
+		- st::classicSettingsFont->height - 2 * st::lineWidth);
 	field->setMaxLength(limit);
 	AddLengthLimitLabel(field, limit, {
 		.limitLabelTop = st::giftBoxLimitTop,
@@ -2300,9 +2157,10 @@ not_null<InputField*> AddStarGiftMessageField(
 		st::defaultComposeFiles.emoji);
 	toggle->show();
 	field->geometryValue() | rpl::on_next([=](QRect r) {
-		toggle->move(
-			r.x() + r.width() - toggle->width(),
-			r.y() - st::giftBoxEmojiToggleTop);
+		const auto frame = field->textFrameRect();
+		toggle->moveToLeft(
+			r.x() + r.width() - st::giftBoxEmojiRightSkip,
+			r.y() + frame.y() + (frame.height() - toggle->height()) / 2);
 	}, toggle->lifetime());
 
 	using namespace ChatHelpers;
@@ -2317,6 +2175,7 @@ not_null<InputField*> AddStarGiftMessageField(
 					.level = ChatHelpers::PauseReason::Layer,
 					.mode = TabbedSelector::Mode::EmojiOnly,
 				}),
+			.separateWindow = true,
 		});
 	panel->setDesiredHeightValues(
 		1.,
@@ -2344,7 +2203,9 @@ not_null<InputField*> AddStarGiftMessageField(
 
 	const auto filterCallback = [=](not_null<QEvent*> event) {
 		const auto type = event->type();
-		if (type == QEvent::Move || type == QEvent::Resize) {
+		if (type == QEvent::Hide || type == QEvent::HideToParent) {
+			panel->hideFast();
+		} else if (type == QEvent::Move || type == QEvent::Resize) {
 			// updateEmojiPanelGeometry uses not only container geometry, but
 			// also container children geometries that will be updated later.
 			crl::on_main(field, updateEmojiPanelGeometry);
@@ -2419,12 +2280,13 @@ object_ptr<RpWidget> MakeUniqueGiftPreview(
 								? nullptr
 								: value.sender.get()),
 							.skipViewAction = true,
+							.classicText = true,
 						}),
 						MediaGenericDescriptor{
 							.maxWidth = st::chatUniqueGiftMaxWidth,
 							.minWidth = st::msgServiceGiftBoxSize.width(),
 							.paintBgFactory = [=] {
-								return UniqueGiftBg(parent, gift, cache);
+								return UniqueGiftBg(parent, gift, cache, true);
 							},
 							.fitToContent = true,
 							.service = true,
@@ -2732,7 +2594,10 @@ void AttachGiftSenderBadge(
 		p.setBrush(st::radialBg);
 		p.setPen(Qt::NoPen);
 		const auto radius = badge->height() / 2.;
-		p.drawRoundedRect(badge->rect(), radius, radius);
+		p.drawRoundedRect(
+			badge->rect(),
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	});
 	badge->setLink(1, std::make_shared<LambdaClickHandler>([=] {
 		if (const auto window = show->resolveWindow()) {
@@ -4085,7 +3950,7 @@ void UpgradeBox(
 	}
 
 	box->setStyle(preview
-		? st::giftBox
+		? st::creditsEntryOkBox
 		: showPrices
 		? st::upgradeGiftWithPricesBox
 		: st::upgradeGiftBox);
@@ -4803,9 +4668,11 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 	const auto loadMore = args.loadMore;
 	const auto alreadySelected = args.selected;
 	const auto rebuild = [=] {
-		const auto width = st::boxWideWidth;
+		const auto width = raw->width();
 		const auto padding = st::giftBoxPadding;
-		const auto available = width - padding.left() - padding.right();
+		const auto available = std::max(
+			width - padding.left() - padding.right(),
+			0);
 		const auto range = state->visibleRange.current();
 		const auto count = int(state->list.size());
 
@@ -4819,7 +4686,10 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 		auto x = padding.left();
 		auto y = padding.top();
 		const auto perRow = state->perRow;
-		const auto singlew = single.width() + st::giftBoxGiftSkip.x();
+		const auto buttonWidth = std::max(
+			(available - (perRow - 1) * st::giftBoxGiftSkip.x()) / perRow,
+			0);
+		const auto singlew = buttonWidth + st::giftBoxGiftSkip.x();
 		const auto singleh = single.height() + st::giftBoxGiftSkip.y();
 		const auto rangeFrom = range.top - y;
 		const auto rowFrom = std::max(rangeFrom, 0) / singleh;
@@ -4855,6 +4725,8 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 				button = std::make_unique<GiftButton>(raw, &state->delegate);
 			}
 			const auto raw = button.get();
+			raw->setGeometry(style::rtlrect(
+				x, y, buttonWidth, single.height(), width), extend);
 			if (validated[index]) {
 				return;
 			}
@@ -4876,7 +4748,6 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 			raw->setClickedCallback([=] {
 				handler(descriptor);
 			});
-			raw->setGeometry(QRect(QPoint(x, y), single), extend);
 		};
 		y += rowFrom * singleh;
 		for (auto row = rowFrom; row != rowTill; ++row) {
@@ -4887,7 +4758,7 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 				}
 				const auto last = !((col + 1) % perRow);
 				if (last) {
-					x = padding.left() + available - single.width();
+					x = padding.left() + available - buttonWidth;
 				}
 				ensureButton(index);
 				if (last) {
@@ -4915,13 +4786,24 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 	state->visibleRange.value(
 	) | rpl::on_next(rebuild, raw->lifetime());
 
+	const auto layout = [=] {
+		const auto padding = st::giftBoxPadding;
+		const auto available = raw->width() - padding.left() - padding.right();
+		state->perRow = std::max(available / single.width(), 1);
+		const auto count = int(state->list.size());
+		const auto rows = (count + state->perRow - 1) / state->perRow;
+		const auto height = padding.top()
+			+ (rows * single.height())
+			+ (std::max(rows - 1, 0) * st::giftBoxGiftSkip.y())
+			+ padding.bottom();
+		raw->resize(raw->width(), height);
+		rebuild();
+	};
+	raw->widthValue() | rpl::on_next(layout, raw->lifetime());
+
 	std::move(
 		args.gifts
 	) | rpl::on_next([=](const GiftsDescriptor &gifts) {
-		const auto width = st::boxWideWidth;
-		const auto padding = st::giftBoxPadding;
-		const auto available = width - padding.left() - padding.right();
-		state->perRow = available / single.width();
 		state->list = std::move(gifts.list);
 		state->handlerState.api = gifts.api;
 
@@ -4939,13 +4821,7 @@ object_ptr<RpWidget> MakeGiftsList(GiftsListArgs &&args) {
 			});
 		}
 
-		const auto rows = (count + state->perRow - 1) / state->perRow;
-		const auto height = padding.top()
-			+ (rows * single.height())
-			+ ((rows - 1) * st::giftBoxGiftSkip.y())
-			+ padding.bottom();
-		raw->resize(raw->width(), height);
-		rebuild();
+		layout();
 	}, raw->lifetime());
 
 	return result;
@@ -4972,7 +4848,13 @@ void SendGiftBox(
 		&& (disallowed & Api::DisallowedGiftType::Limited);
 	const auto disallowUnique = !peer->isSelf()
 		&& (disallowed & Api::DisallowedGiftType::Unique);
-	box->setStyle((limited && !auction) ? st::giftLimitedBox : st::giftBox);
+	const auto boxStyle = box->lifetime().make_state<style::Box>(
+		(limited && !auction) ? st::giftSendLimitedBox : st::giftSendBox);
+	const auto border = 2 * st::lineWidth;
+	boxStyle->buttonPadding.setLeft(boxStyle->buttonPadding.left() + border);
+	boxStyle->buttonPadding.setRight(boxStyle->buttonPadding.right() + border);
+	boxStyle->buttonPadding.setBottom(boxStyle->buttonPadding.bottom() + border);
+	box->setStyle(*boxStyle);
 	box->setWidth(st::boxWideWidth);
 	box->setTitle(tr::lng_gift_send_title());
 	box->addTopButton(st::boxTitleClose, [=] {
@@ -5034,6 +4916,7 @@ void SendGiftBox(
 	}
 
 	const auto container = box->verticalLayout();
+	Ui::SetClassicSettingsStyle(container);
 	container->add(object_ptr<PreviewWrap>(
 		container,
 		peer->owner().history(peer->session().userPeerId()),
@@ -5094,12 +4977,13 @@ void SendGiftBox(
 			AddDivider(container);
 		}
 		AddSkip(container);
-		container->add(
+		const auto anonymous = container->add(
 			object_ptr<SettingsButton>(
 				container,
 				tr::lng_gift_send_anonymous(),
-				st::settingsButtonNoIcon)
-		)->toggleOn(rpl::single(peer->isSelf()))->toggledValue(
+				st::giftBoxAnonymousButton));
+		anonymous->setProperty("classicCheckOnLeft", true);
+		anonymous->toggleOn(rpl::single(peer->isSelf()))->toggledValue(
 		) | rpl::on_next([=](bool toggled) {
 			auto now = state->details.current();
 			now.anonymous = toggled;
@@ -5115,15 +4999,16 @@ void SendGiftBox(
 		if (const auto byStars = data.stars) {
 			const auto star = Ui::Text::IconEmoji(&st::starIconEmojiColored);
 			AddSkip(container);
-			container->add(
+			const auto payWithStars = container->add(
 				object_ptr<SettingsButton>(
 					container,
 					tr::lng_gift_send_pay_with_stars(
 						lt_amount,
 						rpl::single(base::duplicate(star).append(Lang::FormatCountDecimal(byStars))),
 						tr::marked),
-						st::settingsButtonNoIcon)
-			)->toggleOn(rpl::single(false))->toggledValue(
+					st::giftBoxAnonymousButton));
+			payWithStars->setProperty("classicCheckOnLeft", true);
+			payWithStars->toggleOn(rpl::single(false))->toggledValue(
 			) | rpl::on_next([=](bool toggled) {
 				auto now = state->details.current();
 				now.byStars = toggled;
@@ -5157,7 +5042,9 @@ void SendGiftBox(
 			});
 		}
 	}, [&](const GiftTypeStars &) {
-		AddDividerText(container, peer->isSelf()
+		AddDividerText(
+			container,
+			peer->isSelf()
 			? tr::lng_gift_send_anonymous_self()
 			: peer->isBroadcast()
 			? tr::lng_gift_send_anonymous_about_channel()
@@ -5172,7 +5059,9 @@ void SendGiftBox(
 					lt_user,
 					rpl::single(peer->shortName()),
 					lt_recipient,
-					rpl::single(peer->shortName()))));
+					rpl::single(peer->shortName()))),
+			st::defaultBoxDividerLabelPadding,
+			st::classicDividerLabel);
 	});
 
 	const auto button = box->addButton(rpl::single(QString()), [=] {
@@ -5277,8 +5166,8 @@ void SendGiftBox(
 					std::move(cost),
 					tr::marked),
 			session,
-			st::creditsBoxButtonLabel,
-			&st::giftBox.button.textFg);
+			st::giftSendButtonLabel,
+			&st::classicMenuText);
 	}
 }
 

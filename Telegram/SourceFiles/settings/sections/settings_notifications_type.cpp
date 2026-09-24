@@ -44,6 +44,14 @@ namespace {
 using Notify = Data::DefaultNotify;
 using namespace Builder;
 
+[[nodiscard]] style::SettingsButton CheckOnLeftStyle(style::SettingsButton result) {
+	result.toggleSkip = result.padding.left();
+	result.padding.setLeft(result.toggleSkip
+		+ st::classicCheckSize
+		+ st::settingsExperimentalButton.padding.right());
+	return result;
+}
+
 struct Factory : AbstractSectionFactory {
 	explicit Factory(Notify type) : type(type) {
 	}
@@ -409,13 +417,16 @@ void SetupChecks(
 
 	const auto session = &controller->session();
 	const auto settings = &session->data().notifySettings();
+	const auto checkStyle = container->lifetime(
+	).make_state<style::SettingsButton>(CheckOnLeftStyle(st::settingsButton));
 
 	const auto enabled = container->add(
 		CreateButtonWithIcon(
 			container,
 			tr::lng_notification_enable(),
-			st::settingsButton,
+			*checkStyle,
 			{ &st::menuIconNotifications }));
+	enabled->setProperty("classicCheckOnLeft", true);
 	enabled->toggleOn(
 		NotificationsEnabledForTypeValue(session, type),
 		true);
@@ -457,8 +468,9 @@ void SetupChecks(
 		CreateButtonWithIcon(
 			soundInner,
 			tr::lng_notification_sound(),
-			st::settingsButton,
+			*checkStyle,
 			{ &st::menuIconUnmute }));
+	sound->setProperty("classicCheckOnLeft", true);
 	sound->toggleOn(rpl::single(
 		soundValue()
 	) | rpl::then(settings->defaultUpdates(

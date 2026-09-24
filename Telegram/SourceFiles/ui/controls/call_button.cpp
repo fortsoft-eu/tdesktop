@@ -38,13 +38,13 @@ void CallButton::init() {
 
 	const auto size = QSize(_stFrom->bgSize, _stFrom->bgSize);
 	_bgMask = RippleAnimation::MaskByDrawer(size, false, [&](QPainter &p) {
-		p.drawEllipse(0, 0, size.width(), size.height());
+		p.drawRect(0, 0, size.width(), size.height());
 		if (_corner) {
 			auto position = _corner->pos() - _stFrom->bgPosition;
 			p.setCompositionMode(QPainter::CompositionMode_Source);
 			p.setBrush(st::transparent);
 			const auto border = _stFrom->cornerButtonBorder;
-			p.drawEllipse(QRect(position, _corner->size()).marginsAdded(
+			p.drawRect(QRect(position, _corner->size()).marginsAdded(
 				{ border, border, border, border }));
 		}
 	});
@@ -179,7 +179,7 @@ void CallButton::paintEvent(QPaintEvent *e) {
 			p.setBrush(anim::brush(_stFrom->outerBg, _stTo->outerBg, _progress));
 		}
 		p.setPen(Qt::NoPen);
-		p.drawEllipse(outerRect);
+		p.drawRect(outerRect);
 	}
 
 	if (_bgOverride) {
@@ -190,7 +190,7 @@ void CallButton::paintEvent(QPaintEvent *e) {
 		p.setBrush(*_bgOverride);
 
 		PainterHighQualityEnabler hq(p);
-		p.drawEllipse(QRect(_stFrom->bgPosition, QSize(s, s)));
+		p.drawRect(QRect(_stFrom->bgPosition, QSize(s, s)));
 	} else if (paintFrom) {
 		p.drawPixmap(bgPosition, _bgFrom);
 	} else if (paintTo) {

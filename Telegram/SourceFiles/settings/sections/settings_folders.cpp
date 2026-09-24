@@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_boxes.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_layers.h"
+#include "styles/style_info.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
 #include "styles/style_stickers_box.h"
@@ -205,7 +206,7 @@ void FilterRowButton::updateData(
 
 	const auto title = filter.title();
 	_title.setMarkedText(
-		st::contactsNameStyle,
+		st::infoApplicationButtonText,
 		title.text,
 		kMarkupTextOptions,
 		Core::TextContext({
@@ -324,7 +325,7 @@ void FilterRowButton::paintEvent(QPaintEvent *e) {
 		availableWidth,
 		width());
 
-	p.setFont(st::contactsStatusFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(st::contactsStatusFg);
 	p.drawTextLeft(
 		left,
@@ -1014,11 +1015,15 @@ void BuildTagsSection(SectionBuilder &builder, not_null<FoldersState*> state) {
 		};
 
 		auto premium = Data::AmPremiumValue(session);
+		auto tagsStyle = st::settingsButtonNoIconLocked;
+		tagsStyle.toggleSkip = tagsStyle.padding.left();
+		tagsStyle.padding.setLeft(tagsStyle.toggleSkip + st::classicCheckSize + st::settingsExperimentalButton.padding.right());
 		const auto tagsButton = content->add(
 			object_ptr<Ui::SettingsButton>(
 				content,
 				tr::lng_filters_enable_tags(),
-				st::settingsButtonNoIconLocked));
+				tagsStyle));
+		tagsButton->setProperty("classicCheckOnLeft", true);
 		if (ctx.highlights) {
 			ctx.highlights->push_back({ u"folders/show-tags"_q, { tagsButton } });
 		}

@@ -11,7 +11,7 @@ historyRecordVoiceOnceBg: icon {{ "voice_lock/audio_once_bg", historySendIconFg 
 historyRecordVoiceOnceFg: icon {{ "voice_lock/audio_once_number", windowFgActive }};
 historyRecordVoiceOnceInactive: icon {{ "chat/audio_once", windowSubTextFg }};
 historyRecordSignalRadius: 5px;
-historyRecordFont: font(13px);
+historyRecordFont: classicSettingsFont;
 historyRecordDurationSkip: 12px;
 historyRecordTextStyle: TextStyle(defaultTextStyle) {
 	font: historyRecordFont;
@@ -45,4 +45,8 @@ historyRecordTrimHandleWidth: 10px;
 historyRecordTrimHandleInnerSize: size(2px, 8px);
 historyRecordLockPosition: point(1px, 22px);
 historyRecordCancelButtonWidth: 100px;
+historyRecordCancelButtonHeight: 28px;
+historyRecordCancelTextStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
+}
 historyRecordTooltipSkip: 8px;

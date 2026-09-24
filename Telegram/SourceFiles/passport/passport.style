@@ -45,13 +45,8 @@ passportPasswordUserpic: UserpicButton(defaultUserpicButton) {
 	photoSize: 80px;
 	photoPosition: point(0px, 0px);
 }
-passportPasswordSubmit: RoundButton(defaultActiveButton) {
+passportPasswordSubmit: RoundButton(classicWideBoxButton) {
 	width: 200px;
-	height: 44px;
-	textTop: 12px;
-	style: TextStyle(semiboldTextStyle) {
-		font: font(semibold 15px);
-	}
 }
 passportPasswordSubmitBottom: 72px;
 passportPasswordForgotBottom: 36px;
@@ -63,9 +58,9 @@ passportPanelScroll: ScrollArea(defaultScrollArea) {
 
 passportPanelAuthorize: RoundButton(passportPasswordSubmit) {
 	width: 0px;
-	height: 49px;
+	height: classicButtonHeight;
 	padding: margins(0px, -3px, 0px, 0px);
-	textTop: 16px;
+	textTop: classicButtonTextTop;
 	icon: icon {{ "passport_authorize", activeButtonFg }};
 	iconPosition: point(-8px, 9px);
 }
@@ -93,7 +88,7 @@ passportFormDividerHeight: 13px;
 passportFormLabelPadding: margins(22px, 7px, 22px, 14px);
 passportFormPolicy: FlatLabel(boxDividerLabel) {
 	style: TextStyle(defaultTextStyle) {
-		linkUnderline: kLinkUnderlineAlways;
+	linkUnderline: kLinkUnderlineActive;
 	}
 	palette: TextPalette(defaultTextPalette) {
 		linkFg: windowSubTextFg;

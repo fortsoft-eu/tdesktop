@@ -13,6 +13,10 @@ namespace Ui {
 class ChatStyle;
 } // namespace Ui
 
+namespace style {
+struct TextStyle;
+} // namespace style
+
 namespace HistoryView {
 
 class EmptyListBubbleWidget : public Ui::RpWidget {
@@ -22,7 +26,7 @@ public:
 		not_null<const Ui::ChatStyle*> st,
 		const style::margins &padding);
 
-	void setText(const TextWithEntities &textWithEntities);
+	void setText(const TextWithEntities &textWithEntities, const style::TextStyle &textStyle);
 	void setForceWidth(int width);
 
 protected:

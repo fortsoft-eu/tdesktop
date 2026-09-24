@@ -102,7 +102,13 @@ QString langDayOfMonth(const QDate &date) {
 	});
 }
 
-QString langDayOfMonthFull(const QDate &date) {
+QString langDayOfMonthFull(const QDate &date, bool alwaysYear) {
+	if (alwaysYear) {
+		return tr::lng_month_day_year(tr::now,
+			lt_month, MonthDay(date.month())(tr::now),
+			lt_day, QString::number(date.day()),
+			lt_year, QString::number(date.year()));
+	}
 	auto day = date.day();
 	return langDateMaybeWithYear(date, [day](int month, int year) {
 		return tr::lng_month_day_year(

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/premium_preview_box.h"
 
+#include "ui/style/style_classic.h"
 #include "chat_helpers/stickers_lottie.h"
 #include "chat_helpers/stickers_emoji_pack.h"
 #include "data/data_file_origin.h"
@@ -19,7 +20,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/info_profile_icon.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
-#include "main/main_domain.h" // kMaxAccounts
 #include "ui/chat/chat_theme.h"
 #include "ui/chat/chat_style.h"
 #include "ui/controls/feature_list.h"
@@ -55,6 +55,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_settings.h"
 
 #include <QSvgRenderer>
+#include <QtGui/QWheelEvent>
+#include <QtWidgets/QApplication>
 
 namespace {
 
@@ -63,6 +65,62 @@ constexpr auto kToggleStickerTimeout = 2 * crl::time(1000);
 constexpr auto kStarOpacityOff = 0.1;
 constexpr auto kStarOpacityOn = 1.;
 constexpr auto kStarPeriod = 3 * crl::time(1000);
+
+class PreviewWheelFilter final : public QObject {
+public:
+	PreviewWheelFilter(
+		not_null<Ui::RpWidget*> outer,
+		Fn<void(int)> move);
+
+protected:
+	bool eventFilter(QObject *watched, QEvent *event) override;
+
+private:
+	const not_null<Ui::RpWidget*> _outer;
+	const Fn<void(int)> _move;
+	int _wheelDelta = 0;
+
+};
+
+PreviewWheelFilter::PreviewWheelFilter(
+	not_null<Ui::RpWidget*> outer,
+	Fn<void(int)> move)
+: QObject(outer)
+, _outer(outer)
+, _move(std::move(move)) {
+	qApp->installEventFilter(this);
+}
+
+bool PreviewWheelFilter::eventFilter(QObject *watched, QEvent *event) {
+	if (event->type() != QEvent::Wheel) {
+		if (event->type() == QEvent::Leave && watched == _outer) {
+			_wheelDelta = 0;
+		}
+		return false;
+	}
+	const auto widget = qobject_cast<QWidget*>(watched);
+	if (!widget || (widget != _outer && !_outer->isAncestorOf(widget)) || !_outer->isVisible()) {
+		return false;
+	}
+	const auto wheel = static_cast<QWheelEvent*>(event);
+	const auto position = _outer->mapFromGlobal(wheel->globalPosition().toPoint());
+	const auto delta = wheel->angleDelta().y();
+	if (!delta || !_outer->rect().contains(position)) {
+		return false;
+	}
+	if ((delta > 0) != (_wheelDelta > 0)) {
+		_wheelDelta = 0;
+	}
+	_wheelDelta += delta;
+	constexpr auto step = QWheelEvent::DefaultDeltasPerStep;
+	const auto steps = _wheelDelta / step;
+	_wheelDelta %= step;
+	if (steps) {
+		_move(-steps);
+	}
+	wheel->accept();
+	return true;
+}
 
 using Data::ReactionId;
 
@@ -1051,7 +1109,8 @@ void PreviewBox(
 	const auto move = [=](int delta) {
 		const auto count = int(state->order.size());
 		const auto now = state->selected.current();
-		state->selected = state->order[(index(now) + count + delta) % count];
+		const auto next = std::clamp(int(index(now)) + delta, 0, count - 1);
+		state->selected = state->order[next];
 	};
 
 	const auto buttonsParent = box->verticalLayout().get();
@@ -1061,6 +1120,11 @@ void PreviewBox(
 	close->setClickedCallback([=] { box->closeBox(); });
 
 	const auto gifts = (state->selected.current() == PremiumFeature::Gifts);
+	if (!gifts && state->order.size() > 1) {
+		Ui::CreateChild<PreviewWheelFilter>(
+			outer,
+			move);
+	}
 
 	const auto left = gifts ? nullptr : Ui::CreateChild<Ui::IconButton>(
 		buttonsParent,
@@ -1075,6 +1139,15 @@ void PreviewBox(
 	if (right) {
 		right->setClickedCallback([=] { move(1); });
 	}
+	state->selected.value() | rpl::on_next([=](PremiumFeature section) {
+		const auto current = index(section);
+		if (left) {
+			left->setVisible(current > 0);
+		}
+		if (right) {
+			right->setVisible(current + 1 < state->order.size());
+		}
+	}, outer->lifetime());
 
 	buttonsParent->widthValue(
 	) | rpl::on_next([=](int width) {
@@ -1209,7 +1282,7 @@ void PreviewBox(
 		object_ptr<Ui::FlatLabel>(
 			box,
 			std::move(text),
-			st::premiumPreviewAbout),
+			st::premiumPreviewFormAbout),
 		st::premiumPreviewAboutPadding,
 		style::al_top
 	)->setTryMakeSimilarLines(true);
@@ -1285,7 +1358,21 @@ void PreviewBox(
 			showFinished();
 			raw->startGlareAnimation();
 		});
+		const auto raw = button.data();
 		box->addButton(std::move(button));
+		if (descriptor.section == PremiumFeature::EmojiStatus) {
+			rpl::combine(
+				box->widthValue(),
+				raw->geometryValue()
+			) | rpl::on_next([=](int width, QRect geometry) {
+				crl::on_main(raw, [=] {
+					const auto left = (width - geometry.width()) / 2;
+					if (raw->x() != left) {
+						raw->moveToLeft(left, raw->y());
+					}
+				});
+			}, raw->lifetime());
+		}
 	}
 
 	if (descriptor.fromSettings) {
@@ -1382,15 +1469,20 @@ void DecorateListPromoBox(
 		box->setStyle(st::premiumPreviewDoubledLimitsBox);
 		box->widthValue(
 		) | rpl::on_next([=](int width) {
-			const auto &padding
-				= st::premiumPreviewDoubledLimitsBox.buttonPadding;
-			button->resizeToWidth(width
-				- padding.left()
-				- padding.right());
-			button->moveToLeft(padding.left(), padding.top());
+			const auto &padding = st::premiumPreviewBox.buttonPadding;
+			button->resizeToWidth(std::max(width - padding.left() - padding.right(), 0));
 		}, button->lifetime());
 		box->addButton(
 			object_ptr<Ui::AbstractButton>::fromRaw(button));
+		rpl::combine(
+			box->widthValue(),
+			button->geometryValue()
+		) | rpl::on_next([=](int width, QRect geometry) {
+			const auto left = (width - geometry.width()) / 2;
+			if (geometry.x() != left) {
+				button->moveToLeft(left, geometry.y());
+			}
+		}, button->lifetime());
 	}
 }
 
@@ -1655,20 +1747,6 @@ void DoubledLimitsPreviewBox(
 			premium,
 		});
 	}
-	const auto nextMax = session->domain().maxAccounts() + 1;
-	const auto till = (nextMax >= Main::Domain::kPremiumMaxAccounts)
-		? QString::number(Main::Domain::kPremiumMaxAccounts)
-		: (QString::number(nextMax) + QChar('+'));
-	entries.push_back({
-		tr::lng_premium_double_limits_subtitle_accounts(),
-		tr::lng_premium_double_limits_about_accounts(
-			lt_count,
-			rpl::single(float64(Main::Domain::kPremiumMaxAccounts)),
-			tr::rich),
-		Main::Domain::kMaxAccounts,
-		Main::Domain::kPremiumMaxAccounts,
-		till,
-	});
 	{
 		const auto premium = limits.similarChannelsPremium();
 		entries.push_back({
@@ -1692,6 +1770,7 @@ void UpgradedStoriesPreviewBox(
 		not_null<Main::Session*> session) {
 	using namespace Ui::Text;
 
+	box->setStyle(st::premiumPreviewDoubledLimitsBox);
 	box->setTitle(tr::lng_premium_summary_subtitle_stories());
 
 	auto entries = std::vector<Ui::Premium::ListEntry>();
@@ -1738,7 +1817,9 @@ void UpgradedStoriesPreviewBox(
 
 	Ui::AddDividerText(
 		box->verticalLayout(),
-		tr::lng_premium_stories_about_mobile());
+		tr::lng_premium_stories_about_mobile(),
+		st::defaultBoxDividerLabelPadding,
+		st::premiumListDivider);
 }
 
 void TelegramBusinessPreviewBox(
@@ -1819,21 +1900,29 @@ object_ptr<Ui::GradientButton> CreateUnlockButton(
 		QWidget *parent,
 		rpl::producer<QString> text) {
 	auto result = CreatePremiumButton(parent);
+	const auto button = result.data();
+	result->setClassic(true);
 	const auto &st = st::premiumPreviewBox.button;
 	result->resize(result->width(), st.height);
 
+	auto labelStyle = st::premiumPreviewButtonLabel;
+	labelStyle.maxHeight = labelStyle.style.font->height;
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(
 		result.data(),
 		std::move(text),
-		st::premiumPreviewButtonLabel);
+		labelStyle);
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);
 	rpl::combine(
 		result->widthValue(),
-		label->widthValue()
-	) | rpl::on_next([=](int outer, int width) {
+		label->naturalWidthValue(),
+		result->contentOffsetValue()
+	) | rpl::on_next([=](int outer, int natural, QPoint offset) {
+		const auto width = std::min(natural,
+			Ui::ClassicButtonContentRect(button->rect(), button).width());
+		label->resizeToWidth(width);
 		label->moveToLeft(
-			(outer - width) / 2,
-			st::premiumPreviewBox.button.textTop,
+			(outer - width) / 2 + offset.x(),
+			st::premiumPreviewBox.button.textTop + offset.y(),
 			outer);
 	}, label->lifetime());
 

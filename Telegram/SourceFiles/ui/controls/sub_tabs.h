@@ -24,6 +24,7 @@ struct SubTabsOptions {
 struct SubTabsTab {
 	QString id;
 	TextWithEntities text;
+	bool action = false;
 
 	friend inline bool operator==(
 		const SubTabsTab &,

@@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_layers.h"
 #include "styles/style_info.h"
+#include "styles/style_info_profile_actions.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_widgets.h"
 
@@ -313,23 +314,23 @@ ContactStatus::Bar::Bar(
 	st::historyContactStatusButton)
 , _unarchive(
 	this,
-	tr::lng_new_contact_unarchive(tr::now).toUpper(),
+	tr::lng_new_contact_unarchive(tr::now),
 	st::historyContactStatusButton)
 , _unarchiveIcon(MakeIconButton(this, st::menuIconUnarchive))
 , _block(
 	this,
-	tr::lng_new_contact_block(tr::now).toUpper(),
+	tr::lng_new_contact_block(tr::now),
 	st::historyContactStatusBlock)
 , _share(
 	this,
-	tr::lng_new_contact_share(tr::now).toUpper(),
+	tr::lng_new_contact_share(tr::now),
 	st::historyContactStatusButton)
 , _report(
 	this,
 	QString(),
 	st::historyContactStatusBlock)
 , _reportIcon(MakeIconButton(this, st::menuIconReportAttention))
-, _close(this, st::historyReplyCancel)
+, _close(this, st::historyContactStatusClose)
 , _requestChatBg(this, st::historyContactStatusButton)
 , _requestChatInfo(
 	this,
@@ -351,6 +352,9 @@ ContactStatus::Bar::Bar(
 	_unarchiveIcon->setAccessibleName(tr::lng_new_contact_unarchive(tr::now));
 	_reportIcon->setAccessibleName(tr::lng_report_spam(tr::now));
 	_requestChatInfo->setAttribute(Qt::WA_TransparentForMouseEvents);
+	paintRequest() | rpl::on_next([=](QRect clip) {
+		QPainter(this).fillRect(clip, st::windowBg);
+	}, lifetime());
 	_addTooltipTimer.setCallback([=] {
 		showAddTooltip();
 	});
@@ -369,7 +373,7 @@ ContactStatus::Bar::Bar(
 	_emojiStatusInfo->paintRequest(
 	) | rpl::on_next([=, raw = _emojiStatusInfo.data()](QRect clip) {
 		_emojiStatusRepaintScheduled = false;
-		QPainter(raw).fillRect(clip, st::historyComposeButtonBg);
+		QPainter(raw).fillRect(clip, st::windowBg);
 	}, lifetime());
 }
 
@@ -422,8 +426,8 @@ void ContactStatus::Bar::showState(
 	_emojiStatusInfo->setVisible(has);
 	_addWithName = (type == Type::Add);
 	_report->setText((type == Type::ReportSpam)
-		? tr::lng_report_spam_and_leave(tr::now).toUpper()
-		: tr::lng_report_spam(tr::now).toUpper());
+		? tr::lng_report_spam_and_leave(tr::now)
+		: tr::lng_report_spam(tr::now));
 	_requestChatInfo->setMarkedText(
 		(state.requestChatIsBroadcast
 			? tr::lng_new_contact_from_request_channel
@@ -481,16 +485,16 @@ rpl::producer<> ContactStatus::Bar::setBotPhotoClicks() const {
 
 void ContactStatus::Bar::refreshAddText(int newWidth) {
 	const auto compose = [](const QString &name) {
-		return tr::lng_new_contact_add_name(tr::now, lt_user, name).toUpper();
+		return tr::lng_new_contact_add_name(tr::now, lt_user, name);
 	};
-	auto text = tr::lng_new_contact_add(tr::now).toUpper();
+	auto text = tr::lng_new_contact_add(tr::now);
 	auto elided = false;
 	if (_addWithName) {
 		const auto font = st::historyContactStatusButton.font;
 		const auto available = newWidth
 			- _close->width()
 			- 2 * st::historyContactStatusMinSkip;
-		const auto name = _name.toUpper();
+		const auto &name = _name;
 		text = compose(name);
 		if (available > 0 && font->width(text) > available) {
 			elided = true;
@@ -589,7 +593,7 @@ int ContactStatus::Bar::resizeGetHeight(int newWidth) {
 		return closeHeight;
 	}
 	const auto buttonWidth = [&](const object_ptr<Ui::FlatButton> &button) {
-		return button->textWidth() + 2 * skip;
+		return button->textWidth() + 2 * st::historyContactStatusButtonPadding;
 	};
 
 	auto accumulatedLeft = 0;
@@ -597,7 +601,8 @@ int ContactStatus::Bar::resizeGetHeight(int newWidth) {
 			const object_ptr<Ui::FlatButton> &button,
 			int buttonWidth,
 			int rightTextMargin = 0) {
-		button->setGeometry(accumulatedLeft, 0, buttonWidth, closeHeight);
+		const auto buttonHeight = st::historyContactStatusButton.height;
+		button->setGeometry(accumulatedLeft, (closeHeight - buttonHeight) / 2, buttonWidth, buttonHeight);
 		button->setTextMargins({ 0, 0, rightTextMargin, 0 });
 		accumulatedLeft += buttonWidth;
 	};
@@ -605,42 +610,20 @@ int ContactStatus::Bar::resizeGetHeight(int newWidth) {
 		if (button->isHidden()) {
 			return;
 		}
-		const auto thatWidth = buttonWidth(button);
-		const auto margin = std::clamp(
-			thatWidth + closeWidth - available,
-			0,
-			closeWidth);
-		placeButton(button, newWidth, margin);
+		const auto thatWidth = std::min(buttonWidth(button), std::max(available - 2 * skip, 0));
+		accumulatedLeft = (newWidth - thatWidth) / 2;
+		placeButton(button, thatWidth);
 	};
 	const auto &leftButton = _unarchive->isHidden() ? _add : _unarchive;
 	const auto &rightButton = _block->isHidden() ? _report : _block;
 	if (!leftButton->isHidden() && !rightButton->isHidden()) {
-		const auto leftWidth = buttonWidth(leftButton);
-		const auto rightWidth = buttonWidth(rightButton);
-		const auto half = newWidth / 2;
-		if (leftWidth <= half
-			&& rightWidth + 2 * closeWidth <= newWidth - half) {
-			placeButton(leftButton, half);
-			placeButton(rightButton, newWidth - half);
-		} else if (leftWidth + rightWidth <= available) {
-			const auto margin = std::clamp(
-				leftWidth + rightWidth + closeWidth - available,
-				0,
-				closeWidth);
-			const auto realBlockWidth = rightWidth + 2 * closeWidth - margin;
-			if (leftWidth > realBlockWidth) {
-				placeButton(leftButton, leftWidth);
-				placeButton(rightButton, newWidth - leftWidth, margin);
-			} else {
-				placeButton(leftButton, newWidth - realBlockWidth);
-				placeButton(rightButton, realBlockWidth, margin);
-			}
-		} else {
-			const auto forLeft = (available * leftWidth)
-				/ (leftWidth + rightWidth);
-			placeButton(leftButton, forLeft);
-			placeButton(rightButton, newWidth - forLeft, closeWidth);
-		}
+		const auto margin = st::historyTranslateButtonMargin;
+		const auto gap = st::defaultBox.buttonPadding.left();
+		const auto width = std::min(st::infoClassicActionWidth, std::max((available - 2 * margin - gap) / 2, 0));
+		accumulatedLeft = (available - 2 * width - gap) / 2;
+		placeButton(leftButton, width);
+		accumulatedLeft += gap;
+		placeButton(rightButton, width);
 	} else {
 		placeOne(_add);
 		placeOne(_share);

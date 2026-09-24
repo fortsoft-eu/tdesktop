@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/level_meter.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "styles/style_widgets.h"
 
@@ -40,8 +41,8 @@ void LevelMeter::paintEvent(QPaintEvent* event) {
 		}
 		p.drawRoundedRect(
 			rect.translated((_st.lineWidth + _st.lineSpacing) * i, 0),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 }
 

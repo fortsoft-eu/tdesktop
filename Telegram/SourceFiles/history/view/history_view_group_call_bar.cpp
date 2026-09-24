@@ -47,7 +47,7 @@ void GenerateUserpicsInRow(
 	result.setDevicePixelRatio(ratio);
 
 	auto q = Painter(&result);
-	auto hq = PainterHighQualityEnabler(q);
+	q.setRenderHint(QPainter::Antialiasing, false);
 	auto pen = QPen(Qt::transparent);
 	pen.setWidth(st.stroke);
 	auto x = (count - 1) * (single - shift);
@@ -59,7 +59,7 @@ void GenerateUserpicsInRow(
 		q.setCompositionMode(QPainter::CompositionMode_Source);
 		q.setBrush(Qt::NoBrush);
 		q.setPen(pen);
-		q.drawEllipse(x, 0, single, single);
+		q.drawRect(x, 0, single, single);
 		x -= single - shift;
 	}
 }

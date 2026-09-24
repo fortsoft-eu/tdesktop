@@ -521,6 +521,10 @@ public:
 		}
 
 		virtual const style::TextStyle &textStyle() const = 0;
+		[[nodiscard]] virtual bool buttonUsesDefaultCursor() const = 0;
+		[[nodiscard]] virtual QPoint buttonContentOffset(
+			bool pressed,
+			bool messageViewport) const = 0;
 
 		int buttonSkip() const;
 		int buttonPadding() const;
@@ -540,7 +544,8 @@ public:
 			const QRect &rect,
 			HistoryMessageMarkupButton::Color color,
 			Ui::BubbleRounding rounding,
-			float64 howMuchOver) const = 0;
+			float64 howMuchOver,
+			bool pressed) const = 0;
 		virtual void paintButtonStart(
 			QPainter &p,
 			const Ui::ChatStyle *st,
@@ -550,7 +555,8 @@ public:
 			const Ui::ChatStyle *st,
 			const QRect &rect,
 			int outerWidth,
-			HistoryMessageMarkupButton::Type type) const = 0;
+			HistoryMessageMarkupButton::Type type,
+			QPoint contentOffset) const = 0;
 		virtual void paintButtonLoading(
 			QPainter &p,
 			const Ui::ChatStyle *st,
@@ -570,7 +576,8 @@ public:
 			int outerWidth,
 			const ReplyKeyboard::Button &button,
 			Ui::BubbleRounding rounding,
-			bool paused) const;
+			bool paused,
+			bool messageViewport) const;
 		friend class ReplyKeyboard;
 
 	};
@@ -595,7 +602,8 @@ public:
 		Ui::BubbleRounding rounding,
 		int outerWidth,
 		const QRect &clip,
-		bool paused) const;
+		bool paused,
+		bool messageViewport = false) const;
 	ClickHandlerPtr getLink(QPoint point) const;
 	ClickHandlerPtr getLinkByIndex(int index) const;
 

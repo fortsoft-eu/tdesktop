@@ -7,17 +7,36 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 using "boxes/boxes.style";
 
-countryRowHeight: 36px;
-countryRowNameFont: semiboldFont;
+countryRowHeight: 22px;
+countryRowNameFont: classicSettingsFont;
 countryRowNameFg: boxTextFg;
-countryRowPadding: margins(22px, 9px, 8px, 0px);
-countryRowCodeFont: font(fsize);
+countryRowPadding: margins(12px, 4px, 8px, 0px);
+countryRowCodeFont: classicSettingsFont;
 countryRowBg: windowBg;
 countryRowBgOver: windowBgOver;
 countryRowCodeFg: windowSubTextFg;
 countryRowCodeFgOver: windowSubTextFgOver;
-countriesSkip: 12px;
+countriesSkip: 4px;
 countriesScroll: ScrollArea(boxScroll) {
 	deltat: 9px;
 	deltab: 3px;
+}
+
+countrySelectBox: Box(defaultBox) {
+	title: FlatLabel(boxTitle) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
+	}
+}
+
+countrySelectSearch: MultiSelect(defaultMultiSelect) {
+	field: InputField(defaultMultiSelectSearchField) {
+		heightMin: 20px;
+		textMargins: margins(3px, 3px, 3px, 3px);
+		placeholderFont: classicSettingsFont;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
 }

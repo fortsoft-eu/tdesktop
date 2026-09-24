@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/premium_bubble.h"
 
+#include "ui/style/style_radius.h"
 #include "base/debug_log.h"
 #include "base/object_ptr.h"
 #include "lang/lang_keys.h"
@@ -190,7 +191,7 @@ QPainterPath Bubble::bubblePath(const QRect &r) const {
 	}
 	auto pathBubble = QPainterPath();
 	pathBubble.setFillRule(Qt::WindingFill);
-	pathBubble.addRoundedRect(bubbleRect, radius, radius);
+	pathBubble.addRoundedRect(bubbleRect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	auto result = pathTail + pathBubble;
 	if (_flipHorizontal) {

@@ -290,7 +290,7 @@ rpl::producer<std::shared_ptr<StickerPlayer>> IconPlayerValue(
 				state->player->markFrameShown();
 			}
 		} else {
-			const auto &font = st::normalFont;
+			const auto &font = st::classicSettingsFont;
 			p.setFont(font);
 			p.setPen(st::windowActiveTextFg);
 			p.drawText(
@@ -451,9 +451,7 @@ void StickerPanel::show(Descriptor &&descriptor) {
 	const auto parent = _panel->parentWidget();
 	const auto global = button->mapToGlobal(QPoint());
 	const auto local = parent->mapFromGlobal(global);
-	_panel->moveBottomRight(
-		local.y() + (st::normalFont->height / 2),
-		local.x() + button->width() * 3);
+	_panel->moveBottomRight(local.y(), local.x() + button->width());
 	_panel->toggleAnimated();
 }
 
@@ -465,8 +463,9 @@ void StickerPanel::create(const Descriptor &descriptor) {
 	const auto body = controller->window().widget()->bodyWidget();
 	_panel = base::make_unique_q<ChatHelpers::TabbedPanel>(
 		body,
-		controller,
-		object_ptr<Selector>(
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = controller,
+			.ownedSelector = object_ptr<Selector>(
 			nullptr,
 			Descriptor{
 				.show = controller->uiShow(),
@@ -478,7 +477,10 @@ void StickerPanel::create(const Descriptor &descriptor) {
 					.stickersSettings = false,
 					.openStickerSets = false,
 				},
-			}));
+			}),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_stickers(tr::now),
+		});
 	_panel->setDropDown(false);
 	_panel->setDesiredHeightValues(
 		1.,
@@ -626,6 +628,7 @@ void ChatIntro::setupContent(
 		title->setFocus();
 	});
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 

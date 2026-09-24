@@ -21,8 +21,8 @@ collectibleOwnerPadding: margins(24px, 4px, 24px, 8px);
 collectibleInfo: inviteForbiddenInfo;
 collectibleInfoPadding: margins(24px, 12px, 24px, 12px);
 collectibleMore: RoundButton(defaultActiveButton) {
-	height: 36px;
-	textTop: 9px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	radius: 6px;
 }
 collectibleMorePadding: margins(24px, 12px, 24px, 0px);

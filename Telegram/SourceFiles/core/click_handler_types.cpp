@@ -327,11 +327,14 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
 				? &controller->window()
 				: Core::App().activeWindow();
 			auto box = Box([=](not_null<Ui::GenericBox*> box) {
+				const auto labelStyle = box->lifetime().make_state<style::FlatLabel>(
+					my.dark ? st::groupCallBoxLabel : st::boxLabel);
+				labelStyle->style.font = st::classicActionFont;
 				Ui::ConfirmBox(box, {
 					.text = (tr::lng_open_this_link(tr::now)),
 					.confirmed = [=](Fn<void()> hide) { hide(); open(); },
 					.confirmText = tr::lng_open_link(),
-					.labelStyle = my.dark ? &st::groupCallBoxLabel : nullptr,
+					.labelStyle = labelStyle,
 				});
 				const auto &st = my.dark
 					? st::groupCallBoxLabel

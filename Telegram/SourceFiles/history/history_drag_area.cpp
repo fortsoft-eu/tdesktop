@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_widget.h"
 #include "storage/localstorage.h"
 #include "lang/lang_keys.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/shadow.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
@@ -78,7 +79,8 @@ DragArea::Areas DragArea::SetupDragAreaToContainer(
 		Fn<void(bool)> &&setAcceptDropsField,
 		Fn<void()> &&updateControlsGeometry,
 		DragArea::CallbackComputeState &&computeState,
-		bool hideSubtext) {
+		bool hideSubtext,
+		Fn<QRect()> geometry) {
 
 	using DragState = Storage::MimeDataState;
 
@@ -98,22 +100,14 @@ DragArea::Areas DragArea::SetupDragAreaToContainer(
 	const auto attachDragState
 		= lifetime.make_state<DragState>(DragState::None);
 
-	const auto width = [=] {
-		return container->width();
-	};
-	const auto height = [=] {
-		return container->height();
-	};
-
 	const auto horizontalMargins = st::dragMargin.left()
 		+ st::dragMargin.right();
 	const auto verticalMargins = st::dragMargin.top()
 		+ st::dragMargin.bottom();
-	const auto resizeToFull = [=](not_null<DragArea*> w) {
-		w->resize(width() - horizontalMargins, height() - verticalMargins);
-	};
-	const auto moveToTop = [=](not_null<DragArea*> w) {
-		w->move(st::dragMargin.left(), st::dragMargin.top());
+	const auto fullGeometry = [=] {
+		return geometry
+			? geometry()
+			: QRect(st::dragMargin.left(), st::dragMargin.top(), container->width() - horizontalMargins, container->height() - verticalMargins);
 	};
 	// Relayouting the container can synthesize a mouse move, and Qt
 	// re-dispatches Enter/Leave for it before qt_last_mouse_receiver is
@@ -130,27 +124,18 @@ DragArea::Areas DragArea::SetupDragAreaToContainer(
 
 		switch (*attachDragState) {
 		case DragState::Files:
-			resizeToFull(attachDragDocument);
-			moveToTop(attachDragDocument);
+			attachDragDocument->setGeometry(fullGeometry());
 		break;
 		case DragState::PhotoFiles:
-		case DragState::MediaFiles:
-			attachDragDocument->resize(
-				width() - horizontalMargins,
-				(height() - verticalMargins) / 2);
-			moveToTop(attachDragDocument);
-			attachDragPhoto->resize(
-				attachDragDocument->width(),
-				attachDragDocument->height());
-			attachDragPhoto->move(
-				st::dragMargin.left(),
-				height()
-					- attachDragPhoto->height()
-					- st::dragMargin.bottom());
+		case DragState::MediaFiles: {
+			const auto full = fullGeometry();
+			const auto top = QRect(full.x(), full.y(), full.width(), full.height() / 2);
+			attachDragDocument->setGeometry(top);
+			attachDragPhoto->setGeometry(full.x(), full.y() + top.height(), full.width(), full.height() - top.height());
+		}
 		break;
 		case DragState::Image:
-			resizeToFull(attachDragPhoto);
-			moveToTop(attachDragPhoto);
+			attachDragPhoto->setGeometry(fullGeometry());
 		break;
 		}
 	});
@@ -401,12 +386,16 @@ DragArea::DragArea(QWidget *parent) : Ui::RpWidget(parent) {
 	setAcceptDrops(true);
 }
 
+QRect DragArea::innerRect() const {
+	return _workspaceBackground ? rect() : (rect() - st::dragPadding);
+}
+
 bool DragArea::overlaps(const QRect &globalRect) {
 	if (isHidden() || _a_opacity.animating()) {
 		return false;
 	}
 
-	const auto inner = rect() - st::dragPadding;
+	const auto inner = innerRect();
 	const auto testRect = QRect(
 		mapFromGlobal(globalRect.topLeft()),
 		globalRect.size());
@@ -422,11 +411,11 @@ void DragArea::mouseMoveEvent(QMouseEvent *e) {
 		return;
 	}
 
-	setIn((rect() - st::dragPadding).contains(e->pos()));
+	setIn(innerRect().contains(e->pos()));
 }
 
 void DragArea::dragMoveEvent(QDragMoveEvent *e) {
-	setIn((rect() - st::dragPadding).contains(e->pos()));
+	setIn(innerRect().contains(e->pos()));
 	e->setDropAction(_in ? Qt::CopyAction : Qt::IgnoreAction);
 	e->accept();
 }
@@ -448,6 +437,11 @@ void DragArea::setText(const QString &text, const QString &subtext) {
 	update();
 }
 
+void DragArea::setWorkspaceBackground(bool enabled) {
+	_workspaceBackground = enabled;
+	update();
+}
+
 void DragArea::paintEvent(QPaintEvent *e) {
 	Painter p(this);
 
@@ -456,40 +450,55 @@ void DragArea::paintEvent(QPaintEvent *e) {
 		return;
 	}
 	p.setOpacity(opacity);
-	const auto inner = rect() - st::dragPadding;
+	const auto inner = innerRect();
 
 	if (!_cache.isNull()) {
-		p.drawPixmapLeft(
-			inner.x() - st::boxRoundShadow.extend.left(),
-			inner.y() - st::boxRoundShadow.extend.top(),
-			width(),
-			_cache);
+		if (_workspaceBackground) {
+			p.drawPixmap(0, 0, _cache);
+		} else {
+			p.drawPixmapLeft(
+				inner.x() - st::boxRoundShadow.extend.left(),
+				inner.y() - st::boxRoundShadow.extend.top(),
+				width(),
+				_cache);
+		}
 		return;
 	}
 
-	Ui::Shadow::paint(p, inner, width(), st::boxRoundShadow);
-	Ui::FillRoundRect(p, inner, st::boxBg, Ui::BoxCorners);
+	if (_workspaceBackground) {
+		p.fillRect(inner, st::classicWorkspaceBg);
+	} else {
+		Ui::Shadow::paint(p, inner, width(), st::boxRoundShadow);
+		Ui::FillRoundRect(p, inner, st::boxBg, Ui::BoxCorners);
+	}
 
-	p.setPen(anim::pen(
-		st::dragColor,
-		st::dragDropColor,
-		_a_in.value(_in ? 1. : 0.)));
-
-	p.setFont(st::dragFont);
-	const auto rText = QRect(
-		0,
-		(height() - st::dragHeight) / 2,
-		width(),
-		st::dragFont->height);
-	p.drawText(rText, _text, QTextOption(style::al_top));
-
-	p.setFont(st::dragSubfont);
-	const auto rSubtext = QRect(
-		0,
-		(height() + st::dragHeight) / 2 - st::dragSubfont->height,
-		width(),
-		st::dragSubfont->height * 2);
-	p.drawText(rSubtext, _subtext, QTextOption(style::al_top));
+	p.setFont(st::dragBadgeFont);
+	const auto lineHeight = st::dragBadgeFont->height;
+	const auto lines = _subtext.isEmpty() ? 1 : 2;
+	const auto textHeight = (lineHeight * lines) + (st::dragBadgeLineSkip * (lines - 1));
+	const auto textWidth = std::max(
+		st::dragBadgeFont->width(_text),
+		st::dragBadgeFont->width(_subtext));
+	const auto textRect = QRect(
+		(width() - textWidth) / 2,
+		(height() - textHeight) / 2,
+		textWidth,
+		textHeight);
+	const auto badgeRect = textRect.marginsAdded(st::dragBadgePadding);
+	p.fillRect(
+		badgeRect,
+		anim::brush(st::dragBadgeBg, st::dragBadgeBgActive, _a_in.value(_in ? 1. : 0.)));
+	const auto paintLine = [&](const QString &text, int top) {
+		Ui::PaintClassicText(
+			p,
+			QPointF((width() - st::dragBadgeFont->width(text)) / 2, top + st::dragBadgeFont->ascent),
+			text,
+			QColor(Qt::white));
+	};
+	paintLine(_text, textRect.y());
+	if (!_subtext.isEmpty()) {
+		paintLine(_subtext, textRect.y() + lineHeight + st::dragBadgeLineSkip);
+	}
 }
 
 void DragArea::dragEnterEvent(QDragEnterEvent *e) {
@@ -527,7 +536,9 @@ void DragArea::hideStart() {
 	if (_cache.isNull()) {
 		_cache = Ui::GrabWidget(
 			this,
-			rect() - st::dragPadding + st::boxRoundShadow.extend);
+			_workspaceBackground
+				? rect()
+				: rect() - st::dragPadding + st::boxRoundShadow.extend);
 	}
 	_hiding = true;
 	setIn(false);
@@ -552,7 +563,9 @@ void DragArea::showStart() {
 	if (_cache.isNull()) {
 		_cache = Ui::GrabWidget(
 			this,
-			rect() - st::dragPadding + st::boxRoundShadow.extend);
+			_workspaceBackground
+				? rect()
+				: rect() - st::dragPadding + st::boxRoundShadow.extend);
 	}
 	show();
 	_a_opacity.start(

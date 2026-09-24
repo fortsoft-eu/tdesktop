@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/chat_filters_tabs_strip.h"
 
+#include "ui/style/style_classic.h"
 #include "api/api_chat_filters_remove_manager.h"
 #include "boxes/choose_filter_box.h"
 #include "boxes/filters/edit_filter_box.h"
@@ -41,6 +42,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_menu_icons.h"
 
 #include <QScrollBar>
+#include <QSignalBlocker>
+#include <QTabBar>
 
 namespace Ui {
 namespace {
@@ -57,6 +60,11 @@ struct State final {
 
 	std::unique_ptr<Ui::ChatsFiltersTabsReorder> reorder;
 	bool ignoreRefresh = false;
+};
+
+struct ClassicState final {
+	std::optional<FilterId> lastFilterId;
+	bool rebuilding = false;
 };
 
 void ShowMenu(
@@ -563,6 +571,73 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
 			slider->setActiveSection(next);
 		}, wrap->lifetime());
 	}
+
+	return wrap;
+}
+
+not_null<Ui::RpWidget*> AddClassicChatFiltersTabsStrip(
+		not_null<Ui::RpWidget*> parent,
+		not_null<Main::Session*> session,
+		Fn<void(FilterId)> choose) {
+	const auto wrap = Ui::CreateChild<Ui::SlideWrap<Ui::RpWidget>>(parent, object_ptr<Ui::RpWidget>(parent));
+	const auto container = wrap->entity();
+	const auto tabs = CreateClassicTabBar(container);
+	tabs->setUsesScrollButtons(true);
+	const auto state = wrap->lifetime().make_state<ClassicState>();
+
+	QObject::connect(tabs, &QTabBar::currentChanged, wrap, [=](int index) {
+		if (state->rebuilding || index < 0) {
+			return;
+		}
+		const auto &list = session->data().chatsFilters().list();
+		if (index >= list.size()) {
+			return;
+		}
+		state->lastFilterId = list[index].id();
+		choose(list[index].id());
+	});
+
+	const auto resize = [=] {
+		const auto height = tabs->sizeHint().height();
+		tabs->resize(parent->width(), height);
+		container->resize(parent->width(), height);
+		wrap->resize(parent->width(), height);
+	};
+	parent->widthValue() | rpl::filter(rpl::mappers::_1 > 0) | rpl::on_next([=] {
+		resize();
+	}, wrap->lifetime());
+
+	const auto rebuild = [=] {
+		const auto &list = session->data().chatsFilters().list();
+		state->rebuilding = true;
+		const auto blocker = QSignalBlocker(tabs);
+		while (tabs->count()) {
+			tabs->removeTab(tabs->count() - 1);
+		}
+		for (const auto &filter : list) {
+			const auto title = filter.title();
+			tabs->addTab(title.text.empty() ? tr::lng_filters_all_short(tr::now) : title.text.text);
+		}
+		auto index = 0;
+		if (state->lastFilterId) {
+			for (auto i = 0; i != list.size(); ++i) {
+				if (list[i].id() == *state->lastFilterId) {
+					index = i;
+					break;
+				}
+			}
+		}
+		if (!list.empty()) {
+			tabs->setCurrentIndex(index);
+			state->lastFilterId = list[index].id();
+			choose(list[index].id());
+		}
+		state->rebuilding = false;
+		resize();
+		wrap->toggle(list.size() > 1, anim::type::instant);
+	};
+	session->data().chatsFilters().changed() | rpl::on_next(rebuild, wrap->lifetime());
+	rebuild();
 
 	return wrap;
 }

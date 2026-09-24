@@ -20,9 +20,22 @@ colorSliderArrowBottom: icon {{ "color_slider_arrow_vertical-flip_vertical", sli
 colorSliderWidth: 19px;
 colorSampleSize: size(60px, 34px);
 colorFieldSkip: 13px;
+colorFieldTextInset: 3px;
 colorValueInput: InputField(defaultInputField) {
-	textMargins: margins(16px, 3px, 0px, 2px);
-	heightMin: 27px;
+	textBg: classicControlBg;
+	textBgActive: classicControlBg;
+	textMargins: margins(16px, 5px, 20px, 4px);
+	textAlign: align(topleft);
+	border: 0px;
+	borderActive: 0px;
+	placeholderScale: 0.;
+	placeholderFont: classicSettingsFont;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	heightMin: 24px;
+	heightMax: 24px;
 }
 colorResultInput: InputField(colorValueInput) {
+	textMargins: margins(16px, 5px, 3px, 4px);
 }

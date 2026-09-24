@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "payments/ui/payments_reaction_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/qt/qt_compare.h"
 #include "calls/group/ui/calls_group_stars_coloring.h"
 #include "lang/lang_keys.h"
@@ -405,7 +406,7 @@ void FillTopReactors(
 		p.setPen(Qt::NoPen);
 		p.setBrush(dark ? st::groupCallMembersBgOver : st::windowBgOver);
 		const auto radius = st::boxRadius;
-		p.drawRoundedRect(result->rect(), radius, radius);
+		p.drawRoundedRect(result->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	}, result->lifetime());
 
 	result->resize(
@@ -716,8 +717,8 @@ QImage GenerateSmallBadgeImage(
 	const auto shift = add / 2.;
 	q.drawRoundedRect(
 		QRectF(rect) + QMarginsF(shift, shift, shift, shift),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 
 	auto textLeft = 0;
 	icon.paint(
@@ -897,7 +898,7 @@ void PaidReactionSlider(
 		state->particles.setVisible(.25 + .65 * progress);
 
 		auto fullPath = QPainterPath();
-		fullPath.addRoundedRect(QRectF(rect), seekRadius, seekRadius);
+		fullPath.addRoundedRect(QRectF(rect), style::CornerRadius(seekRadius), style::CornerRadius(seekRadius));
 		auto circlePath = QPainterPath();
 		circlePath.addEllipse(
 			QPointF(seekCenter, rect.height() / 2.),

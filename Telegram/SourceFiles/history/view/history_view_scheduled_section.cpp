@@ -157,6 +157,7 @@ ScheduledWidget::ScheduledWidget(
 , _composeControls(std::make_unique<ComposeControls>(
 	this,
 	ComposeControlsDescriptor{
+		.arrowCursor = true,
 		.show = controller->uiShow(),
 		.unavailableEmojiPasted = [=](not_null<DocumentData*> emoji) {
 			listShowPremiumToast(emoji);
@@ -171,7 +172,8 @@ ScheduledWidget::ScheduledWidget(
 , _cornerButtons(
 	_scroll.data(),
 	controller->chatStyle(),
-	static_cast<HistoryView::CornerButtonsDelegate*>(this)) {
+	static_cast<HistoryView::CornerButtonsDelegate*>(this),
+	true) {
 	controller->chatStyle()->paletteChanged(
 	) | rpl::on_next([=] {
 		_scroll->updateBars();
@@ -261,9 +263,9 @@ ScheduledWidget::ScheduledWidget(
 			_inner,
 			controller->chatStyle(),
 			st::msgServicePadding);
-		const auto emptyText = tr::semibold(
-			tr::lng_scheduled_messages_empty(tr::now));
-		emptyInfo->setText(emptyText);
+		emptyInfo->setText(
+			TextWithEntities{ tr::lng_scheduled_messages_empty(tr::now) },
+			st::serviceTextStyle);
 		_inner->setEmptyInfoWidget(std::move(emptyInfo));
 	}
 	setupComposeControls();
@@ -1167,7 +1169,8 @@ void ScheduledWidget::updateControlsGeometry() {
 	if (_scroll->size() != scrollSize) {
 		_skipScrollEvent = true;
 		_scroll->resize(scrollSize);
-		_inner->resizeToWidth(scrollSize.width(), _scroll->height());
+		_inner->resizeToWidth(std::max(scrollSize.width() - st::classicScrollBarWidth, 0), _scroll->height());
+		_inner->moveToLeft(0, _inner->y(), scrollSize.width());
 		_skipScrollEvent = false;
 	}
 	if (!_scroll->isHidden()) {
@@ -1721,7 +1724,12 @@ void ScheduledWidget::setupDragArea() {
 		this,
 		[=](auto d) { return _history && !_composeControls->isRecording(); },
 		nullptr,
-		[=] { updateControlsGeometry(); });
+		[=] { updateControlsGeometry(); },
+		nullptr,
+		false,
+		[=] { return _scroll->geometry(); });
+	areas.document->setWorkspaceBackground(true);
+	areas.photo->setWorkspaceBackground(true);
 
 	const auto droppedCallback = [=](bool overrideSendImagesAsPhotos) {
 		return [=](const QMimeData *data) {

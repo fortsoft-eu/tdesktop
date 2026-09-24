@@ -119,6 +119,14 @@ Folder::Folder(not_null<Session*> owner, FolderId id)
 	owner->maxPinnedChatsLimitValue(this))
 , _name(tr::lng_archived_name(tr::now)) {
 	indexNameParts();
+	tr::lng_archived_name() | rpl::filter([=](const QString &name) {
+		return name != _name;
+	}) | rpl::on_next([=](const QString &name) {
+		_name = name;
+		++_chatListNameVersion;
+		indexNameParts();
+		updateChatListEntryPostponed();
+	}, _lifetime);
 
 	session().changes().peerUpdates(
 		PeerUpdate::Flag::Name
@@ -173,7 +181,7 @@ void Folder::unregisterOne(not_null<History*> history) {
 }
 
 int Folder::chatListNameVersion() const {
-	return 1;
+	return _chatListNameVersion;
 }
 
 void Folder::oneListMessageChanged(HistoryItem *from, HistoryItem *to) {

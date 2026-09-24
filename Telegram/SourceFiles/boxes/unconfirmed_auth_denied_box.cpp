@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/unconfirmed_auth_denied_box.h"
 
+#include "ui/style/style_radius.h"
+
 #include "base/timer.h"
 #include "lang/lang_keys.h"
 #include "lottie/lottie_icon.h"
@@ -91,8 +93,8 @@ void ShowAuthDeniedBox(
 		p.setBrush(st::attentionButtonBgOver);
 		p.drawRoundedRect(
 			warningBg->rect(),
-			st::buttonRadius,
-			st::buttonRadius);
+			style::CornerRadius(st::buttonRadius),
+			style::CornerRadius(st::buttonRadius));
 	});
 	warningBg->show();
 	warning->raise();

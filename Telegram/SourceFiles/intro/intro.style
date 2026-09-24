@@ -29,39 +29,43 @@ introSettingsSkip: 10px;
 introPhotoTop: 10px;
 
 introCoverTitle: FlatLabel(defaultFlatLabel) {
-	textFg: introTitleFg;
+	textFg: classicMenuText;
 	align: align(center);
 	style: TextStyle(defaultTextStyle) {
-		font: font(22px semibold);
+		font: classicActionFont;
 	}
 }
 introCoverTitleTop: 136px;
 introCoverDescription: FlatLabel(defaultFlatLabel) {
-	textFg: introDescriptionFg;
+	textFg: classicMenuText;
 	align: align(center);
 	style: TextStyle(defaultTextStyle) {
-		font: font(15px);
-		lineHeight: 24px;
+		font: classicSettingsFont;
+		lineHeight: 20px;
 	}
 }
 introCoverDescriptionTop: 174px;
 introTitle: FlatLabel(defaultFlatLabel) {
-	textFg: introTitleFg;
+	textFg: classicMenuText;
 	style: TextStyle(defaultTextStyle) {
-		font: font(17px semibold);
+		font: classicActionFont;
 	}
 }
 introTitleTop: 1px;
 introDescription: FlatLabel(defaultFlatLabel) {
 	minWidth: 300px;
-	textFg: introDescriptionFg;
+	textFg: classicMenuText;
 	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
 		lineHeight: 20px;
 	}
 }
 introDescriptionTop: 34px;
 
-introLink: defaultLinkButton;
+introLink: LinkButton(defaultLinkButton) {
+	font: classicSettingsFont;
+	overFont: font(11px underline "Tahoma");
+}
 
 introPlaneWidth: 48px;
 introPlaneHeight: 38px;
@@ -77,12 +81,12 @@ introSlideDuration: 200;
 introCoverDuration: 200;
 
 introNextButton: RoundButton(defaultActiveButton) {
-	width: 300px;
-	height: 42px;
+	width: 150px;
+	height: 28px;
 	radius: 6px;
-	textTop: 11px;
+	textTop: 6px;
 	style: TextStyle(semiboldTextStyle) {
-		font: font(boxFontSize semibold);
+		font: classicActionFont;
 	}
 }
 introFragmentIcon: icon{{ "fragment", activeButtonFg }};
@@ -95,26 +99,48 @@ introFragmentButton: RoundButton(introNextButton) {
 
 introStepFieldTop: 96px;
 introPhoneTop: 6px;
+introPhoneSkip: 4px;
 introLinkTop: 24px;
 introCountry: InputField(defaultInputField) {
-	textMargins: margins(3px, 27px, 3px, 6px);
+	textMargins: margins(3px, 5px, 3px, 3px);
+	placeholderFont: classicSettingsFont;
+	placeholderFg: placeholderFg;
+	placeholderFgActive: placeholderFgActive;
 	style: TextStyle(defaultTextStyle) {
-		font: font(16px);
+		font: classicActionFont;
 	}
 	width: 300px;
-	heightMin: 61px;
+	heightMin: 24px;
 }
 introCountryCode: InputField(introCountry) {
 	width: 64px;
-	textAlign: align(top);
+	heightMin: 24px;
+	heightMax: 24px;
+	textMargins: margins(3px, 4px, 3px, 3px);
+	placeholderScale: 0.;
+	placeholderFont: font(fsize "Unifont");
+	style: defaultTextStyle;
 }
 introPhone: InputField(introCountry) {
-	textMargins: margins(12px, 27px, 12px, 6px);
-	width: 225px;
+	textMargins: margins(3px, 4px, 3px, 3px);
+	width: 232px;
+	heightMin: 24px;
+	heightMax: 24px;
+	placeholderScale: 0.;
+	placeholderFont: font(fsize "Unifont");
+	style: defaultTextStyle;
 }
 introQrLoginLinkTop: 368px;
 introName: introCountry;
-introPassword: introCountry;
+introPassword: InputField(introCountry) {
+	heightMin: 37px;
+	textMargins: margins(4px, 18px, 4px, 3px);
+	placeholderFont: classicSettingsFont;
+	placeholderFg: placeholderFg;
+	placeholderFgActive: placeholderFgActive;
+	textFg: classicMenuText;
+	style: defaultTextStyle;
+}
 introPasswordTop: 74px;
 introPasswordHintTop: 151px;
 
@@ -144,7 +170,7 @@ introTermsLabel: FlatLabel(defaultFlatLabel) {
 introTermsBottom: 20px;
 
 introCountryIcon: icon {{ "intro_country_dropdown", menuIconFg }};
-introCountryIconPosition: point(8px, 37px);
+introCountryIconPosition: point(8px, 9px);
 
 introErrorTop: 235px;
 introErrorBelowLinkTop: 220px;
@@ -179,13 +205,21 @@ introQrTitle: FlatLabel(defaultFlatLabel) {
 	align: align(top);
 	minWidth: introQrTitleWidth;
 	style: TextStyle(defaultTextStyle) {
-		font: font(20px semibold);
+		font: classicSettingsFont;
 	}
 }
 introQrErrorTop: 336px;
 introQrTitleTop: 196px;
 introQrStep: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	minWidth: 200px;
+}
+introQrNumber: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 introQrStepsTop: 232px;
 introQrStepMargins: margins(20px, 8px, 0px, 0px);

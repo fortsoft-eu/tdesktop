@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/toast/toast.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "ui/ui_utility.h"
 #include "chat_helpers/message_field.h"
 #include "menu/menu_check_item.h"
@@ -211,7 +212,7 @@ ShareBox::ShareBox(QWidget*, Descriptor &&descriptor)
 	this,
 	(_descriptor.st.multiSelect
 		? *_descriptor.st.multiSelect
-		: st::defaultMultiSelect),
+		: st::shareMultiSelect),
 	tr::lng_participant_filter())
 , _comment(
 	this,
@@ -228,6 +229,7 @@ ShareBox::ShareBox(QWidget*, Descriptor &&descriptor)
 	? std::move(_descriptor.copyLinkText)
 	: tr::lng_share_copy_link())
 , _searchTimer([=] { searchByUsername(); }) {
+	Ui::SetClassicSettingsStyle(this);
 	if (_bottomWidget) {
 		_bottomWidget->setParent(this);
 		_bottomWidget->resizeToWidth(st::boxWideWidth);
@@ -364,17 +366,13 @@ void ShareBox::prepare() {
 	_select->raise();
 
 	{
-		const auto chatsFilters = AddChatFiltersTabsStrip(
+		const auto chatsFilters = AddClassicChatFiltersTabsStrip(
 			this,
 			_descriptor.session,
 			[this](FilterId id) {
 				_inner->applyChatFilter(id);
 				scrollToY(0);
-			},
-			Window::GifPauseReason::Layer,
-			nullptr,
-			false,
-			true);
+			});
 		chatsFilters->lower();
 		chatsFilters->heightValue() | rpl::on_next([this](int h) {
 			updateScrollSkips();
@@ -1265,7 +1263,7 @@ void ShareBox::Inner::paintEvent(QPaintEvent *e) {
 				++indexFrom;
 			}
 		} else {
-			p.setFont(st::noContactsFont);
+			p.setFont(st::classicSettingsFont);
 			p.setPen(_st.about.textFg);
 			p.drawText(
 				rect().marginsRemoved(st::boxPadding),
@@ -1276,7 +1274,7 @@ void ShareBox::Inner::paintEvent(QPaintEvent *e) {
 		if (_filtered.empty()
 			&& _byUsernameFiltered.empty()
 			&& !_searching) {
-			p.setFont(st::noContactsFont);
+			p.setFont(st::classicSettingsFont);
 			p.setPen(_st.about.textFg);
 			p.drawText(
 				rect().marginsRemoved(st::boxPadding),
@@ -2031,31 +2029,7 @@ ShareBox::SubmitCallback ShareBox::DefaultForwardCallback(
 }
 
 ShareBoxStyleOverrides DarkShareBoxStyle() {
-	using namespace HistoryView;
-
-	const auto schedule = [&] {
-		auto date = Ui::ChooseDateTimeStyleArgs();
-		date.labelStyle = &st::groupCallBoxLabel;
-		date.dateFieldStyle = &st::groupCallScheduleDateField;
-		date.timeFieldStyle = &st::groupCallScheduleTimeField;
-		date.separatorStyle = &st::callMuteButtonLabel;
-		date.atStyle = &st::callMuteButtonLabel;
-		date.calendarStyle = &st::groupCallCalendarColors;
-
-		auto st = ScheduleBoxStyleArgs();
-		st.topButtonStyle = &st::groupCallMenuToggle;
-		st.popupMenuStyle = &st::groupCallPopupMenu;
-		st.chooseDateTimeArgs = std::move(date);
-		return st;
-	};
-	return {
-		.multiSelect = &st::groupCallMultiSelect,
-		.comment = &st::groupCallShareBoxComment,
-		.peerList = &st::groupCallShareBoxList,
-		.label = &st::groupCallField,
-		.checkbox = &st::groupCallCheckbox,
-		.scheduleBox = std::make_shared<ScheduleBoxStyleArgs>(schedule()),
-	};
+	return {};
 }
 
 void FastShareMessage(

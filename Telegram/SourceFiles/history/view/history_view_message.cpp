@@ -7,6 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_message.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_core.h"
+#include "ui/style/style_radius.h"
+
 #include "api/api_suggest_post.h"
 #include "api/api_transcribes.h"
 #include "base/options.h"
@@ -19,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_cursor_state.h"
 #include "history/history_item_components.h"
 #include "history/history_item_helpers.h"
+#include "history/history_inner_widget.h"
 #include "history/view/media/history_view_media_generic.h"
 #include "history/view/media/history_view_web_page.h"
 #include "history/view/media/history_view_suggest_decision.h"
@@ -1878,7 +1883,8 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 			messageRounding,
 			g.width(),
 			context.clip.translated(-keyboardPosition),
-			context.paused);
+			context.paused,
+			context.messageViewport);
 		p.translate(-keyboardPosition);
 	}
 
@@ -2468,16 +2474,19 @@ void Message::paintCommentsButton(
 	}
 
 	left += st::historyCommentsSkipText;
-	p.setPen(stm->msgFileThumbLinkFg);
-	p.setFont(st::semiboldFont);
+	const auto commentsOver = ClickHandler::showAsActive(_comments->link);
+	const auto commentsFont = commentsOver
+		? st::historyCommentsFontOver
+		: st::historyCommentsFont;
+	p.setFont(commentsFont);
 
-	const auto textTop = top + (st::historyCommentsButtonHeight - st::semiboldFont->height) / 2;
-	p.drawTextLeft(
-		left,
-		textTop,
-		width,
+	const auto textTop = top + (st::historyCommentsButtonHeight
+		- commentsFont->height) / 2;
+	Ui::PaintClassicText(
+		p,
+		QPointF(left, textTop + commentsFont->ascent),
 		views ? views->replies.text : tr::lng_replies_view_original(tr::now),
-		views ? views->replies.textWidth : -1);
+		stm->msgFileThumbLinkFg->c);
 
 	if (views && data()->areCommentsUnread()) {
 		p.setPen(Qt::NoPen);
@@ -2641,7 +2650,9 @@ void Message::paintFromName(
 				const auto pill = ComputeBadgePillGeometry(badge);
 				const auto &padding = st::msgTagBadgePadding;
 				const auto badgeTop = trect.top()
-					+ (st::msgNameFont->height - pill.height) / 2;
+					+ st::msgNameFont->ascent
+					- st::defaultTextStyle.font->ascent
+					- padding.top();
 				const auto pillRect = QRect(
 					badgeLeft,
 					badgeTop,
@@ -2653,8 +2664,8 @@ void Message::paintFromName(
 					auto hq = PainterHighQualityEnabler(p);
 					p.drawRoundedRect(
 						pillRect,
-						pill.height / 2.,
-						pill.height / 2.);
+						style::CornerRadius(pill.height / 2.),
+						style::CornerRadius(pill.height / 2.));
 				}
 				if (badge->ripple) {
 					auto rippleColor = badgeColor;
@@ -2775,7 +2786,10 @@ void Message::paintTopicButton(
 	p.setBrush(color);
 	{
 		auto hq = PainterHighQualityEnabler(p);
-		p.drawRoundedRect(rect, height / 2, height / 2);
+		p.drawRoundedRect(
+			rect,
+			style::CornerRadius(height / 2),
+			style::CornerRadius(height / 2));
 	}
 	if (button->ripple) {
 		button->ripple->paint(
@@ -3742,7 +3756,10 @@ void Message::createLinkRippleMask(
 		[&](QPainter &p) {
 			for (const auto &rect : rects) {
 				const auto shifted = rect.translated(-topLeft);
-				p.drawRoundedRect(shifted, radius, radius);
+				p.drawRoundedRect(
+					shifted,
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 			}
 		});
 	_linkRipple->maskOffset = maskOrigin;
@@ -3766,7 +3783,10 @@ void Message::createLinkRippleMask(
 		size,
 		false,
 		[&](QPainter &p) {
-			p.drawRoundedRect(QRect(QPoint(), size), radius, radius);
+			p.drawRoundedRect(
+				QRect(QPoint(), size),
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 		});
 	_linkRipple->maskOffset = maskOrigin;
 	_linkRipple->cachedWidth = 0;
@@ -4355,7 +4375,9 @@ bool Message::getStateFromName(
 					const auto &padding = st::msgTagBadgePadding;
 					if (badge->role != BadgeRole::User) {
 						const auto badgeTop = trect.top()
-							+ (st::msgNameFont->height - pill.height) / 2;
+							+ st::msgNameFont->ascent
+							- st::defaultTextStyle.font->ascent
+							- padding.top();
 						badge->lastPoint = point
 							- QPoint(badgeLeft, badgeTop);
 					} else {
@@ -5319,21 +5341,41 @@ ReplyButton::ButtonParameters Message::replyButtonParameters(
 		QPoint position,
 		const TextState &replyState) const {
 	using namespace ReplyButton;
-	if (!displayFastReply() || unwrapped()) {
+	if (!displayFastReply()) {
 		return {};
 	}
 	auto result = ButtonParameters{ .context = data()->fullId() };
 	const auto geometry = countGeometry();
 	result.pointer = position;
-	const auto reactionInnerRight = st::reactionCornerCenter.x()
-		+ st::reactionCornerSize.width() / 2;
 	const auto replyInnerWidth = ReplyButton::ComputeInnerWidth();
-	const auto relativeCenter = QPoint(
-		geometry.width() + reactionInnerRight - replyInnerWidth,
-		st::replyCornerCenter.y());
-	result.center = geometry.topLeft() + relativeCenter;
+	const auto skip = st::historyFastShareLeft + st::replyCornerOffset.x();
+	const auto leftSpace = geometry.left();
+	const auto rightSpace = width() - geometry.left() - geometry.width();
+	const auto fitsLeft = leftSpace >= skip + replyInnerWidth;
+	const auto fitsRight = rightSpace >= skip + replyInnerWidth;
+	const auto onLeft = hasRightLayout()
+		? (fitsLeft || (!fitsRight && leftSpace >= rightSpace))
+		: (!fitsRight && (fitsLeft || leftSpace > rightSpace));
+	const auto center = onLeft
+		? geometry.left() - skip - replyInnerWidth / 2
+		: geometry.left() + geometry.width() + skip + replyInnerWidth / 2;
+	result.center = QPoint(
+		std::clamp(center, replyInnerWidth / 2,
+			std::max(replyInnerWidth / 2, width() - replyInnerWidth / 2)),
+		geometry.top()
+			+ st::replyCornerHeight / 2
+			+ st::replyCornerOffset.y());
+	const auto buttonLeft = result.center.x() - replyInnerWidth / 2;
+	const auto corridor = QRect(
+		QPoint(
+			std::min(geometry.left(), buttonLeft),
+			result.center.y() - st::replyCornerHeight / 2),
+		QPoint(
+			std::max(geometry.right(), buttonLeft + replyInnerWidth - 1),
+			result.center.y() + st::replyCornerHeight / 2));
 	if (replyState.itemId != result.context
-		&& !geometry.contains(position)) {
+		&& !geometry.contains(position)
+		&& !corridor.contains(position)) {
 		result.outside = true;
 	}
 	result.link = fastReplyLink();
@@ -5371,34 +5413,123 @@ void Message::drawInfo(
 	case InfoDisplayType::Image:
 		infoRight -= st::msgDateImgDelta + st::msgDateImgPadding.x();
 		infoBottom -= st::msgDateImgDelta + st::msgDateImgPadding.y();
-		p.setPen(st->msgDateImgFg());
 	break;
 	case InfoDisplayType::Background:
 		infoRight -= st::msgDateImgPadding.x();
 		infoBottom -= st::msgDateImgPadding.y();
-		p.setPen(st->msgServiceFg());
 	break;
 	}
 
 	const auto size = _bottomInfo.currentSize();
 	const auto dateX = infoRight - size.width();
 	const auto dateY = infoBottom - size.height();
-	if (type == InfoDisplayType::Image) {
+	if (invertedsprites) {
 		const auto dateW = size.width() + 2 * st::msgDateImgPadding.x();
 		const auto dateH = size.height() + 2 * st::msgDateImgPadding.y();
-		Ui::FillRoundRect(p, dateX - st::msgDateImgPadding.x(), dateY - st::msgDateImgPadding.y(), dateW, dateH, sti->msgDateImgBg, sti->msgDateImgBgCorners);
-	} else if (type == InfoDisplayType::Background) {
-		const auto dateW = size.width() + 2 * st::msgDateImgPadding.x();
-		const auto dateH = size.height() + 2 * st::msgDateImgPadding.y();
-		Ui::FillRoundRect(p, dateX - st::msgDateImgPadding.x(), dateY - st::msgDateImgPadding.y(), dateW, dateH, sti->msgServiceBg, sti->msgServiceBgCornersSmall);
+		p.fillRect(
+			dateX - st::msgDateImgPadding.x(),
+			dateY - st::msgDateImgPadding.y(),
+			dateW,
+			dateH,
+			(type == InfoDisplayType::Image)
+				? sti->msgDateImgBg
+				: sti->msgServiceBg);
 	}
-	_bottomInfo.paint(
-		p,
-		{ dateX, dateY },
-		width,
-		delegate()->elementShownUnread(this),
-		invertedsprites,
-		context);
+	const auto unread = delegate()->elementShownUnread(this);
+	if (!invertedsprites) {
+		_bottomInfo.paint(
+			p,
+			{ dateX, dateY },
+			width,
+			unread,
+			false,
+			context);
+		return;
+	}
+	auto horizontalPadding = 0;
+	auto topPadding = 0;
+	auto bottomPadding = 0;
+	const auto includeVerticalOverflow = [&](int top, const style::icon &icon) {
+		topPadding = std::max(topPadding, -top);
+		bottomPadding = std::max(
+			bottomPadding,
+			top + icon.height() - size.height());
+	};
+	const auto sendStateTop = st::msgDateFont->height
+		+ st::historySendStatePosition.y();
+	const auto includeSendStateOverflow = [&](const style::icon &icon) {
+		horizontalPadding = std::max(
+			horizontalPadding,
+			st::historySendStatePosition.x() + icon.width());
+		includeVerticalOverflow(sendStateTop, icon);
+	};
+	includeSendStateOverflow(st->historySendingInvertedIcon());
+	includeSendStateOverflow(st->historySentInvertedIcon());
+	includeSendStateOverflow(st->historyReceivedInvertedIcon());
+	const auto firstLineBottom = st::msgDateFont->height;
+	includeVerticalOverflow(
+		firstLineBottom + st::historySilentTop,
+		st->historySilentInvertedIcon());
+	includeVerticalOverflow(
+		firstLineBottom + st::historyEphemeralStateTop,
+		st->historyEphemeralInvertedIcon());
+	includeVerticalOverflow(
+		firstLineBottom + st::historyPinTop,
+		st->historyPinInvertedIcon());
+	includeVerticalOverflow(
+		firstLineBottom + st::historyViewsTop,
+		st->historyViewsInvertedIcon());
+	includeVerticalOverflow(
+		firstLineBottom + st::historyViewsTop,
+		st->historyRepliesInvertedIcon());
+	includeVerticalOverflow(
+		firstLineBottom + st::historyViewsTop,
+		st->historyViewsSendingInvertedIcon());
+	const auto canvasSize = QSize(
+		size.width() + 2 * horizontalPadding,
+		size.height() + topPadding + bottomPadding);
+	const auto ratio = style::DevicePixelRatio();
+	const auto physicalSize = canvasSize * ratio;
+	auto mask = QImage(
+		physicalSize,
+		QImage::Format_ARGB32_Premultiplied);
+	mask.fill(Qt::transparent);
+	mask.setDevicePixelRatio(ratio);
+	{
+		auto q = Painter(&mask);
+		q.setFont(st::msgDateFont);
+		q.setPen(Qt::white);
+		q.setRenderHint(QPainter::TextAntialiasing, false);
+		_bottomInfo.paint(
+			q,
+			{ horizontalPadding, topPadding },
+			canvasSize.width(),
+			unread,
+			true,
+			context);
+	}
+	auto colored = QImage(
+		physicalSize,
+		QImage::Format_ARGB32_Premultiplied);
+	colored.setDevicePixelRatio(ratio);
+	style::colorizeImage(
+		mask,
+		QColor(255, 255, 255),
+		&colored,
+		{},
+		{},
+		true);
+	const auto target = style::rtlrect(
+		dateX,
+		dateY,
+		size.width(),
+		size.height(),
+		width).topLeft() - QPoint(horizontalPadding, topPadding);
+	p.save();
+	p.setOpacity(1.);
+	p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	p.drawImage(target, colored);
+	p.restore();
 }
 
 TextState Message::bottomInfoTextState(
@@ -5906,7 +6037,7 @@ int Message::minWidthForMedia() const {
 			+ st::historyCommentsSkipText
 			+ st::historyCommentsOpenOutSelected.width()
 			+ st::historyCommentsSkipRight;
-		accumulate_max(result, added + st::semiboldFont->width(
+		accumulate_max(result, added + st::historyCommentsFont->width(
 			tr::lng_replies_view_original(tr::now)));
 	}
 	if (const auto keyboard = data()->inlineReplyKeyboard()) {
@@ -5923,23 +6054,14 @@ bool Message::hasFastReply() const {
 	} else if (context() != Context::History) {
 		return false;
 	}
-	const auto peer = data()->history()->peer;
-	return !hasOutLayout() && (peer->isChat() || peer->isMegagroup());
+	return true;
 }
 
 bool Message::displayFastReply() const {
-	const auto canSendAnything = [&] {
-		const auto item = data();
-		const auto peer = item->history()->peer;
-		const auto topic = item->topic();
-		return topic
-			? Data::CanSendAnything(topic)
-			: Data::CanSendAnything(peer);
-	};
-
 	return hasFastReply()
 		&& data()->isRegular()
-		&& canSendAnything()
+		&& !isHidden()
+		&& CanSendReply(data())
 		&& !delegate()->elementInSelectionMode(this).inSelectionMode;
 }
 
@@ -6049,35 +6171,50 @@ void Message::drawRightAction(
 		}
 	}
 
-	p.setPen(Qt::NoPen);
-	p.setBrush(st->msgServiceBg());
-	{
+	const auto buttonRect = style::rtlrect(
+		left,
+		top,
+		size->width(),
+		size->height(),
+		outerWidth);
+	const auto classic = !_rightAction->second;
+	const auto pressed = classic
+		&& ClickHandler::showAsPressed(_rightAction->link);
+	if (classic) {
+		Ui::PaintClassicButton(p, buttonRect, nullptr, pressed);
+		p.save();
+		p.translate(Ui::ClassicMessageButtonContentOffset(
+			pressed,
+			context.messageViewport));
+	} else {
+		p.setPen(Qt::NoPen);
+		p.setBrush(st->msgServiceBg());
 		PainterHighQualityEnabler hq(p);
-		const auto rect = style::rtlrect(
-			left,
-			top,
-			size->width(),
-			size->height(),
-			outerWidth);
 		const auto usual = st::historyFastShareSize;
 		if (size->width() == size->height() && size->width() == usual) {
-			p.drawEllipse(rect);
+			p.drawEllipse(buttonRect);
 		} else {
-			p.drawRoundedRect(rect, usual / 2, usual / 2);
+			p.drawRoundedRect(
+				buttonRect,
+				style::CornerRadius(usual / 2),
+				style::CornerRadius(usual / 2));
 		}
 	}
 	if (displayRightActionComments()) {
 		const auto &icon = st->historyFastCommentsIcon();
-		icon.paint(
-			p,
-			left + (size->width() - icon.width()) / 2,
-			top + (st::historyFastShareSize - icon.height()) / 2,
-			outerWidth);
+		const auto iconLeft = left + (size->width() - icon.width()) / 2;
+		const auto iconTop = top
+			+ (st::historyFastShareSize - icon.height()) / 2;
+		if (classic) {
+			icon.paint(p, iconLeft, iconTop, outerWidth, Qt::black);
+		} else {
+			icon.paint(p, iconLeft, iconTop, outerWidth);
+		}
 		const auto views = data()->Get<HistoryMessageViews>();
 		Assert(views != nullptr);
 		if (views->repliesSmall.textWidth > 0) {
-			p.setPen(st->msgServiceFg());
-			p.setFont(st::semiboldFont);
+			p.setPen(classic ? st::classicMenuText : st->msgServiceFg());
+			p.setFont(classic ? st::classicSettingsFont : st::semiboldFont);
 			p.drawTextLeft(
 				left + (size->width() - views->repliesSmall.textWidth) / 2,
 				top + st::historyFastShareSize,
@@ -6100,7 +6237,14 @@ void Message::drawRightAction(
 				&& this->context() != Context::SavedSublist)
 			? st->historyFastShareIcon()
 			: st->historyGoToOriginalIcon();
-		icon.paintInCenter(p, Rect(left, top, *size));
+		if (classic) {
+			icon.paintInCenter(p, Rect(left, top, *size), Qt::black);
+		} else {
+			icon.paintInCenter(p, Rect(left, top, *size));
+		}
+	}
+	if (classic) {
+		p.restore();
 	}
 }
 
@@ -6220,6 +6364,9 @@ ClickHandlerPtr Message::prepareRightActionLink() const {
 	});
 	const auto navigates = data()->externalReply()
 		|| (savedFromPeer && savedFromMsgId);
+	result->setProperty(
+		kClassicButtonCursorProperty,
+		QVariant::fromValue(true));
 	if (!navigates) {
 		result->setProperty(kFastShareProperty, QVariant::fromValue(true));
 	}
@@ -6234,6 +6381,9 @@ ClickHandlerPtr Message::fastReplyLink() const {
 	_fastReplyLink = std::make_shared<LambdaClickHandler>(crl::guard(this, [=] {
 		delegate()->elementReplyTo({ itemId });
 	}));
+	_fastReplyLink->setProperty(
+		kClassicButtonCursorProperty,
+		QVariant::fromValue(true));
 	return _fastReplyLink;
 }
 

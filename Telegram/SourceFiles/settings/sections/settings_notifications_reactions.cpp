@@ -31,6 +31,14 @@ namespace {
 using NotifyFrom = Api::ReactionsNotifyFrom;
 using namespace Builder;
 
+[[nodiscard]] style::SettingsButton CheckOnLeftStyle(style::SettingsButton result) {
+	result.toggleSkip = result.padding.left();
+	result.padding.setLeft(result.toggleSkip
+		+ st::classicCheckSize
+		+ st::settingsExperimentalButton.padding.right());
+	return result;
+}
+
 [[nodiscard]] rpl::producer<QString> FromLabel(NotifyFrom from) {
 	switch (from) {
 	case NotifyFrom::None:
@@ -194,12 +202,16 @@ void BuildNotificationsReactionsContent(SectionBuilder &builder) {
 	builder.add([](const WidgetContext &ctx) {
 		const auto session = &ctx.controller->session();
 		const auto &rs = session->api().reactionsNotifySettings();
+		const auto checkStyle = ctx.container->lifetime(
+		).make_state<style::SettingsButton>(
+			CheckOnLeftStyle(st::settingsButtonNoIcon));
 
 		const auto showSender = AddButtonWithIcon(
 			ctx.container,
 			tr::lng_notification_reactions_show_sender(),
-			st::settingsButtonNoIcon
+			*checkStyle
 		)->toggleOn(rs.showPreviews());
+		showSender->setProperty("classicCheckOnLeft", true);
 
 		showSender->toggledChanges(
 		) | rpl::filter([session](bool checked) {

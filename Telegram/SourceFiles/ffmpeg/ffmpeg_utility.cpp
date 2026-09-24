@@ -241,7 +241,6 @@ void PremultiplyLine(uchar *dst, const uchar *src, int intsCount) {
 	const auto list = std::array{
 #ifdef Q_OS_WIN
 		AV_PIX_FMT_D3D11,
-		AV_PIX_FMT_DXVA2_VLD,
 		AV_PIX_FMT_CUDA,
 #elif defined Q_OS_MAC // Q_OS_WIN
 		AV_PIX_FMT_VIDEOTOOLBOX,

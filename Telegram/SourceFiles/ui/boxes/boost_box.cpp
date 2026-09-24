@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/boxes/boost_box.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "info/profile/info_profile_icon.h"
 #include "lang/lang_keys.h"
 #include "ui/boxes/confirm_box.h"
@@ -14,6 +17,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/premium_bubble.h"
 #include "ui/effects/premium_graphics.h"
 #include "ui/layers/generic_box.h"
+#include "ui/rp_widget.h"
+#include "ui/text/text_entity.h"
 #include "ui/text/text_utilities.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/buttons.h"
@@ -25,10 +30,105 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_premium.h"
 
+#include <QtGui/QAbstractTextDocumentLayout>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QTextCursor>
+#include <QtGui/QTextDocument>
 
 namespace Ui {
 namespace {
+
+class BoostPeerLabel final : public Ui::RpWidget {
+public:
+	BoostPeerLabel(
+		QWidget *parent,
+		rpl::producer<TextWithEntities> text,
+		style::font font,
+		style::color color,
+		bool wrap)
+	: Ui::RpWidget(parent)
+	, _font(font)
+	, _color(color)
+	, _wrap(wrap) {
+		_document.setDocumentMargin(0.);
+		auto option = _document.defaultTextOption();
+		option.setAlignment(Qt::AlignHCenter);
+		option.setWrapMode(wrap
+			? QTextOption::WrapAtWordBoundaryOrAnywhere
+			: QTextOption::NoWrap);
+		_document.setDefaultTextOption(option);
+
+		std::move(text) | rpl::on_next([=](TextWithEntities value) {
+			_text = std::move(value);
+			refreshDocument();
+			setNaturalWidth(countNaturalWidth());
+			resizeToWidth(widthNoMargins());
+			update();
+		}, lifetime());
+	}
+
+	QString accessibilityName() override {
+		return _text.text;
+	}
+
+protected:
+	void paintEvent(QPaintEvent *e) override {
+		Q_UNUSED(e);
+		auto p = QPainter(this);
+		auto context = QAbstractTextDocumentLayout::PaintContext();
+		context.palette.setColor(QPalette::Text, _color->c);
+		_document.documentLayout()->draw(&p, context);
+	}
+
+	int resizeGetHeight(int newWidth) override {
+		_document.setTextWidth(std::max(newWidth, 0));
+		return int(std::ceil(_document.size().height()));
+	}
+
+private:
+	void refreshDocument() {
+		_document.clear();
+		_document.setDefaultFont(_font->f);
+		auto cursor = QTextCursor(&_document);
+		cursor.insertText(_text.text);
+
+		const auto applyFont = [&](const EntityInText &entity, QFont font) {
+			if (!entity.validForText(_text.text.size())) {
+				return;
+			}
+			auto range = QTextCursor(&_document);
+			range.setPosition(entity.offset());
+			range.setPosition(
+				entity.offset() + entity.length(),
+				QTextCursor::KeepAnchor);
+			auto format = QTextCharFormat();
+			format.setFont(std::move(font));
+			range.mergeCharFormat(format);
+		};
+		for (const auto &entity : _text.entities) {
+			if (entity.type() == EntityType::Bold
+				|| entity.type() == EntityType::Semibold) {
+				applyFont(entity, _font->bold()->f);
+			}
+		}
+		for (const auto &entity : _text.entities) {
+			if (entity.type() == EntityType::Marked) {
+				applyFont(entity, st::boostPeerNameFont->f);
+			}
+		}
+	}
+
+	int countNaturalWidth() {
+		_document.setTextWidth(-1.);
+		return int(std::ceil(_document.idealWidth()));
+	}
+
+	TextWithEntities _text;
+	style::font _font;
+	style::color _color;
+	bool _wrap = false;
+	QTextDocument _document;
+};
 
 [[nodiscard]] BoostCounters AdjustByReached(BoostCounters data) {
 	const auto exact = (data.boosts == data.thisLevelBoosts);
@@ -54,7 +154,8 @@ namespace {
 		not_null<Ui::RpWidget*> parent,
 		rpl::producer<QString> title,
 		rpl::producer<QString> repeated,
-		bool centered = true) {
+		bool centered = true,
+		const style::FlatLabel &titleStyle = st::boostTitle) {
 	auto result = object_ptr<Ui::RpWidget>(parent);
 
 	struct State {
@@ -68,7 +169,7 @@ namespace {
 		.title = Ui::CreateChild<Ui::FlatLabel>(
 			result.data(),
 			rpl::duplicate(title),
-			st::boostTitle),
+			titleStyle),
 		.repeated = Ui::CreateChild<Ui::FlatLabel>(
 			result.data(),
 			rpl::duplicate(repeated) | rpl::filter(notEmpty),
@@ -77,7 +178,7 @@ namespace {
 	state->title->show();
 	state->repeated->showOn(std::move(repeated) | rpl::map(notEmpty));
 
-	result->resize(result->width(), st::boostTitle.style.font->height);
+	result->resize(result->width(), titleStyle.style.font->height);
 
 	rpl::combine(
 		result->widthValue(),
@@ -106,7 +207,76 @@ namespace {
 		const auto radius = std::min(badge->width(), badge->height()) / 2;
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::premiumButtonBg2);
-		p.drawRoundedRect(badge->rect(), radius, radius);
+		p.drawRoundedRect(
+			badge->rect(),
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
+	}, badge->lifetime());
+
+	return result;
+}
+
+[[nodiscard]] object_ptr<Ui::RpWidget> MakePeerTitle(
+		not_null<Ui::RpWidget*> parent,
+		rpl::producer<TextWithEntities> title,
+		rpl::producer<QString> repeated) {
+	auto result = object_ptr<Ui::RpWidget>(parent);
+
+	struct State {
+		not_null<BoostPeerLabel*> title;
+		not_null<Ui::FlatLabel*> repeated;
+	};
+	const auto notEmpty = [](const QString &text) {
+		return !text.isEmpty();
+	};
+	const auto state = parent->lifetime().make_state<State>(State{
+		.title = Ui::CreateChild<BoostPeerLabel>(
+			result.data(),
+			std::move(title),
+			st::classicActionFont,
+			st::boostTitle.textFg,
+			false),
+		.repeated = Ui::CreateChild<Ui::FlatLabel>(
+			result.data(),
+			rpl::duplicate(repeated) | rpl::filter(notEmpty),
+			st::boostTitleBadge),
+	});
+	state->title->show();
+	state->repeated->showOn(std::move(repeated) | rpl::map(notEmpty));
+
+	result->resize(result->width(), std::max(
+		st::classicActionFont->height,
+		st::boostPeerNameFont->height));
+
+	rpl::combine(
+		result->widthValue(),
+		state->title->naturalWidthValue(),
+		state->repeated->shownValue(),
+		state->repeated->widthValue()
+	) | rpl::on_next([=](int outer, int natural, bool shown, int badge) {
+		const auto repeated = shown ? badge : 0;
+		const auto skip = st::boostTitleBadgeSkip;
+		const auto available = outer - repeated - skip;
+		const auto use = std::min(natural, available);
+		state->title->resizeToWidth(use);
+		const auto left = (outer - use - skip - repeated) / 2;
+		state->title->moveToLeft(left, 0);
+		const auto mleft = st::boostTitleBadge.margin.left();
+		const auto mtop = st::boostTitleBadge.margin.top();
+		state->repeated->moveToLeft(left + use + skip + mleft, mtop);
+	}, result->lifetime());
+
+	const auto badge = state->repeated;
+	badge->paintRequest() | rpl::on_next([=] {
+		auto p = QPainter(badge);
+		auto hq = PainterHighQualityEnabler(p);
+		const auto radius = std::min(badge->width(), badge->height()) / 2;
+		p.setPen(Qt::NoPen);
+		p.setBrush(st::premiumButtonBg2);
+		p.drawRoundedRect(
+			badge->rect(),
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}, badge->lifetime());
 
 	return result;
@@ -333,7 +503,8 @@ void BoostBox(
 		BoostBoxData data,
 		Fn<void(Fn<void(BoostCounters)>)> boost) {
 	box->setWidth(st::boxWideWidth);
-	box->setStyle(st::boostBox);
+	box->setStyle(st::boostActionBox);
+	Ui::SetClassicSettingsStyle(box);
 
 	//AssertIsDebug();
 	//data.boost = {
@@ -367,19 +538,23 @@ void BoostBox(
 
 	auto title = state->data.value(
 	) | rpl::map([=](BoostCounters counters) {
+		const auto marked = Ui::Text::Wrapped(
+			{ name },
+			EntityType::Marked);
 		return (counters.mine > 0)
 			? tr::lng_boost_channel_you_title(
 				lt_channel,
-				rpl::single(name))
+				rpl::single(marked),
+				tr::marked)
 			: !counters.nextLevelBoosts
-			? tr::lng_boost_channel_title_max()
+			? tr::lng_boost_channel_title_max(tr::marked)
 			: counters.level
 			? (data.group
-				? tr::lng_boost_channel_title_more_group()
-				: tr::lng_boost_channel_title_more())
+				? tr::lng_boost_channel_title_more_group(tr::marked)
+				: tr::lng_boost_channel_title_more(tr::marked))
 			: (data.group
-				? tr::lng_boost_channel_title_first_group()
-				: tr::lng_boost_channel_title_first());
+				? tr::lng_boost_channel_title_first_group(tr::marked)
+				: tr::lng_boost_channel_title_first(tr::marked));
 	}) | rpl::flatten_latest();
 	auto repeated = state->data.value(
 	) | rpl::map([=](BoostCounters counters) {
@@ -394,7 +569,9 @@ void BoostBox(
 			? (wasLifting
 				- std::clamp(counters.mine - wasMine, 0, wasLifting - 1))
 			: 0;
-		const auto bold = tr::bold(name);
+		const auto bold = Ui::Text::Wrapped(
+			tr::bold(name),
+			EntityType::Marked);
 		const auto now = counters.boosts;
 		const auto full = !counters.nextLevelBoosts;
 		const auto left = (counters.nextLevelBoosts > now)
@@ -475,14 +652,19 @@ void BoostBox(
 	});
 
 	box->addRow(
-		MakeTitle(box, std::move(title), std::move(repeated)),
+		MakePeerTitle(
+			box,
+			std::move(title),
+			std::move(repeated)),
 		st::boxRowPadding + QMargins(0, st::boostTitleSkip, 0, 0));
 
 	box->addRow(
-		object_ptr<Ui::FlatLabel>(
+		object_ptr<BoostPeerLabel>(
 			box,
 			std::move(text),
-			st::boostText),
+			st::classicSettingsFont,
+			st::boostText.textFg,
+			true),
 		(st::boxRowPadding
 			+ QMargins(0, st::boostTextSkip, 0, st::boostBottomSkip)));
 
@@ -719,6 +901,7 @@ void AskBoostBox(
 		Fn<void()> startGiveaway) {
 	box->setWidth(st::boxWideWidth);
 	box->setStyle(st::boostBox);
+	Ui::SetClassicSettingsStyle(box);
 	box->setNoContentMargin(true);
 	box->addSkip(st::boxRowPadding.left());
 
@@ -876,7 +1059,7 @@ void FillBoostLimit(
 			- st::boxPadding.right();
 		const auto average = available / float64(count);
 		const auto levelWidth = [&](int add) {
-			return st::normalFont->width(
+			return st::classicSettingsFont->width(
 				tr::lng_boost_level(
 					tr::now,
 					lt_count,
@@ -972,7 +1155,10 @@ object_ptr<Ui::FlatLabel> MakeBoostFeaturesBadge(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setBrush(bg(rect));
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(rect, rect.height() / 2., rect.height() / 2.);
+		p.drawRoundedRect(
+			rect,
+			style::CornerRadius(rect.height() / 2.),
+			style::CornerRadius(rect.height() / 2.));
 
 		const auto &lineFg = st::windowBgRipple;
 		const auto line = st::boostLevelBadgeLine;

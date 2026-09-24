@@ -37,7 +37,6 @@ public:
 		const style::icon &onIcon,
 		const QString &offLottie,
 		const QString &onLottie);
-	void setLottieColor(const style::color *color);
 	void toggle(bool state);
 	void finishAnimating();
 	void setText(const QString &text);
@@ -47,7 +46,6 @@ public:
 
 protected:
 	void paintEvent(QPaintEvent *e) override;
-	void onStateChanged(State was, StateChangeSource source) override;
 
 	QImage prepareRippleMask() const override;
 	QPoint prepareRippleStartPosition() const override;
@@ -65,12 +63,9 @@ private:
 	const style::icon *_onIcon = nullptr;
 	QString _offLottie;
 	QString _onLottie;
-	const style::color *_lottieColor = nullptr;
 
 	QColor _bgColor;
 	std::optional<QColor> _fgColor;
-	std::optional<QColor> _rippleColor;
-	Ui::Animations::Simple _overAnimation;
 
 };
 

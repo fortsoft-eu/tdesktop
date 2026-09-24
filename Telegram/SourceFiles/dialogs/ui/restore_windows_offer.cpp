@@ -7,7 +7,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/ui/restore_windows_offer.h"
 
-#include "dialogs/ui/dialogs_pill.h"
 #include "dialogs/ui/dialogs_top_bar_suggestion_content.h"
 #include "lang/lang_keys.h"
 #include "ui/painter.h"
@@ -57,7 +56,7 @@ RestoreWindowsOffer::RestoreWindowsOffer(not_null<Ui::RpWidget*> parent)
 , _wideNever(Ui::CreateChild<Ui::RoundButton>(
 	this,
 	tr::lng_restore_windows_never(),
-	st::attentionBoxButton))
+	st::compactAttentionBoxButton))
 , _close(Ui::CreateChild<Ui::IconButton>(
 	this,
 	st::restoreWindowsOfferClose))
@@ -190,20 +189,7 @@ void RestoreWindowsOffer::relayout() {
 
 void RestoreWindowsOffer::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-	const auto pill = rect() - st::dialogsTopBarSuggestionMargins;
-	const auto radius = std::min({
-		PillRadius(),
-		pill.width() / 2,
-		pill.height() / 2,
-	});
-	_shadow.paint(p, pill, radius);
-	{
-		auto hq = PainterHighQualityEnabler(p);
-		p.setBrush(st::dialogsBg);
-		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(pill, radius, radius);
-	}
-	PaintPillOutline(p, pill, radius);
+	PaintSuggestionBubbleBackground(p, rect(), _shadow);
 	p.setPen(st::windowFg);
 	_question.draw(p, {
 		.position = _questionPosition,

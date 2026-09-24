@@ -41,6 +41,7 @@ void ReportReasonBox(
 		const style::ReportBox &st,
 		ReportSource source,
 		Fn<void(Reason)> done) {
+	box->setStyle(st::reportDialogBox);
 	box->setTitle([&] {
 		switch (source) {
 		case Source::Message: return tr::lng_report_message_title();
@@ -127,6 +128,7 @@ void ReportDetailsBox(
 		not_null<GenericBox*> box,
 		const style::ReportBox &st,
 		Fn<void(QString)> done) {
+	box->setStyle(st::reportDialogBox);
 	box->setTitle(tr::lng_profile_report());
 	AddReportDetailsIconButton(box);
 	Ui::AddSkip(

@@ -220,10 +220,17 @@ void ChannelData::setFlags(ChannelDataFlags which) {
 
 		if (wasIn && !amIn()) {
 			crl::on_main(&session(), [=] {
-				if (!amIn()) {
+				const auto history = owner().historyLoaded(this);
+				if (!amIn() && !(history && history->keepAfterLeave())) {
 					Core::App().closeChatFromWindows(this);
 				}
 			});
+		}
+
+		if (amIn()) {
+			if (const auto history = owner().historyLoaded(this)) {
+				history->setKeepAfterLeave(false);
+			}
 		}
 
 		// A membership change in a community member chat moves its history

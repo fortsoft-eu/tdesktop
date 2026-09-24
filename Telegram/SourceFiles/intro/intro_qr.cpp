@@ -37,24 +37,14 @@ namespace Intro {
 namespace details {
 namespace {
 
-[[nodiscard]] QImage TelegramQrExact(const Qr::Data &data, int pixel) {
-	return Qr::Generate(data, pixel, Qt::black);
-}
-
 [[nodiscard]] QImage TelegramQr(const Qr::Data &data, int pixel, int max = 0) {
 	Expects(data.size > 0);
 
-	if (max > 0 && data.size * pixel > max) {
-		pixel = std::max(max / data.size, 1);
+	const auto modules = data.size + 2 * Qr::kQuietZoneModules;
+	if (max > 0 && modules * pixel > max) {
+		pixel = std::max(max / modules, 1);
 	}
-	const auto qr = TelegramQrExact(data, pixel * style::DevicePixelRatio());
-	auto result = QImage(qr.size(), QImage::Format_ARGB32_Premultiplied);
-	result.fill(Qt::white);
-	{
-		auto p = QPainter(&result);
-		p.drawImage(QRect(QPoint(), qr.size()), qr);
-	}
-	return result;
+	return Qr::GenerateStrict(data, pixel * style::DevicePixelRatio());
 }
 
 [[nodiscard]] QColor QrActiveColor() {
@@ -106,7 +96,10 @@ namespace {
 		std::move(qrs),
 		rpl::duplicate(palettes)
 	) | rpl::map([](const Qr::Data &code, const auto &) {
-		return TelegramQr(code, st::introQrPixel, st::introQrMaxSize);
+		return TelegramQr(
+			code,
+			st::introQrPixel,
+			st::introQrMaxSize + 2 * st::introQrBackgroundSkip);
 	}) | rpl::on_next([=](QImage &&image) {
 		state->previous = std::move(state->qr);
 		state->qr = std::move(image);
@@ -141,31 +134,16 @@ namespace {
 	result->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(result);
+		p.fillRect(clip, Qt::white);
 		const auto has = !state->qr.isNull();
 		const auto shown = has ? state->shown.value(1.) : 0.;
-		const auto usualSize = 41;
-		const auto pixel = std::clamp(
-			st::introQrMaxSize / usualSize,
-			1,
-			st::introQrPixel);
-		const auto size = has
-			? (state->qr.size() / style::DevicePixelRatio())
-			: QSize(usualSize * pixel, usualSize * pixel);
-		const auto qr = QRect(
-			(result->width() - size.width()) / 2,
-			(result->height() - size.height()) / 2,
-			size.width(),
-			size.height());
-		const auto radius = st::introQrBackgroundRadius;
-		const auto skip = st::introQrBackgroundSkip;
-		auto hq = PainterHighQualityEnabler(p);
-		p.setPen(Qt::NoPen);
-		p.setBrush(Qt::white);
-		p.drawRoundedRect(
-			qr.marginsAdded({ skip, skip, skip, skip }),
-			radius,
-			radius);
-		if (!state->qr.isNull()) {
+		if (has) {
+			const auto size = state->qr.size() / style::DevicePixelRatio();
+			const auto qr = QRect(
+				(result->width() - size.width()) / 2,
+				(result->height() - size.height()) / 2,
+				size.width(),
+				size.height());
 			if (shown == 1.) {
 				state->previous = QImage();
 			} else if (!state->previous.isNull()) {
@@ -180,7 +158,9 @@ namespace {
 			(result->height() - st::introQrCenterSize) / 2,
 			st::introQrCenterSize,
 			st::introQrCenterSize);
-		p.drawImage(rect, state->center);
+		if (!has) {
+			p.drawImage(rect, state->center);
+		}
 		if (!anim::Disabled() && state->waiting.animating()) {
 			auto hq = PainterHighQualityEnabler(p);
 			const auto line = st::radialLine;
@@ -335,8 +315,8 @@ void QrWidget::setupControls() {
 			st::introQrStepMargins);
 		const auto number = Ui::CreateChild<Ui::FlatLabel>(
 			steps,
-			rpl::single(tr::semibold(QString::number(++index) + ".")),
-			st::defaultFlatLabel);
+			rpl::single(QString::number(++index) + "."),
+			st::introQrNumber);
 		rpl::combine(
 			number->widthValue(),
 			label->positionValue()
@@ -358,11 +338,13 @@ void QrWidget::setupControls() {
 
 	_skip = Ui::CreateChild<Ui::LinkButton>(
 		this,
-		tr::lng_intro_qr_phone(tr::now));
+		tr::lng_intro_qr_phone(tr::now),
+		st::introLink);
 	rpl::combine(
 		sizeValue(),
-		_skip->widthValue()
+		_skip->naturalWidthValue()
 	) | rpl::on_next([=](QSize size, int skipWidth) {
+		_skip->resizeToWidth(skipWidth);
 		_skip->moveToLeft(
 			(size.width() - skipWidth) / 2,
 			contentTop() + st::introQrSkipTop);
@@ -380,12 +362,14 @@ void QrWidget::setupPasskeyLink() {
 	}
 	_passkey = Ui::CreateChild<Ui::LinkButton>(
 		this,
-		tr::lng_intro_qr_passkey(tr::now));
+		tr::lng_intro_qr_passkey(tr::now),
+		st::introLink);
 	_passkey->show();
 	rpl::combine(
 		sizeValue(),
-		_passkey->widthValue()
+		_passkey->naturalWidthValue()
 	) | rpl::on_next([=](QSize size, int passkeyWidth) {
+		_passkey->resizeToWidth(passkeyWidth);
 		_passkey->moveToLeft(
 			(size.width() - passkeyWidth) / 2,
 			(contentTop()

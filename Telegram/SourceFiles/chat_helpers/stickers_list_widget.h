@@ -122,6 +122,7 @@ public:
 		int delta) override;
 
 	void refreshStickers();
+	void focusSearch();
 
 	std::vector<StickerIcon> fillIcons();
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_transcribe_button.h"
 
+#include "ui/style/style_radius.h"
 #include "base/unixtime.h"
 #include "boxes/premium_preview_box.h"
 #include "core/click_handler_types.h" // ClickHandlerContext
@@ -46,7 +47,7 @@ void ClipPainterForLock(QPainter &p, bool roundview, const QRect &r) {
 	auto clipPath = QPainterPath();
 	clipPath.addRect(r);
 	const auto clear = QRect(pos + r.topLeft(), size);
-	clipPath.addRoundedRect(clear, clear.width() * 0.5, clear.height() * 0.5);
+	clipPath.addRoundedRect(clear, style::CornerRadius(clear.width() * 0.5), style::CornerRadius(clear.height() * 0.5));
 	p.setClipPath(clipPath);
 }
 
@@ -287,7 +288,7 @@ void TranscribeButton::paint(
 		}
 	}
 	const auto r = QRect{ QPoint(x, y), size() };
-	p.drawRoundedRect(r, radius, radius);
+	p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 	if (opened > 0.) {
 		if (opened != 1.) {
 			p.save();

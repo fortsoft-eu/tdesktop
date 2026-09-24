@@ -25,6 +25,8 @@ historyPollMediaSideSkip: 1px;
 historyPollMediaSkip: 10px;
 historyPollDescriptionSkip: 8px;
 historyPollSubtitleSkip: 4px;
+historyPollClosedSubtitleTop: 2px;
+historyPollFooterLinkFont: classicSettingsFont;
 historyPollAnswerPadding: margins(32px, 6px, 0px, 6px);
 historyPollAnswerPaddingNoMedia: margins(32px, 10px, 0px, 10px);
 historyPollAnswersSkip: 2px;
@@ -221,6 +223,7 @@ createPollOptionRemove: CrossButton {
 createPollAttachPosition: point(0px, 0px);
 createPollOptionRemovePosition: point(11px, 9px);
 createPollOptionEmojiPositionSkip: 6px;
+createPollOptionControlsSkip: 4px;
 createPollWarning: FlatLabel(defaultFlatLabel) {
 	textFg: windowSubTextFg;
 	palette: TextPalette(defaultTextPalette) {
@@ -230,6 +233,12 @@ createPollWarning: FlatLabel(defaultFlatLabel) {
 createPollWarningPosition: point(16px, 6px);
 createPollCheckboxMargin: margins(22px, 10px, 22px, 10px);
 createPollFieldTitlePadding: margins(22px, 7px, 10px, 6px);
+createPollSubsectionTitle: FlatLabel(defaultSubsectionTitle) {
+	textFg: classicMenuText;
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
+}
 
 createPollLinkUrlField: InputField(dialogsFilter) {
 	textBgActive: filterInputInactiveBg;
@@ -238,10 +247,37 @@ createPollLinkUrlField: InputField(dialogsFilter) {
 	heightMin: 36px;
 }
 
-createTodoOptionField: InputField(createPollOptionField) {
-	textMargins: margins(22px, 11px, 68px, 11px);
-}
 createTodoOptionFieldEmojiPosition: point(13px, -1px);
+createTodoOptionRemove: CrossButton(createPollOptionRemove) {
+}
+createTodoOptionRemovePosition: point(14px, 3px);
+createTodoOptionControlsSkip: 4px;
+createTodoWarning: FlatLabel(createPollWarning) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+createTodoSubsectionTitle: FlatLabel(defaultSubsectionTitle) {
+	textFg: classicMenuText;
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
+}
+createTodoDividerLabel: FlatLabel(boxDividerLabel) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+createTodoCheckbox: Checkbox(defaultBoxCheckbox) {
+	textFg: classicMenuText;
+	textFgActive: classicMenuText;
+	textPosition: point(15px, 1px);
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+createTodoCheckboxMargin: margins(16px, 4px, 10px, 4px);
 
 pollResultsQuestion: FlatLabel(defaultFlatLabel) {
 	minWidth: 320px;
@@ -267,8 +303,8 @@ pollResultsShowMore: SettingsButton(defaultSettingsButton) {
 
 	ripple: defaultRippleAnimation;
 }
-pollResultsVoteTimeFont: font(fsize);
-pollResultsVoteTimeDateFont: font(fsize);
+pollResultsVoteTimeFont: classicSettingsFont;
+pollResultsVoteTimeDateFont: classicActionFont;
 pollResultsVoteTimeRightSkip: 16px;
 pollResultsVoteTimeLeftSkip: 8px;
 pollResultsVoteTimeGap: 2px;
@@ -301,8 +337,6 @@ pollMediaField: InputField(createPollSolutionField) {
 	border: 0px;
 	borderActive: 0px;
 }
-
-infoPollsNewButtonBottom: 19px;
 
 pollToastUploadingIconSize: size(30px, 30px);
 pollToastIconSize: size(22px, 22px);

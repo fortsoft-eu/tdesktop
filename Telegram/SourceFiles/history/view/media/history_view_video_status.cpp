@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_video_status.h"
 
+#include "ui/style/style_core.h"
+#include "ui/style/style_radius.h"
+
 #include "ui/chat/chat_style.h"
 #include "ui/effects/radial_animation.h"
 #include "ui/cached_round_corners.h"
@@ -16,6 +19,37 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_style.h"
 
 namespace HistoryView {
+
+void PaintWhiteVideoStatusText(Painter &p, QPoint position, int outerWidth, const QString &text, int textWidth) {
+	if (text.isEmpty() || textWidth <= 0) {
+		return;
+	}
+	const auto &font = st::classicSettingsFont;
+	const auto ratio = style::DevicePixelRatio();
+	const auto logicalSize = QSize(textWidth, font->height);
+	const auto physicalSize = logicalSize * ratio;
+
+	auto mask = QImage(physicalSize, QImage::Format_ARGB32_Premultiplied);
+	mask.fill(Qt::transparent);
+	mask.setDevicePixelRatio(ratio);
+	{
+		auto q = Painter(&mask);
+		q.setFont(font);
+		q.setPen(Qt::white);
+		q.setRenderHint(QPainter::TextAntialiasing, false);
+		q.drawTextLeft(0, 0, textWidth, text, textWidth);
+	}
+
+	auto colored = QImage(physicalSize, QImage::Format_ARGB32_Premultiplied);
+	colored.setDevicePixelRatio(ratio);
+	style::colorizeImage(mask, QColor(255, 255, 255), &colored, {}, {}, true);
+	const auto target = style::rtlrect(position.x(), position.y(), logicalSize.width(), logicalSize.height(), outerWidth).topLeft();
+	p.save();
+	p.setOpacity(1.);
+	p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	p.drawImage(target, colored);
+	p.restore();
+}
 
 QRect VideoCornerDownloadRect(QPoint position) {
 	const auto padding = st::msgDateImgPadding;
@@ -33,7 +67,7 @@ void PaintVideoCornerStatus(
 		const VideoCornerStatus &status) {
 	const auto st = context.st;
 	const auto sti = context.imageStyle();
-	const auto &font = st::normalFont;
+	const auto &font = st::classicSettingsFont;
 	const auto position = status.position;
 	const auto outerWidth = status.outerWidth;
 	const auto padding = st::msgDateImgPadding;
@@ -63,12 +97,10 @@ void PaintVideoCornerStatus(
 		statusWidth,
 		statusHeight,
 		outerWidth);
-	Ui::FillRoundRect(p, around, sti->msgDateImgBg, sti->msgDateImgBgCorners);
-	p.setFont(font);
-	p.setPen(st->msgDateImgFg());
-	p.drawTextLeft(
-		statusX + addLeft,
-		statusTextTop,
+	p.fillRect(around, sti->msgDateImgBg);
+	PaintWhiteVideoStatusText(
+		p,
+		{ statusX + addLeft, statusTextTop },
 		outerWidth,
 		status.text,
 		textWidth);
@@ -77,9 +109,9 @@ void PaintVideoCornerStatus(
 			+ font->height
 			+ (2 * freeHeight / 3)
 			- padding.y();
-		p.drawTextLeft(
-			statusX + addLeft,
-			downloadTextTop,
+		PaintWhiteVideoStatusText(
+			p,
+			{ statusX + addLeft, downloadTextTop },
 			outerWidth,
 			status.downloadSize,
 			textWidth);
@@ -148,8 +180,8 @@ void PaintVideoTimestampMark(
 			top - 2 * radiusLeft,
 			edge + radiusLeft,
 			line + 2 * radiusLeft,
-			radiusLeft,
-			radiusLeft);
+			style::CornerRadius(radiusLeft),
+			style::CornerRadius(radiusLeft));
 		p.restore();
 	}
 	if (rest > 0) {
@@ -162,8 +194,8 @@ void PaintVideoTimestampMark(
 			top - 2 * radiusRight,
 			rest + radiusRight,
 			line + 2 * radiusRight,
-			radiusRight,
-			radiusRight);
+			style::CornerRadius(radiusRight),
+			style::CornerRadius(radiusRight));
 		p.restore();
 	}
 	p.restore();

@@ -30,6 +30,8 @@ struct TabbedPanelDescriptor {
 	Window::SessionController *regularWindow = nullptr;
 	object_ptr<TabbedSelector> ownedSelector = { nullptr };
 	TabbedSelector *nonOwnedSelector = nullptr;
+	bool separateWindow = false;
+	QString windowTitle;
 };
 
 class TabbedPanel : public Ui::RpWidget {
@@ -45,6 +47,7 @@ public:
 	TabbedPanel(QWidget *parent, TabbedPanelDescriptor &&descriptor);
 
 	[[nodiscard]] bool isSelectorStolen() const;
+	void selectorWasStolen();
 	[[nodiscard]] not_null<TabbedSelector*> selector() const;
 	[[nodiscard]] rpl::producer<bool> pauseAnimations() const;
 
@@ -59,7 +62,7 @@ public:
 
 	void hideFast();
 	bool hiding() const {
-		return _hiding || _hideTimer.isActive();
+		return _hiding;
 	}
 
 	bool overlaps(const QRect &globalRect) const;
@@ -71,16 +74,17 @@ public:
 	~TabbedPanel();
 
 protected:
-	void enterEventHook(QEnterEvent *e) override;
-	void leaveEventHook(QEvent *e) override;
+	void closeEvent(QCloseEvent *e) override;
+	void keyPressEvent(QKeyEvent *e) override;
 	void otherEnter();
-	void otherLeave();
 
+	void resizeEvent(QResizeEvent *e) override;
 	void paintEvent(QPaintEvent *e) override;
 	bool eventFilter(QObject *obj, QEvent *e) override;
 
 private:
-	void hideByTimerOrLeave();
+	void applySeparateWindowStyle();
+	void activateSeparateWindow();
 	void moveHorizontally();
 	void showFromSelector();
 
@@ -99,10 +103,10 @@ private:
 	void hideFinished();
 	void showStarted();
 
-	bool preventAutoHide() const;
 	void updateContentHeight();
 
 	Window::SessionController * const _regularWindow = nullptr;
+	const bool _separateWindow = false;
 	const object_ptr<TabbedSelector> _ownedSelector = { nullptr };
 	const not_null<TabbedSelector*> _selector;
 	rpl::event_stream<bool> _pauseAnimations;
@@ -128,7 +132,6 @@ private:
 	Ui::BoxShadow _shadow;
 	QPixmap _cache;
 	Ui::Animations::Simple _a_opacity;
-	base::Timer _hideTimer;
 
 };
 

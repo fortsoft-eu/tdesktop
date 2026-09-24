@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/ui_integration.h"
 #include "base/weak_ptr.h"
 #include "apiwrap.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/basic_click_handlers.h"
@@ -184,11 +185,19 @@ auto WithPinnedTitle(not_null<Main::Session*> session, PinnedId id) {
 		+ stButton.padding.right()
 		+ stButton.height); // stButton.height is likely for icon spacing.
 
+	const auto inner = button->rect().marginsRemoved(stButton.padding);
 	label->moveToLeft(
 		stButton.padding.left() + stButton.height / 2,
-		(button->height() - label->height()) / 2);
+		inner.top() + (inner.height() - label->height()) / 2);
+	const auto labelPosition = label->pos();
+	const auto rawButton = button.data();
+	rawButton->paintRequest(
+	) | rpl::on_next([=] {
+		label->move(labelPosition
+			+ Ui::ClassicButtonContentOffset(rawButton, rawButton->isDown()));
+	}, label->lifetime());
 
-	label->setTextColorOverride(stButton.textFg->c); // Use button's text color for label.
+	label->setTextColorOverride(st::classicMenuText->c);
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);
 
 	button->setFullRadius(true);

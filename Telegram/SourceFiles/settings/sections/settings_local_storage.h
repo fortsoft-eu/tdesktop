@@ -9,7 +9,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "settings/settings_common_session.h"
 #include "storage/cache/storage_cache_database.h"
-#include "ui/round_rect.h"
 
 namespace Main {
 class Session;
@@ -31,12 +30,9 @@ template <typename Widget>
 class SlideWrap;
 class LabelSimple;
 class MediaSlider;
-class BoxContent;
 } // namespace Ui
 
 namespace Settings {
-
-inline constexpr auto kChartPartsCount = 6;
 
 [[nodiscard]] Type LocalStorageId();
 
@@ -50,38 +46,12 @@ public:
 
 	[[nodiscard]] rpl::producer<QString> title() override;
 	void showFinished() override;
-	bool paintOuter(
-		not_null<QWidget*> outer,
-		int maxVisibleHeight,
-		QRect clip) override;
-	const Ui::RoundRect *bottomSkipRounding() const override {
-		return &_bottomSkipRounding;
-	}
 
 private:
 	class Row;
-	class Chart;
-	class DeviceBar;
-	class ClearButton;
-
-	struct PendingStats {
-		Database::Stats stats;
-		Database::Stats statsBig;
-	};
 
 	void setupContent();
-	void updateChart();
-	void updateCategoryPercents();
-	void updateRowCorners();
-	void updateDeviceBar();
-	void updateClearButton();
-	void updateCategoriesWrap();
-	void showClearingBox();
-	void clearSelected();
-	void startClearing();
-	void finishClearing();
-	void toggleSelected(int chartIndex, bool selected, not_null<Row*> row);
-	[[nodiscard]] std::array<int64, kChartPartsCount> chartedSizes() const;
+	void clearByTag(uint16 tag);
 	void update(Database::Stats &&stats, Database::Stats &&statsBig);
 	void updateRow(
 		not_null<Ui::SlideWrap<Row>*> row,
@@ -109,7 +79,6 @@ private:
 	not_null<Ui::MediaSlider*> createLimitsSlider(
 		not_null<Ui::VerticalLayout*> container,
 		int valuesCount,
-		const QString &name,
 		Convert &&convert,
 		Value currentValue,
 		Callback &&callback);
@@ -120,34 +89,16 @@ private:
 
 	Database::Stats _stats;
 	Database::Stats _statsBig;
-	std::optional<PendingStats> _pendingStats;
-	bool _shown = false;
 
 	base::flat_map<uint16, not_null<Ui::SlideWrap<Row>*>> _rows;
-	std::array<bool, kChartPartsCount> _selected
-		= { { true, true, true, true, true, true } };
-	rpl::variable<bool> _allSelected = true;
-	Chart *_chart = nullptr;
-	Ui::SlideWrap<Ui::VerticalLayout> *_categoriesWrap = nullptr;
-	bool _categoriesInited = false;
-	ClearButton *_clearButton = nullptr;
-	DeviceBar *_deviceBar = nullptr;
 	Ui::MediaSlider *_totalSlider = nullptr;
 	Ui::LabelSimple *_totalLabel = nullptr;
 	Ui::MediaSlider *_mediaSlider = nullptr;
 	Ui::LabelSimple *_mediaLabel = nullptr;
 
-	Ui::RoundRect _bottomSkipRounding;
-
 	int64 _totalSizeLimit = 0;
 	int64 _mediaSizeLimit = 0;
 	size_type _timeLimit = 0;
-
-	bool _clearRequested = false;
-	int64 _clearFreedBase = 0;
-	bool _minDurationPassed = false;
-	bool _clearingStarted = false;
-	base::weak_qptr<Ui::BoxContent> _clearingBox;
 
 };
 

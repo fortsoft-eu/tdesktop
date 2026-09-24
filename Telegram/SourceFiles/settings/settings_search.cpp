@@ -94,7 +94,7 @@ void SetupCheckIcon(
 		auto p = QPainter(&check->widget);
 		check->view.paint(p, 0, 0, check->widget.width());
 		p.setOpacity(0.5);
-		p.fillRect(clip, st::boxBg);
+		p.fillRect(clip, st::classicControlBg);
 	}, check->widget.lifetime());
 }
 

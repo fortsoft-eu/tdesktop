@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/send_credits_box.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "api/api_credits.h"
 #include "apiwrap.h"
 #include "core/ui_integration.h" // TextContext
@@ -270,7 +273,7 @@ void AddTerms(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(QPen(st::premiumButtonFg, st::chatGiveawayBadgeStroke * 1.));
 		p.setBrush(st::creditsBg3);
-		p.drawRoundedRect(smaller, radius, radius);
+		p.drawRoundedRect(smaller, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		p.translate(0, font->descent / 2);
 
@@ -526,10 +529,19 @@ not_null<FlatLabel*> SetButtonMarkedLabel(
 		Text::MarkedContext context,
 		const style::FlatLabel &st,
 		const style::color *textFg) {
+	const auto classic = dynamic_cast<RoundButton*>(button.get())
+		|| button->property("classicButton").toBool();
+	const auto labelStyle = button->lifetime().make_state<style::FlatLabel>(st);
+	if (classic) {
+		labelStyle->style.font = st::classicActionFont;
+		labelStyle->style.lineHeight = 0;
+		labelStyle->textFg = st::classicMenuText;
+		labelStyle->maxHeight = labelStyle->style.font->height;
+	}
 	const auto buttonLabel = Ui::CreateChild<Ui::FlatLabel>(
 		button,
 		rpl::single(QString()),
-		st);
+		*labelStyle);
 	context.repaint = [=] { buttonLabel->update(); };
 	rpl::duplicate(
 		text
@@ -538,18 +550,30 @@ not_null<FlatLabel*> SetButtonMarkedLabel(
 	}) | rpl::on_next([=](const TextWithEntities &text) {
 		buttonLabel->setMarkedText(text, context);
 	}, buttonLabel->lifetime());
-	if (textFg) {
+	if (textFg && !classic) {
 		buttonLabel->setTextColorOverride((*textFg)->c);
 		style::PaletteChanged() | rpl::on_next([=] {
 			buttonLabel->setTextColorOverride((*textFg)->c);
 		}, buttonLabel->lifetime());
 	}
-	button->sizeValue(
-	) | rpl::on_next([=](const QSize &size) {
+	const auto updateGeometry = [=] {
+		const auto content = classic
+			? ClassicButtonContentRect(button->rect(), button)
+			: button->rect();
+		buttonLabel->resizeToWidth(std::min(buttonLabel->naturalWidth(), content.width()));
+		const auto abstract = dynamic_cast<AbstractButton*>(button.get());
+		const auto shift = classic
+			? ClassicButtonContentOffset(button, abstract && abstract->isDown())
+			: QPoint();
 		buttonLabel->moveToLeft(
-			(size.width() - buttonLabel->width()) / 2,
-			(size.height() - buttonLabel->height()) / 2);
-	}, buttonLabel->lifetime());
+			(button->width() - buttonLabel->width()) / 2 + shift.x(),
+			(button->height() - buttonLabel->height()) / 2 + shift.y());
+	};
+	rpl::combine(
+		button->sizeValue(),
+		buttonLabel->naturalWidthValue()
+	) | rpl::on_next(updateGeometry, buttonLabel->lifetime());
+	button->paintRequest() | rpl::on_next(updateGeometry, buttonLabel->lifetime());
 	buttonLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 	buttonLabel->showOn(std::move(
 		text

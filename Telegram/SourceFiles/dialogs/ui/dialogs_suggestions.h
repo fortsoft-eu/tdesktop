@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rp_widget.h"
 
 class PeerListContent;
+class QTabBar;
 
 namespace Data {
 class Thread;
@@ -40,7 +41,6 @@ namespace Ui {
 class BoxContent;
 class ScrollArea;
 class ElasticScroll;
-class SettingsSlider;
 class VerticalLayout;
 template <typename Widget>
 class SlideWrap;
@@ -227,8 +227,7 @@ private:
 	const not_null<Window::SessionController*> _controller;
 
 	const std::unique_ptr<Ui::ScrollArea> _tabsScroll;
-	const not_null<Ui::SettingsSlider*> _tabs;
-	Ui::Animations::Simple _tabsScrollAnimation;
+	const not_null<QTabBar*> _tabs;
 	const std::vector<Key> _tabKeys;
 	rpl::variable<Key> _key;
 

@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/main_window.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "api/api_updates.h"
 #include "storage/localstorage.h"
 #include "platform/platform_specific.h"
@@ -91,6 +94,7 @@ base::options::toggle OptionNewWindowsSizeAsFirst({
 	.id = kOptionNewWindowsSizeAsFirst,
 	.name = "Adjust size of new chat windows",
 	.description = "Open new windows with a size of the main window.",
+	.defaultValue = false,
 });
 
 base::options::toggle OptionDisableTouchbar({
@@ -322,7 +326,7 @@ QImage GenerateCounterLayer(CounterLayerArgs &&args) {
 
 	auto p = QPainter(&result);
 	auto hq = PainterHighQualityEnabler(p);
-	const auto f = style::font{ d.font, 0, 0 };
+	const auto f = style::font{ d.font, 0, u"Tahoma"_q };
 	const auto w = f->width(text);
 
 	p.setBrush(args.bg.value());
@@ -333,12 +337,11 @@ QImage GenerateCounterLayer(CounterLayerArgs &&args) {
 			d.size - f->height,
 			w + d.delta * 2,
 			f->height),
-		d.radius,
-		d.radius);
+		style::CornerRadius(d.radius),
+		style::CornerRadius(d.radius));
 
 	p.setFont(f);
-	p.setPen(args.fg.value());
-	p.drawText(d.size - w - d.delta, d.size - f->height + f->ascent, text);
+	Ui::PaintClassicText(p, QPointF(d.size - w - d.delta, d.size - f->height + f->ascent), text, QColor(255, 255, 255));
 	p.end();
 
 	return result;
@@ -368,7 +371,7 @@ QImage WithSmallCounter(QImage image, CounterLayerArgs &&args) {
 
 	auto p = QPainter(&image);
 	auto hq = PainterHighQualityEnabler(p);
-	const auto f = style::font{ d.font, 0, 0 };
+	const auto f = style::font{ d.font, 0, u"Tahoma"_q };
 	const auto w = f->width(text);
 
 	p.setBrush(args.bg.value());
@@ -379,12 +382,11 @@ QImage WithSmallCounter(QImage image, CounterLayerArgs &&args) {
 			d.size - f->height,
 			w + d.delta * 2,
 			f->height),
-		d.radius,
-		d.radius);
+		style::CornerRadius(d.radius),
+		style::CornerRadius(d.radius));
 
 	p.setFont(f);
-	p.setPen(args.fg.value());
-	p.drawText(d.size - w - d.delta, d.size - f->height + f->ascent, text);
+	Ui::PaintClassicText(p, QPointF(d.size - w - d.delta, d.size - f->height + f->ascent), text, QColor(255, 255, 255));
 	p.end();
 
 	return image;
@@ -504,6 +506,9 @@ bool MainWindow::hideNoQuit() {
 		? Behavior::RunInBackground
 		: Core::App().settings().closeBehavior();
 	if (behavior == Behavior::RunInBackground) {
+		if (Platform::IsWindows()) {
+			return false;
+		}
 		closeWithoutDestroy();
 	} else if (behavior == Behavior::CloseToTaskbar) {
 		setWindowState(window()->windowState() | Qt::WindowMinimized);

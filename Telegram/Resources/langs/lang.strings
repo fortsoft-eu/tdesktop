@@ -28,6 +28,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 "lng_disable_notifications_from_tray" = "Disable notifications";
 "lng_enable_notifications_from_tray" = "Enable notifications";
+"lng_read_all_chats_from_tray" = "Read all chats";
+"lng_clear_all_accounts_cache_from_tray" = "Clear cache for all accounts";
+"lng_restore_left_panel_width_from_tray" = "Restore default left panel width";
 "lng_open_from_tray" = "Open Telegram";
 "lng_minimize_to_tray" = "Minimize to Tray";
 "lng_quit_from_tray" = "Quit Telegram";
@@ -1733,6 +1736,22 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_profile_sure_kick_channel" = "Remove {user} from the channel?";
 "lng_profile_sure_remove_admin" = "Remove {user} from admins?";
 "lng_profile_loading" = "Loading...";
+"lng_profile_details_title" = "User details";
+"lng_profile_details_country" = "Phone number country";
+"lng_profile_details_name_change" = "Last name change";
+"lng_profile_details_photo_change" = "Last photo change";
+"lng_profile_details_oldest_photo" = "Earliest known profile photo upload";
+"lng_profile_details_unavailable" = "Not available";
+"lng_profile_details_copy_id" = "Copy ID";
+"lng_profile_details_received" = "Telegram; recorded {when}";
+"lng_profile_details_saved" = "Saved observation from {when}";
+"lng_profile_details_about" = "Registration is a month and year, not an exact date. A photo upload is not registration. The phone number country is not the user's location. Saved details can be outdated or come from another account using your database.";
+"lng_profile_details_refresh_failed" = "Telegram could not refresh these details.";
+"lng_profile_details_local_only" = "Saved on this device. Backup server is not configured.";
+"lng_profile_details_config_invalid" = "Backup server configuration is invalid. Details remain saved on this device.";
+"lng_profile_details_sync_pending" = "Backup server: waiting for synchronization.";
+"lng_profile_details_sync_done" = "Backup server synchronized.";
+"lng_profile_details_sync_failed" = "Backup server unavailable. Unsaved changes will be retried.";
 "lng_profile_saved_stories#one" = "{count} post";
 "lng_profile_saved_stories#other" = "{count} posts";
 "lng_profile_posts#one" = "{count} post";
@@ -5133,6 +5152,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_verification_codes_about" = "Third-party services, like websites and stores, can send verification codes to your phone number via Telegram instead of SMS. Such codes will appear in this chat.\n\nIf you didn't request any codes — don't worry! Most likely, someone made a mistake when entering their number.";
 
 "lng_archived_name" = "Archived chats";
+"lng_archived_empty" = "There are no chats in your Archive.";
 "lng_archived_add" = "Archive";
 "lng_archived_remove" = "Unarchive";
 "lng_archived_added" = "Chat archived.\nMuted chats stay archived when new messages arrive.";
@@ -8755,3 +8775,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_rich_paste_toast_apply" = "Apply";
 
 // Keys finished
+
+"lng_settings_solid_color" = "Solid color";
+"lng_settings_solid_white" = "White";
+"lng_settings_solid_windows" = "Windows";
+"lng_settings_solid_workspace" = "Workspace";

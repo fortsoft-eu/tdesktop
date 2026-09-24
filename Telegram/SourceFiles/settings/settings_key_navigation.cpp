@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/settings_key_navigation.h"
 
+#include "ui/style/style_radius.h"
 #include "base/invoke_queued.h"
 #include "settings/settings_common.h"
 #include "ui/widgets/buttons.h"
@@ -344,7 +345,7 @@ void KeyNavigation::updateHighlight() {
 				const auto radius = st::roundRadiusLarge;
 				p.setPen(Qt::NoPen);
 				p.setBrush(st::windowBgOver);
-				p.drawRoundedRect(raw->rect(), radius, radius);
+				p.drawRoundedRect(raw->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 			} else {
 				p.fillRect(clip, st::windowBgOver);
 			}

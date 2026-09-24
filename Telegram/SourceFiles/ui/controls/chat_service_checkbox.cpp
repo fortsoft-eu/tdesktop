@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/chat_service_checkbox.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/painter.h"
 #include "styles/style_layers.h"
@@ -255,7 +256,7 @@ void SetupBackground(not_null<Checkbox*> checkbox, Fn<QColor()> bg) {
 		p.setPen(Qt::NoPen);
 		p.setBrush(color);
 		const auto radius = checkbox->height() / 2.;
-		p.drawRoundedRect(checkbox->rect(), radius, radius);
+		p.drawRoundedRect(checkbox->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	}, checkbox->lifetime());
 }
 

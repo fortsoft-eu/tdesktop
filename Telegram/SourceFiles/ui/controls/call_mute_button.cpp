@@ -416,7 +416,7 @@ void BlobsWidget::init(int diameter) {
 		p.setOpacity(1.);
 		p.setBrush(st::groupCallBg);
 		p.setCompositionMode(QPainter::CompositionMode_Source);
-		p.drawEllipse(r);
+		p.drawRect(r);
 		p.restore();
 	};
 
@@ -469,7 +469,7 @@ void BlobsWidget::init(int diameter) {
 
 		if (!skipColoredCircle) {
 			p.setBrush(_blobBrush);
-			p.drawEllipse(_circleRect);
+			p.drawRect(_circleRect);
 		}
 
 		if (_switchConnectingProgress > 0.) {
@@ -482,7 +482,7 @@ void BlobsWidget::init(int diameter) {
 			if (!skipColoredCircle) {
 				p.setBrush(st::callConnectingRadial.color);
 				p.setOpacity(circleProgress);
-				p.drawEllipse(_circleRect);
+				p.drawRect(_circleRect);
 			}
 
 			p.setOpacity(1.);
@@ -490,7 +490,7 @@ void BlobsWidget::init(int diameter) {
 			cutRect(p, cutOutRect);
 
 			p.setBrush(st::callIconBg);
-			p.drawEllipse(cutOutRect);
+			p.drawRect(cutOutRect);
 		}
 	}, lifetime());
 

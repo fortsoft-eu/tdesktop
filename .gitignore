@@ -74,3 +74,8 @@ settings.local.json
 
 # Generated changelog page (built by CI, deployed to GitHub Pages)
 /docs/changelog/
+
+# Personal Windows build tools and isolated account data
+/.build-tools/
+/.local-data/
+.local-data-*/

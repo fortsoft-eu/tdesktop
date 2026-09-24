@@ -374,6 +374,24 @@ void InitLastPath() {
 	}
 }
 
+namespace {
+
+class NativeFileDialog final : public QFileDialog {
+public:
+	using QFileDialog::QFileDialog;
+
+protected:
+	void showEvent(QShowEvent *event) override {
+		const auto native = testAttribute(Qt::WA_DontShowOnScreen);
+		setWindowOpacity(native ? 0. : 1.);
+		setAttribute(Qt::WA_ShowWithoutActivating, native);
+		QFileDialog::showEvent(event);
+	}
+
+};
+
+} // namespace
+
 bool Get(
 		QPointer<QWidget> parent,
 		QStringList &files,
@@ -392,7 +410,7 @@ bool Get(
 	// that forced file icon and maybe other properties being resolved and this was
 	// a blocking operation.
 	auto helperPath = cDialogHelperPathFinal();
-	QFileDialog dialog(parent, caption, helperPath, filter);
+	NativeFileDialog dialog(parent, caption, helperPath, filter);
 
 	dialog.setModal(true);
 	if (type == Type::ReadFile || type == Type::ReadFiles) {
@@ -406,9 +424,6 @@ bool Get(
 		dialog.setFileMode(QFileDialog::AnyFile);
 		dialog.setAcceptMode(QFileDialog::AcceptSave);
 	}
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	dialog.show();
-#endif // Qt < 6.0.0
 
 	auto realLastPath = [=] {
 		// If we're given some non empty path containing a folder - use it.

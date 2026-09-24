@@ -1235,33 +1235,16 @@ void InnerWidget::fill() {
 							style::al_top);
 					}
 					const auto closeBox = [=] { box->closeBox(); };
-					{
-						const auto &st = st::premiumPreviewDoubledLimitsBox;
-						box->setStyle(st);
-						auto button = object_ptr<Ui::RoundButton>(
-							box,
-							(!entry.successLink.isEmpty())
-								? tr::lng_channel_earn_history_out_button()
-								: tr::lng_box_ok(),
-							st::defaultActiveButton);
-						button->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
-						button->resizeToWidth(box->width()
-							- st.buttonPadding.left()
-							- st.buttonPadding.left());
-						if (!entry.successLink.isEmpty()) {
-							button->setAcceptBoth();
-							button->addClickHandler([=](
-									Qt::MouseButton button) {
-								if (button == Qt::LeftButton) {
-									UrlClickHandler::Open(entry.successLink);
-								} else if (button == Qt::RightButton) {
-									ShowMenu(box, entry.successLink);
-								}
-							});
-						} else {
-							button->setClickedCallback(closeBox);
-						}
-						box->addButton(std::move(button));
+					if (!entry.successLink.isEmpty()) {
+						const auto button = box->addButton(tr::lng_channel_earn_history_out_button(), nullptr);
+						button->setAcceptBoth();
+						button->addClickHandler([=](Qt::MouseButton button) {
+							if (button == Qt::LeftButton) {
+								UrlClickHandler::Open(entry.successLink);
+							} else if (button == Qt::RightButton) {
+								ShowMenu(box, entry.successLink);
+							}
+						});
 					}
 					Ui::AddSkip(box->verticalLayout());
 					Ui::AddSkip(box->verticalLayout());

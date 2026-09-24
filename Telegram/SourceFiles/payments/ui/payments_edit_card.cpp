@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/fade_wrap.h"
 #include "lang/lang_keys.h"
 #include "styles/style_payments.h"
+#include "styles/style_layers.h"
 #include "styles/style_passport.h"
 
 #include <QtCore/QRegularExpression>
@@ -371,7 +372,8 @@ not_null<RpWidget*> EditCard::setupContent() {
 			object_ptr<Ui::Checkbox>(
 				inner,
 				tr::lng_payments_save_information(tr::now),
-				false),
+				false,
+				st::paymentsSaveCheckbox),
 			st::paymentsSaveCheckboxPadding);
 	}
 
@@ -394,7 +396,7 @@ void EditCard::focusInEvent(QFocusEvent *e) {
 }
 
 void EditCard::updateControlsGeometry() {
-	const auto &padding = st::paymentsPanelPadding;
+	const auto &padding = st::defaultBox.buttonPadding;
 	const auto buttonsHeight = padding.top()
 		+ _cancel->height()
 		+ padding.bottom();

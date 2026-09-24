@@ -8,14 +8,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 using "ui/chat/chat.style";
 
 serviceTextPalette: TextPalette(defaultTextPalette) {
-	linkFg: msgServiceFg;
-	monoFg: msgServiceFg;
-	spoilerFg: msgServiceFg;
+	linkFg: premiumButtonFg;
+	monoFg: premiumButtonFg;
+	spoilerFg: premiumButtonFg;
 	selectBg: msgServiceBgSelected;
-	selectFg: msgServiceFg;
-	selectLinkFg: msgServiceFg;
-	selectMonoFg: msgServiceFg;
-	selectSpoilerFg: msgServiceFg;
+	selectFg: premiumButtonFg;
+	selectLinkFg: premiumButtonFg;
+	selectMonoFg: premiumButtonFg;
+	selectSpoilerFg: premiumButtonFg;
 	selectOverlay: msgServiceBgSelected;
 }
 priceTagTextPalette: TextPalette(defaultTextPalette) {

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/empty_userpic.h"
 
+#include "ui/style/style_radius.h"
 #include "info/channel_statistics/earn/earn_icons.h"
 #include "ui/chat/chat_style.h"
 #include "ui/effects/animation_value.h"
@@ -302,14 +303,7 @@ void EmptyUserpic::paint(
 	font.setPixelSize(fontsize);
 
 	PainterHighQualityEnabler hq(p);
-	{
-		auto gradient = QLinearGradient(x, y, x, y + size);
-		gradient.setStops({
-			{ 0., _colors.color1->c },
-			{ 1., _colors.color2->c }
-		});
-		p.setBrush(gradient);
-	}
+	p.setBrush(_colors.color1);
 	p.setPen(Qt::NoPen);
 	paintBackground();
 
@@ -340,7 +334,7 @@ void EmptyUserpic::paintCircle(
 		int outerWidth,
 		int size) const {
 	paint(p, x, y, outerWidth, size, [&] {
-		p.drawEllipse(x, y, size, size);
+		p.drawRect(x, y, size, size);
 	});
 }
 
@@ -352,7 +346,13 @@ void EmptyUserpic::paintRounded(
 		int size,
 		int radius) const {
 	paint(p, x, y, outerWidth, size, [&] {
-		p.drawRoundedRect(x, y, size, size, radius, radius);
+		p.drawRoundedRect(
+			x,
+			y,
+			size,
+			size,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	});
 }
 
@@ -384,11 +384,7 @@ void EmptyUserpic::PaintSavedMessages(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = QLinearGradient(x, y, x, y + size);
-	bg.setStops({
-		{ 0., st::historyPeerSavedMessagesBg->c },
-		{ 1., st::historyPeerSavedMessagesBg2->c }
-	});
+	const auto bg = st::historyPeerSavedMessagesBg->b;
 	const auto &fg = st::historyPeerUserpicFg;
 	PaintSavedMessages(p, x, y, outerWidth, size, QBrush(bg), fg);
 }
@@ -406,7 +402,7 @@ void EmptyUserpic::PaintSavedMessages(
 	PainterHighQualityEnabler hq(p);
 	p.setBrush(std::move(bg));
 	p.setPen(Qt::NoPen);
-	p.drawEllipse(x, y, size, size);
+	p.drawRect(x, y, size, size);
 
 	PaintSavedMessagesInner(p, x, y, size, fg);
 }
@@ -423,11 +419,7 @@ void EmptyUserpic::PaintRepliesMessages(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = QLinearGradient(x, y, x, y + size);
-	bg.setStops({
-		{ 0., st::historyPeerSavedMessagesBg->c },
-		{ 1., st::historyPeerSavedMessagesBg2->c }
-	});
+	const auto bg = st::historyPeerSavedMessagesBg->b;
 	const auto &fg = st::historyPeerUserpicFg;
 	PaintRepliesMessages(p, x, y, outerWidth, size, QBrush(bg), fg);
 }
@@ -445,7 +437,7 @@ void EmptyUserpic::PaintRepliesMessages(
 	PainterHighQualityEnabler hq(p);
 	p.setBrush(bg);
 	p.setPen(Qt::NoPen);
-	p.drawEllipse(x, y, size, size);
+	p.drawRect(x, y, size, size);
 
 	PaintRepliesMessagesInner(p, x, y, size, fg);
 }
@@ -462,11 +454,7 @@ void EmptyUserpic::PaintHiddenAuthor(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = QLinearGradient(x, y, x, y + size);
-	bg.setStops({
-		{ 0., st::premiumButtonBg2->c },
-		{ 1., st::premiumButtonBg3->c },
-	});
+	const auto bg = st::premiumButtonBg2->b;
 	const auto &fg = st::premiumButtonFg;
 	PaintHiddenAuthor(p, x, y, outerWidth, size, QBrush(bg), fg);
 }
@@ -484,7 +472,7 @@ void EmptyUserpic::PaintHiddenAuthor(
 	PainterHighQualityEnabler hq(p);
 	p.setBrush(bg);
 	p.setPen(Qt::NoPen);
-	p.drawEllipse(x, y, size, size);
+	p.drawRect(x, y, size, size);
 
 	PaintHiddenAuthorInner(p, x, y, size, fg);
 }
@@ -501,11 +489,7 @@ void EmptyUserpic::PaintMyNotes(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = QLinearGradient(x, y, x, y + size);
-	bg.setStops({
-		{ 0., st::historyPeerSavedMessagesBg->c },
-		{ 1., st::historyPeerSavedMessagesBg2->c }
-	});
+	const auto bg = st::historyPeerSavedMessagesBg->b;
 	const auto &fg = st::historyPeerUserpicFg;
 	PaintMyNotes(p, x, y, outerWidth, size, QBrush(bg), fg);
 }
@@ -523,7 +507,7 @@ void EmptyUserpic::PaintMyNotes(
 	PainterHighQualityEnabler hq(p);
 	p.setBrush(bg);
 	p.setPen(Qt::NoPen);
-	p.drawEllipse(x, y, size, size);
+	p.drawRect(x, y, size, size);
 
 	PaintMyNotesInner(p, x, y, size, fg);
 }
@@ -540,11 +524,7 @@ void EmptyUserpic::PaintCurrency(
 		int y,
 		int outerWidth,
 		int size) {
-	auto bg = QLinearGradient(x, y, x, y + size);
-	bg.setStops({
-		{ 0., st::historyPeerSavedMessagesBg->c },
-		{ 1., st::historyPeerSavedMessagesBg2->c }
-	});
+	const auto bg = st::historyPeerSavedMessagesBg->b;
 	const auto &fg = st::historyPeerUserpicFg;
 	PaintCurrency(p, x, y, outerWidth, size, QBrush(bg), fg);
 }
@@ -562,7 +542,7 @@ void EmptyUserpic::PaintCurrency(
 	PainterHighQualityEnabler hq(p);
 	p.setBrush(bg);
 	p.setPen(Qt::NoPen);
-	p.drawEllipse(x, y, size, size);
+	p.drawRect(x, y, size, size);
 
 	PaintCurrencyInner(p, x, y, size, fg);
 }
@@ -662,32 +642,7 @@ void EmptyUserpic::fillString(const QString &name) {
 EmptyUserpic::~EmptyUserpic() = default;
 
 void PaintMonoforumShape(QPainter &p, QRect rect) {
-	p.drawEllipse(rect);
-
-	auto path = QPainterPath();
-	path.moveTo(
-		rect.x() + rect.width() * 0.5,
-		rect.y() + rect.height() * 0.5);
-	path.arcTo(
-		QRectF(
-			rect.x() - rect.width() * 0.5,
-			rect.y(),
-			rect.width(),
-			rect.height()),
-		0,
-		-90);
-	path.arcTo(
-		QRectF(
-			rect.x() - rect.width() * 0.25,
-			rect.y() - rect.height() * 2,
-			rect.width() * 0.5,
-			rect.height() * 3),
-		-90,
-		45);
-	path.lineTo(
-		rect.x() + rect.width() * 0.5,
-		rect.y() + rect.height() * 0.5);
-	p.drawPath(path);
+	p.drawRect(rect);
 }
 
 QImage MonoforumShapeMask(QSize size) {

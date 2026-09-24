@@ -343,6 +343,10 @@ ShortcutMessages::ShortcutMessages(
 		_scroll,
 		controller->chatStyle(),
 		static_cast<HistoryView::CornerButtonsDelegate*>(this)) {
+	setProperty("classicSettingsStyle", false);
+	setAutoFillBackground(false);
+	_scroll->parentWidget()->setProperty("classicSettingsStyle", false);
+	_scroll->setBarAlwaysVisible(true);
 	const auto messages = &_session->data().shortcutMessages();
 
 	messages->shortcutIdChanged(
@@ -410,7 +414,9 @@ ShortcutMessages::ShortcutMessages(
 	}, lifetime());
 }
 
-ShortcutMessages::~ShortcutMessages() = default;
+ShortcutMessages::~ShortcutMessages() {
+	_scroll->setBarAlwaysVisible(false);
+}
 
 void ShortcutMessages::refreshEmptyText() {
 	const auto &shortcut = _shortcut.current();
@@ -445,7 +451,7 @@ void ShortcutMessages::refreshEmptyText() {
 		minWidth + 1,
 		st::repliesEmptyWidth - padding.left() - padding.right());
 	_emptyText = Ui::Text::String(
-		st::messageTextStyle,
+		st::repliesEmptyTextStyle,
 		text,
 		kMarkupTextOptions,
 		minWidth);
@@ -618,7 +624,7 @@ void ShortcutMessages::outerResized() {
 void ShortcutMessages::updateComposeControlsPosition() {
 	const auto bottom = _scroll->parentWidget()->height();
 	const auto controlsHeight = _composeControls->heightCurrent();
-	_composeControls->move(0, bottom - controlsHeight + st::boxRadius);
+	_composeControls->move(0, bottom - controlsHeight);
 	_composeControls->setAutocompleteBoundingRect(_scroll->geometry());
 }
 
@@ -777,7 +783,7 @@ void ShortcutMessages::setupComposeControls() {
 	_composeControls->height(
 	) | rpl::on_next([=](int height) {
 		const auto wasMax = (_scroll->scrollTop() >= _scroll->scrollTopMax());
-		_controlsWrap->resize(width(), height - st::boxRadius);
+		_controlsWrap->resize(_controlsWrap->width(), height);
 		updateComposeControlsPosition();
 		if (wasMax) {
 			listScrollTo(_scroll->scrollTopMax());

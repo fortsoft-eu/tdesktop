@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/userpic/info_userpic_bubble_wrap.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
 #include "ui/wrap/padding_wrap.h"
@@ -28,18 +29,18 @@ void PaintExcludeTopShadow(QPainter &p, int radius, const QRect &r) {
 	p.setOpacity(opacity * kOpacityStep1);
 	p.drawRoundedRect(
 		r + QMarginsF(hOffset, -radius, hOffset, 0),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 	p.setOpacity(opacity * kOpacityStep1);
 	p.drawRoundedRect(
 		r + QMarginsF(0, 0, 0, vOffset),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 	p.setOpacity(opacity * kOpacityStep2);
 	p.drawRoundedRect(
 		r + QMarginsF(0, 0, 0, vOffset / 2.),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 	p.setOpacity(opacity);
 }
 
@@ -77,7 +78,7 @@ not_null<Ui::RpWidget*> AddBubbleWrap(
 			p.setBrush(st::shadowFg);
 			PaintExcludeTopShadow(p, radius, innerRect);
 			p.setBrush(st::boxBg);
-			p.drawRoundedRect(innerRect, radius, radius);
+			p.drawRoundedRect(innerRect, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 		state->cached = std::move(cached);
 	};

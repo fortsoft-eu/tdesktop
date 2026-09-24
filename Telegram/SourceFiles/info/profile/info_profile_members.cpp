@@ -191,9 +191,8 @@ object_ptr<Ui::FlatLabel> Members::setupTitle() {
 		std::move(visible),
 		tr::lng_chat_status_members(
 			lt_count_decimal,
-			MembersCountValue(_peer) | tr::to_count(),
-			tr::upper),
-		tr::lng_channel_admins(tr::upper));
+			MembersCountValue(_peer) | tr::to_count()),
+		tr::lng_channel_admins());
 	rpl::duplicate(text) | rpl::on_next([=](const QString &v) {
 		_openMembers->setAccessibleName(v);
 	}, _openMembers->lifetime());

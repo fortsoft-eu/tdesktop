@@ -15,6 +15,10 @@ class FlatLabel;
 class RpWidget;
 } // namespace Ui
 
+namespace style {
+struct FlatLabel;
+} // namespace style
+
 namespace Info::Profile {
 
 struct Section {
@@ -31,7 +35,8 @@ public:
 	void addTextSeparator(
 		rpl::producer<TextWithEntities> text,
 		rpl::producer<bool> shown,
-		Fn<void(not_null<Ui::FlatLabel*>)> setup = nullptr);
+		Fn<void(not_null<Ui::FlatLabel*>)> setup = nullptr,
+		const style::FlatLabel *labelStyle = nullptr);
 	void finalize();
 
 	[[nodiscard]] not_null<Ui::VerticalLayout*> layout() const;
@@ -48,6 +53,7 @@ private:
 		rpl::producer<bool> shown;
 		rpl::producer<TextWithEntities> text;
 		Fn<void(not_null<Ui::FlatLabel*>)> textSetup;
+		const style::FlatLabel *textStyle = nullptr;
 	};
 
 	[[nodiscard]] static std::vector<bool> ComputeVisibility(

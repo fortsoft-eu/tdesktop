@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_widget.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "base/options.h"
@@ -209,7 +210,7 @@ protected:
 CommunityAddChatNarrowButton::CommunityAddChatNarrowButton(
 	not_null<QWidget*> parent)
 : Ui::RippleButton(parent, st::defaultRippleAnimation) {
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 }
 
 void CommunityAddChatNarrowButton::paintEvent(QPaintEvent *e) {
@@ -218,7 +219,7 @@ void CommunityAddChatNarrowButton::paintEvent(QPaintEvent *e) {
 	const auto radius = height() / 2.;
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::activeButtonBg);
-	p.drawRoundedRect(rect(), radius, radius);
+	p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	paintRipple(p, 0, 0);
 	st::communityAddChatButton.icon.paintInCenter(p, rect());
 }
@@ -408,7 +409,7 @@ Widget::Widget(
 	.under = object_ptr<MenuUnderButton>(_searchControls),
 })
 , _searchForNarrowLayout(_searchControls, st::dialogsSearchForNarrowFilters)
-, _search(_searchControls, st::dialogsFilter, tr::lng_dlg_filter())
+, _search(_searchControls, st::dialogsSearchField, tr::lng_dlg_filter())
 , _chooseFromUser(
 	_searchControls,
 	object_ptr<Ui::IconButton>(this, st::dialogsSearchFrom))
@@ -438,6 +439,7 @@ Widget::Widget(
 		_stories ? OverscrollType::Virtual : OverscrollType::Real,
 		OverscrollType::Real);
 	_scroll->setOverscrollPullDistances(st::dialogsStoriesFull.height, 0);
+	_scroll->setBarAlwaysVisible(true);
 	_innerList = _scroll->setOwnedWidget(
 		object_ptr<Ui::VerticalLayout>(this));
 	_inner = _innerList->add(object_ptr<InnerWidget>(
@@ -456,7 +458,8 @@ Widget::Widget(
 		_inner->refresh();
 	}, _innerList->lifetime());
 	_scroll->widthValue() | rpl::on_next([=](int width) {
-		_innerList->resizeToWidth(width);
+		_innerList->resizeToWidth(std::max(width - st::classicScrollBarWidth, 0));
+		_innerList->moveToLeft(0, _innerList->y(), width);
 	}, _innerList->lifetime());
 	_scrollToTop->raise();
 	_lockUnlock->toggle(false, anim::type::instant);
@@ -662,6 +665,23 @@ Widget::Widget(
 		cancelSearch({ .jumpBackToSearchedChat = true });
 	});
 	_cancelSearch->setAccessibleName(tr::lng_sr_cancel_search(tr::now));
+	_cancelSearch->setClassic(true);
+	_cancelSearch->setCursor(style::cur_default);
+	_cancelSearch->shownValue() | rpl::on_next([=] {
+		updateControlsGeometry();
+	}, lifetime());
+	for (const auto control : {
+		_jumpToDate.data(),
+		_chooseFromUser.data(),
+		_lockUnlock.data(),
+	}) {
+		control->setUpdatedCallback([=](float64) {
+			updateControlsGeometry();
+		});
+		control->toggledValue() | rpl::on_next([=] {
+			updateControlsGeometry();
+		}, lifetime());
+	}
 	_jumpToDate->entity()->setClickedCallback([=] { showCalendar(); });
 	_jumpToDate->entity()->setAccessibleName(
 		tr::lng_sr_search_date(tr::now));
@@ -1697,6 +1717,7 @@ void Widget::setupMainMenuToggle() {
 }
 
 void Widget::setupStories() {
+	_stories->setCollapsedHidden(true);
 	_stories->verticalScrollEvents(
 	) | rpl::on_next([=](not_null<QWheelEvent*> e) {
 		_scroll->viewportEvent(e);
@@ -1988,19 +2009,35 @@ void Widget::updateControlsVisibility(bool fast) {
 }
 
 void Widget::updateLockUnlockPosition() {
-	if (_lockUnlock->isHidden()) {
+	if (!_lockUnlock->toggled() && !_lockUnlock->animating()) {
 		return;
 	}
 	const auto stories = (_stories && !_stories->isHidden())
 		? _stories->collapsedGeometryCurrent()
 		: Stories::List::CollapsedGeometry();
-	const auto simple = _search->x() + _search->width();
+	auto simple = _searchControls->width() - st::dialogsFilterSkip - st::dialogsFilterPadding.x();
+	if (!_cancelSearch->isHidden()) {
+		simple -= _cancelSearch->width() + st::dialogsSearchButtonSkip;
+	}
+	for (const auto control : { _jumpToDate.data(), _chooseFromUser.data() }) {
+		if (control->toggled() || control->animating()) {
+			simple -= control->width() + st::dialogsSearchButtonSkip;
+		}
+	}
 	const auto right = stories.geometry.isEmpty()
 		? simple
-		: anim::interpolate(stories.geometry.x(), simple, stories.expanded);
-	_lockUnlock->move(
+		: std::min(simple, anim::interpolate(stories.geometry.x(), simple, stories.expanded));
+	_lockUnlock->moveToLeft(
 		right - _lockUnlock->width(),
-		st::dialogsFilterPadding.y());
+		(_searchControls->height() - _lockUnlock->height()) / 2);
+	const auto fieldLeft = style::RightToLeft()
+		? (_searchControls->width() - _search->x() - _search->width())
+		: _search->x();
+	_search->setGeometryToLeft(
+		fieldLeft,
+		_search->y(),
+		std::max(right - _lockUnlock->width() - st::dialogsSearchButtonSkip - fieldLeft, 0),
+		_search->height());
 }
 
 void Widget::updateHasFocus(not_null<QWidget*> focused) {
@@ -2641,6 +2678,11 @@ void Widget::scrollToDefault(bool verytop) {
 	_scrollToAnimation.stop();
 	auto scrollTop = _scroll->scrollTop();
 	const auto scrollTo = 0;
+	if (anim::Disabled()) {
+		_scroll->scrollToY(scrollTo);
+		startScrollUpButtonAnimation(false);
+		return;
+	}
 	if (scrollTop == scrollTo) {
 		return;
 	}
@@ -2684,7 +2726,7 @@ void Widget::scrollToDefault(bool verytop) {
 		std::max(scrollGeometry.width(), st::columnMinimalWidthLeft),
 		scrollGeometry.height());
 	_scroll->setGeometry(wideGeometry);
-	_inner->resize(wideGeometry.width(), _inner->height());
+	_inner->resize(_innerList->width(), _inner->height());
 	_inner->setNarrowRatio(0.);
 	Ui::SendPendingMoveResizeEvents(_scroll);
 	const auto grabSize = QSize(
@@ -3798,6 +3840,7 @@ void Widget::updateCancelSearch() {
 			? tr::lng_sr_clear_search(tr::now)
 			: tr::lng_sr_cancel_search(tr::now));
 	}
+	updateControlsGeometry();
 }
 
 QString Widget::validateSearchQuery() {
@@ -4412,18 +4455,11 @@ void Widget::updateSearchFromVisibility(bool fast) {
 		}
 		return false;
 	}();
-	const auto changed = (visible == !_chooseFromUser->toggled());
 	_chooseFromUser->toggle(
 		visible,
 		fast ? anim::type::instant : anim::type::normal);
 	if (_subsectionTopBar) {
 		_subsectionTopBar->searchEnableChooseFromUser(true, visible);
-	} else if (changed) {
-		auto additional = QMargins();
-		if (visible) {
-			additional.setRight(_chooseFromUser->width());
-		}
-		_search->setAdditionalMargins(additional);
 	}
 }
 
@@ -4460,10 +4496,21 @@ void Widget::updateControlsGeometry() {
 
 	auto filterTop = (filterAreaHeight - _search->height()) / 2;
 	filterLeft = anim::interpolate(filterLeft, _narrowWidth, narrowRatio);
+	auto fieldRight = filterLeft + filterWidth;
+	const auto placeControl = [&](auto control, bool reserve) {
+		control->moveToLeft(fieldRight - control->width(), (filterAreaHeight - control->height()) / 2);
+		if (reserve) {
+			fieldRight -= control->width() + st::dialogsSearchButtonSkip;
+		}
+	};
+	placeControl(_cancelSearch.data(), !_cancelSearch->isHidden());
+	placeControl(_jumpToDate.data(), _jumpToDate->toggled() || _jumpToDate->animating());
+	placeControl(_chooseFromUser.data(), _chooseFromUser->toggled() || _chooseFromUser->animating());
+	placeControl(_lockUnlock.data(), _lockUnlock->toggled() || _lockUnlock->animating());
 	_search->setGeometryToLeft(
 		filterLeft,
 		filterTop,
-		filterWidth,
+		std::max(fieldRight - filterLeft, 0),
 		_search->height());
 
 	auto mainMenuLeft = anim::interpolate(
@@ -4485,13 +4532,6 @@ void Widget::updateControlsGeometry() {
 	_searchForNarrowLayout->moveToLeft(
 		searchLeft,
 		st::dialogsFilterPadding.y());
-
-	auto right = filterLeft + filterWidth;
-	_cancelSearch->moveToLeft(right - _cancelSearch->width(), _search->y());
-	right -= _jumpToDate->width();
-	_jumpToDate->moveToLeft(right, _search->y());
-	right -= _chooseFromUser->width();
-	_chooseFromUser->moveToLeft(right, _search->y());
 
 	const auto barw = width();
 	const auto expandedStoriesTop = filterAreaTop + filterAreaHeight;
@@ -4621,7 +4661,7 @@ void Widget::updateControlsGeometry() {
 			height() - expandedStoriesTop - bottomSkip);
 	}
 
-	_inner->resize(scrollWidth, _inner->height());
+	_inner->resize(_innerList->width(), _inner->height());
 	_inner->setNarrowRatio(narrowRatio);
 	if (newScrollTop != wasScrollTop) {
 		_scroll->scrollToY(newScrollTop);
@@ -4662,8 +4702,9 @@ void Widget::keyPressEvent(QKeyEvent *e) {
 		//} else {
 		//	e->ignore();
 		//}
-	} else if ((e->key() == Qt::Key_Backspace
-			|| (e->key() == Qt::Key_Tab && !Ui::ScreenReaderModeActive()))
+	} else if (e->key() == Qt::Key_Backspace && _searchHasFocus) {
+		e->accept();
+	} else if (e->key() == Qt::Key_Tab && !Ui::ScreenReaderModeActive()
 		&& _searchHasFocus
 		&& !_searchState.inChat
 		&& _searchState.query.isEmpty()) {

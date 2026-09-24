@@ -237,7 +237,9 @@ struct CocoonLinkInfo {
 
 void AboutCocoonBox(not_null<Ui::GenericBox*> box) {
 	box->setWidth(st::boxWideWidth);
-	box->setStyle(st::stakeBox);
+	const auto boxStyle = box->lifetime().make_state<style::Box>(st::cocoonBox);
+	boxStyle->buttonPadding.setRight(boxStyle->buttonPadding.right() + 2 * st::lineWidth);
+	box->setStyle(*boxStyle);
 	box->setNoContentMargin(true);
 
 	AddCocoonBoxCover(box);
@@ -274,9 +276,7 @@ void AboutCocoonBox(not_null<Ui::GenericBox*> box) {
 	};
 	auto margin = QMargins(0, st::defaultVerticalListSkip, 0, 0);
 	for (const auto &feature : features) {
-		box->addRow(
-			MakeFeatureListEntry(box, feature),
-			st::boxRowPadding + margin);
+		box->addRow(MakeFeatureListEntry(box, feature, {}, st::cocoonFeatureTitle, st::cocoonFeatureAbout), st::boxRowPadding + margin);
 		margin = {};
 	}
 

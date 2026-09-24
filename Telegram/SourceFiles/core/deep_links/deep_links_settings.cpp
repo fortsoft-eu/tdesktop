@@ -1478,9 +1478,9 @@ void RegisterSettingsHandlers(Router &router) {
 			if (!ctx.controller) {
 				return Result::NeedsAuth;
 			}
-			ctx.controller->show(Box<StickersBox>(
-				ctx.controller->uiShow(),
-				StickersBox::Section::Installed));
+			ctx.controller->showToolBox(
+				Box<StickersBox>(ctx.controller->uiShow(), StickersBox::Section::Installed),
+				tr::lng_switch_stickers(tr::now));
 			return Result::Handled;
 		}},
 	});
@@ -1491,9 +1491,9 @@ void RegisterSettingsHandlers(Router &router) {
 			if (!ctx.controller) {
 				return Result::NeedsAuth;
 			}
-			ctx.controller->show(Box<StickersBox>(
-				ctx.controller->uiShow(),
-				StickersBox::Section::Featured));
+			ctx.controller->showToolBox(
+				Box<StickersBox>(ctx.controller->uiShow(), StickersBox::Section::Featured),
+				tr::lng_switch_stickers(tr::now));
 			return Result::Handled;
 		}},
 	});
@@ -1504,9 +1504,9 @@ void RegisterSettingsHandlers(Router &router) {
 			if (!ctx.controller) {
 				return Result::NeedsAuth;
 			}
-			ctx.controller->show(Box<StickersBox>(
-				ctx.controller->uiShow(),
-				StickersBox::Section::Archived));
+			ctx.controller->showToolBox(
+				Box<StickersBox>(ctx.controller->uiShow(), StickersBox::Section::Archived),
+				tr::lng_switch_stickers(tr::now));
 			return Result::Handled;
 		}},
 	});

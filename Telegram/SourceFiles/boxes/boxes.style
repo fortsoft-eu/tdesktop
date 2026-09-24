@@ -12,6 +12,29 @@ using "ui/widgets/widgets.style";
 using "ui/controls/userpic_button.style";
 using "intro/intro.style";
 
+addContactNotesDividerBar: DividerBar(defaultDividerBar) {
+	bg: classicControlBg;
+}
+addContactNotesDividerLabel: DividerLabel(classicDividerLabel) {
+	bar: addContactNotesDividerBar;
+}
+addContactNamedInput: InputField(classicNamedInput) {
+	textMargins: margins(0px, 15px, 0px, 0px);
+	heightMin: 42px;
+}
+birthdayAboutDividerBar: DividerBar(defaultDividerBar) {
+	bg: classicControlBg;
+}
+birthdayAboutDividerLabel: DividerLabel(classicDividerLabel) {
+	bar: birthdayAboutDividerBar;
+	label: FlatLabel(boxDividerLabel) {
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
+}
+
 UserpicsRow {
 	button: UserpicButton;
 	bg: color;
@@ -41,12 +64,25 @@ aboutRevokePublicLabel: FlatLabel(defaultFlatLabel) {
 	align: align(topleft);
 	minWidth: 320px;
 }
+usernameCheckLabel: FlatLabel(aboutRevokePublicLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+accountsLimitLabel: FlatLabel(aboutRevokePublicLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
 
 contactsPhotoSize: 42px;
-contactsPadding: margins(16px, 7px, 16px, 7px);
+contactsPadding: margins(16px, 3px, 16px, 3px);
 contactsNameTop: 2px;
 contactsStatusTop: 23px;
 contactsStatusFont: font(fsize);
+contactsStatusTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 contactsCheckPosition: point(8px, 16px);
 
 contactsSortButton: IconButton(defaultIconButton) {
@@ -67,15 +103,15 @@ contactsSortHeaderFont: font(13px);
 contactsSortHeaderPosition: point(16px, 7px);
 contactsSortHeaderFg: windowSubTextFg;
 
-membersMarginTop: 10px;
-membersMarginBottom: 10px;
+membersMarginTop: 4px;
+membersMarginBottom: 4px;
 
 peerListBoxItem: PeerListItem(defaultPeerListItem) {
-	height: 56px;
+	height: 48px;
 	photoSize: contactsPhotoSize;
-	photoPosition: point(16px, 7px);
-	namePosition: point(74px, 9px);
-	statusPosition: point(74px, 30px);
+	photoPosition: point(16px, 3px);
+	namePosition: point(74px, 5px);
+	statusPosition: point(74px, 26px);
 	button: OutlineButton(defaultPeerListButton) {
 		textBg: contactsBg;
 		textBgOver: contactsBgOver;
@@ -93,19 +129,26 @@ peerListBox: PeerList(defaultPeerList) {
 		membersMarginBottom);
 	item: peerListBoxItem;
 }
+forwardMessagesList: PeerList(peerListBox) {
+	item: PeerListItem(peerListBoxItem) {
+		statusFg: classicMenuText;
+		statusFgOver: classicMenuText;
+		statusFgActive: classicMenuText;
+	}
+}
 
 localStorageRowTitle: FlatLabel(defaultFlatLabel) {
 	textFg: windowBoldFg;
 	maxHeight: 20px;
 	style: TextStyle(defaultTextStyle) {
-		font: font(14px semibold);
+		font: classicActionFont;
 	}
 }
 localStorageRowSize: FlatLabel(defaultFlatLabel) {
-	textFg: contactsStatusFg;
+	textFg: classicMenuText;
 	maxHeight: 20px;
 	style: TextStyle(defaultTextStyle) {
-		font: font(14px);
+		font: classicSettingsFont;
 	}
 }
 
@@ -147,8 +190,10 @@ themeWarningTextTop: 60px;
 
 aboutWidth: 390px;
 aboutVersionLink: LinkButton(defaultLinkButton) {
-	color: windowSubTextFg;
-	overColor: windowSubTextFg;
+	color: windowActiveTextFg;
+	overColor: windowActiveTextFg;
+	font: classicSettingsFont;
+	overFont: font(11px underline "Tahoma");
 }
 aboutTopSkip: 19px;
 aboutSkip: 14px;
@@ -156,11 +201,12 @@ aboutLabel: FlatLabel(defaultFlatLabel) {
 	minWidth: 300px;
 	align: align(topleft);
 	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
 		lineHeight: 22px;
 	}
 }
 
-autoDownloadTitleFont: font(15px semibold);
+autoDownloadTitleFont: classicActionFont;
 autoDownloadLimitSlider: MediaSlider(defaultContinuousSlider) {
 	seekSize: size(15px, 15px);
 }
@@ -175,9 +221,23 @@ supportInfoField: InputField(defaultInputField) {
 langsRadio: Radio(defaultRadio) {
 	bg: boxBg;
 }
+languageDescriptionTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 
 backgroundPadding: 10px;
 backgroundSize: size(108px, 193px);
+backgroundChooseFileButton: RoundButton(classicProfileActionButton) {
+	icon: icon {{ "info/info_media_photo-28x28", classicMenuText }};
+	iconPosition: point(4px, 0px);
+}
+
+fontBoxSearch: MultiSelect(defaultMultiSelect) {
+	field: InputField(defaultMultiSelectSearchField) {
+		textMargins: margins(1px, 7px, 3px, 5px);
+	}
+}
+
 backgroundScroll: ScrollArea(boxScroll) {
 	deltax: 3px;
 	width: 10px;
@@ -253,6 +313,8 @@ downloadPathSkip: 10px;
 
 changePhoneButton: RoundButton(defaultActiveButton) {
 	width: 256px;
+	height: 28px;
+	textTop: 5px;
 }
 changePhoneTitle: FlatLabel(boxTitle) {
 }
@@ -283,12 +345,22 @@ proxyApplyBoxLabel : FlatLabel(defaultFlatLabel) {
 	maxHeight: 30px;
 }
 proxyApplyBoxButton: RoundButton(defaultActiveButton) {
-	height: 38px;
-	textTop: 10px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	style: semiboldTextStyle;
 }
 
 markdownLinkFieldPadding: margins(22px, 0px, 22px, 10px);
+markdownLinkInput: InputField(defaultInputField) {
+	style: TextStyle(boxTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+classicUsernameInput: InputField(classicNamedInput) {
+	style: TextStyle(boxTextStyle) {
+		font: classicSettingsFont;
+	}
+}
 markdownMathCheckboxMargin: margins(22px, 12px, 22px, 10px);
 markdownMathFieldMaxHeight: 140px;
 
@@ -312,6 +384,9 @@ urlAuthCheckbox: Checkbox(defaultBoxCheckbox) {
 }
 
 blockUserConfirmation: FlatLabel(boxLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	minWidth: 240px;
 }
 
@@ -379,6 +454,26 @@ musicAttachGlobalSearchTopSkip: 10px;
 peerListSingleRow: PeerList(peerListBox) {
 	padding: margins(0px, 0px, 0px, 0px);
 }
+personalChannelList: PeerList(peerListSingleRow) {
+	bg: classicControlBg;
+	about: FlatLabel(defaultPeerListAbout) {
+		style: TextStyle(boxTextStyle) {
+			font: classicSettingsFont;
+			lineHeight: 16px;
+		}
+		textFg: classicMenuText;
+	}
+	item: PeerListItem(peerListBoxItem) {
+		nameStyle: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+		nameFg: classicMenuText;
+		nameFgChecked: classicMenuText;
+		statusFg: classicMenuText;
+		statusFgOver: classicMenuText;
+		statusFgActive: classicMenuText;
+	}
+}
 peerListSmallSkips: PeerList(peerListBox) {
 	padding: margins(
 		0px,
@@ -412,7 +507,7 @@ boxAttentionDividerLabel: FlatLabel(boxDividerLabel) {
 
 sponsoredUrlButtonSkip: 11px;
 sponsoredUrlButton: RoundButton(defaultActiveButton) {
-	height: 32px;
+	height: classicButtonHeight;
 	width: -42px;
 	textBg: transparent;
 	textBgOver: transparent;
@@ -420,7 +515,7 @@ sponsoredUrlButton: RoundButton(defaultActiveButton) {
 	padding: margins(2px, 2px, 2px, 2px);
 	textFg: historyLinkInFg;
 	textFgOver: historyLinkInFg;
-	textTop: 7px;
+	textTop: classicButtonTextTop;
 	style: defaultTextStyle;
 
 	ripple: defaultRippleAnimationBgOver;
@@ -429,10 +524,10 @@ sponsoredUrlButton: RoundButton(defaultActiveButton) {
 contactsWithStories: PeerList(peerListBox) {
 	padding: margins(0px, 0px, 0px, 0px);
 	item: PeerListItem(peerListBoxItem) {
-		height: 52px;
-		photoPosition: point(18px, 5px);
-		namePosition: point(70px, 7px);
-		statusPosition: point(70px, 27px);
+		height: 48px;
+		photoPosition: point(18px, 3px);
+		namePosition: point(70px, 5px);
+		statusPosition: point(70px, 25px);
 
 		checkbox: RoundImageCheckbox(defaultPeerListCheckbox) {
 			imageRadius: 21px;
@@ -473,8 +568,11 @@ communityRequestsBoxList: PeerList(peerListBox) {
 communityRequestAcceptPosition: point(71px, 56px);
 
 ringtonesBoxButton: SettingsButton(defaultSettingsButton) {
-	textFg: lightButtonFg;
-	textFgOver: lightButtonFgOver;
+	textFg: classicMenuText;
+	textFgOver: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	padding: margins(56px, 10px, 22px, 8px);
 	iconLeft: 25px;
 }
@@ -502,7 +600,12 @@ infoLabel: FlatLabel(infoLabeled) {
 }
 
 shortInfoBox: ShortInfoBox {
-	label: infoLabel;
+	label: FlatLabel(infoLabel) {
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+			lineHeight: infoLabel.style.lineHeight;
+		}
+	}
 	labeled: infoLabeled;
 	labeledOneLine: infoLabeledOneLine;
 }
@@ -516,13 +619,13 @@ birthdayLabel: FlatLabel(infoLabel) {
 birthdayTodayIcon: icon {{ "menu/gift_premium", windowActiveTextFg }};
 
 collectibleCopy: RoundButton(defaultLightButton) {
-	height: 36px;
-	textTop: 9px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	radius: 6px;
 }
 collectibleBox: Box(defaultBox) {
 	buttonPadding: margins(24px, 12px, 24px, 12px);
-	buttonHeight: 36px;
+	buttonHeight: classicButtonHeight;
 	button: collectibleCopy;
 }
 
@@ -545,6 +648,29 @@ profileQrBackgroundRadius: 12px;
 profileQrIcon: icon{{ "qr_mini", windowActiveTextFg }};
 profileQrBackgroundMargins: margins(36px, 12px, 36px, 12px);
 profileQrBackgroundPadding: margins(0px, 24px, 0px, 24px);
+profileQrPreviewPadding: margins(18px, 12px, 18px, 12px);
+profileQrPhotoSkip: 8px;
+profileQrPreviewPixel: 6px;
+profileQrExportPixel: 12px;
+profileQrExportPhotoSize: 128px;
+profileQrExportPadding: margins(24px, 24px, 24px, 24px);
+profileQrOptionButton: SettingsButton(defaultSettingsButton) {
+	textFg: classicMenuText;
+	textFgOver: classicMenuText;
+	textBg: classicControlBg;
+	textBgOver: classicControlBg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	height: 16px;
+	padding: margins(36px, 4px, 16px, 4px);
+	toggleSkip: 16px;
+}
+deleteChatPeerTitle: FlatLabel(boxTitle) {
+	style: TextStyle(defaultTextStyle) {
+		font: font(fsize semibold "Unifont");
+	}
+}
 
 foldersMenu: PopupMenu(popupMenuWithIcons) {
 	maxHeight: 320px;
@@ -602,14 +728,11 @@ aiComposeExpandIcon: icon{{ "info/edit/expand_arrow_small", windowActiveTextFg }
 
 aiComposeCopyIcon: icon{{ "menu/copy", windowActiveTextFg }};
 
-aiComposeBoxButton: RoundButton(defaultActiveButton) {
-	height: 42px;
-	textTop: 12px;
-	style: semiboldTextStyle;
+aiComposeBoxButton: RoundButton(classicWideBoxButton) {
 }
 aiComposeBox: Box(defaultBox) {
 	buttonPadding: margins(16px, 12px, 16px, 12px);
-	buttonHeight: 42px;
+	buttonHeight: classicWideBoxButtonHeight;
 	buttonWide: true;
 	button: aiComposeBoxButton;
 	shadowIgnoreTopSkip: true;

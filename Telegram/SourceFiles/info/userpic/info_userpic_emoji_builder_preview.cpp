@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/userpic/info_userpic_emoji_builder_preview.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/stickers_lottie.h"
 #include "data/data_document.h"
 #include "data/data_document_media.h"
@@ -40,8 +41,8 @@ PreviewPainter::PreviewPainter(int size)
 		constexpr auto kFrameRadiusPercent = 25;
 		p.drawRoundedRect(
 			_frameRect,
-			kFrameRadiusPercent,
-			kFrameRadiusPercent,
+			style::CornerRadius(kFrameRadiusPercent),
+			style::CornerRadius(kFrameRadiusPercent),
 			Qt::RelativeSize);
 	}
 }

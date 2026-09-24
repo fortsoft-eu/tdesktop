@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/boost_box.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/widgets/fields/masked_input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/layers/generic_box.h"
@@ -40,9 +41,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_calls.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
-
-#include <QtWidgets/QApplication>
-#include <QtGui/QClipboard>
 
 namespace Calls::Group {
 
@@ -290,15 +288,23 @@ void ShowConferenceCallLinkBox(
 	show->showBox(Box([=](not_null<Ui::GenericBox*> box) {
 		struct State {
 			base::unique_qptr<Ui::PopupMenu> menu;
+			style::Box boxStyle;
 			bool resetting = false;
 		};
 		const auto state = box->lifetime().make_state<State>();
 
-		box->setStyle(st.box
+		state->boxStyle = st.box
 			? *st.box
 			: initial
 			? st::confcallLinkBoxInitial
-			: st::confcallLinkBox);
+			: st::confcallLinkBox;
+		const auto buttonSpace = st::boxWideWidth
+			- st::classicProfileActionButton.width;
+		state->boxStyle.buttonPadding.setLeft(buttonSpace / 2);
+		state->boxStyle.buttonPadding.setRight(buttonSpace - buttonSpace / 2);
+		state->boxStyle.buttonHeight = st::classicProfileActionButton.height;
+		state->boxStyle.buttonWide = true;
+		box->setStyle(state->boxStyle);
 		box->setWidth(st::boxWideWidth);
 		box->setNoContentMargin(true);
 		const auto close = box->addTopButton(
@@ -369,75 +375,66 @@ void ShowConferenceCallLinkBox(
 				st.box ? st.box->title : st::boxTitle),
 			st::boxRowPadding + st::confcallLinkTitlePadding,
 			style::al_top);
+		auto centeredStyle = st.centerLabel
+			? *st.centerLabel
+			: st::confcallLinkCenteredText;
+		centeredStyle.style.font = st::classicSettingsFont;
 		box->addRow(
 			object_ptr<Ui::FlatLabel>(
 				box,
 				tr::lng_confcall_link_about(),
-				(st.centerLabel
-					? *st.centerLabel
-					: st::confcallLinkCenteredText)),
+				centeredStyle),
 			st::boxRowPadding,
 			style::al_top
 		)->setTryMakeSimilarLines(true);
 
 		Ui::AddSkip(box->verticalLayout(), st::defaultVerticalListSkip * 2);
-		const auto preview = box->addRow(
-			Info::BotStarRef::MakeLinkLabel(box, link, st.linkPreview));
+		auto fieldStyle = st::defaultInputField;
+		fieldStyle.textMargins = st::classicSingleLineInputPadding;
+		fieldStyle.placeholderScale = 0.;
+		const auto previewRow = box->addRow(object_ptr<Ui::RpWidget>(box));
+		const auto preview = Ui::CreateChild<Ui::MaskedInputField>(
+			previewRow,
+			fieldStyle,
+			rpl::single(QString()),
+			Ui::Text::StripUrlProtocol(link));
+		preview->setReadOnly(true);
+		preview->setCursor(Qt::IBeamCursor);
+		preview->show();
+		previewRow->resize(previewRow->width(), preview->height());
+		previewRow->widthValue() | rpl::on_next([=](int width) {
+			preview->resize(width, preview->height());
+		}, preview->lifetime());
 		Ui::AddSkip(box->verticalLayout());
 
-		const auto copyCallback = [=] {
-			QApplication::clipboard()->setText(link);
-			show->showToast({
-				.text = { tr::lng_username_copied(tr::now) },
-				.iconLottie = u"toast/voip_invite"_q,
-				.iconLottieSize = st::toastLottieIconSize,
-			});
-		};
 		const auto shareCallback = [=] {
 			FastShareLink(
 				show,
 				link,
 				st.shareBox ? *st.shareBox : ShareBoxStyleOverrides());
 		};
-		preview->setClickedCallback(copyCallback);
 		const auto share = box->addButton(
 			tr::lng_group_invite_share(),
 			shareCallback,
 			st::confcallLinkShareButton);
-		const auto copy = box->addButton(
-			tr::lng_group_invite_copy(),
-			copyCallback,
-			st::confcallLinkCopyButton);
-
-		rpl::combine(
-			box->widthValue(),
-			copy->widthValue(),
-			share->widthValue()
-		) | rpl::on_next([=] {
-			const auto width = st::boxWideWidth;
-			const auto padding = st::confcallLinkBox.buttonPadding;
-			const auto available = width - 2 * padding.right();
-			const auto buttonWidth = (available - padding.left()) / 2;
-			copy->resizeToWidth(buttonWidth);
-			share->resizeToWidth(buttonWidth);
-			copy->moveToLeft(padding.right(), copy->y(), width);
-			share->moveToRight(padding.right(), share->y(), width);
-		}, box->lifetime());
+		share->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
 
 		if (!initial) {
 			return;
 		}
 
+		auto separatorStyle = st::confcallLinkFooterOr;
+		separatorStyle.style.font = st::classicSettingsFont;
 		const auto sep = Ui::CreateChild<Ui::FlatLabel>(
-			copy->parentWidget(),
+			share->parentWidget(),
 			tr::lng_confcall_link_or(),
-			st::confcallLinkFooterOr);
+			separatorStyle);
 		sep->paintRequest() | rpl::on_next([=] {
 			auto p = QPainter(sep);
 			const auto text = sep->textMaxWidth();
 			const auto white = (sep->width() - 2 * text) / 2;
 			const auto line = st::lineWidth;
-			const auto top = st::confcallLinkFooterOrLineTop;
+			const auto top = sep->st().style.font->height / 2;
 			const auto fg = st::windowSubTextFg->b;
 			p.setOpacity(0.4);
 			p.fillRect(0, top, white, line, fg);
@@ -445,7 +442,7 @@ void ShowConferenceCallLinkBox(
 		}, sep->lifetime());
 
 		const auto footer = Ui::CreateChild<Ui::FlatLabel>(
-			copy->parentWidget(),
+			share->parentWidget(),
 			tr::lng_confcall_link_join(
 				lt_link,
 				tr::lng_confcall_link_join_link(
@@ -453,9 +450,7 @@ void ShowConferenceCallLinkBox(
 					rpl::single(Ui::Text::IconEmoji(&st::textMoreIconEmoji)),
 					[](QString v) { return tr::link(v); }),
 				tr::marked),
-			(st.centerLabel
-				? *st.centerLabel
-				: st::confcallLinkCenteredText));
+			centeredStyle);
 		footer->setTryMakeSimilarLines(true);
 		footer->setClickHandlerFilter([=](const auto &...) {
 			if (auto slug = ExtractConferenceSlug(link); !slug.isEmpty()) {
@@ -466,7 +461,7 @@ void ShowConferenceCallLinkBox(
 			}
 			return false;
 		});
-		copy->geometryValue() | rpl::on_next([=](QRect geometry) {
+		share->geometryValue() | rpl::on_next([=](QRect geometry) {
 			const auto width = st::boxWideWidth
 				- st::boxRowPadding.left()
 				- st::boxRowPadding.right();

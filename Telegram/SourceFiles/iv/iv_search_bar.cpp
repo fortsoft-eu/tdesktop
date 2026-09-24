@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/iv_search_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "dialogs/ui/dialogs_pill.h"
 #include "lang/lang_keys.h"
 #include "ui/widgets/buttons.h"
@@ -156,7 +157,7 @@ void SearchBar::paintPill(QPainter &p) const {
 	_pillShadow->paint(p, pill, radius);
 	p.setBrush(st::dialogsBg);
 	p.setPen(Qt::NoPen);
-	p.drawRoundedRect(pill, radius, radius);
+	p.drawRoundedRect(pill, style::CornerRadius(radius), style::CornerRadius(radius));
 	Dialogs::PaintPillOutline(p, pill, radius);
 }
 

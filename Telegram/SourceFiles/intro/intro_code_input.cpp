@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_code_input.h"
 
+#include "ui/style/style_radius.h"
 #include "lang/lang_keys.h"
 #include "ui/abstract_button.h"
 #include "ui/effects/shake_animation.h"
@@ -126,7 +127,7 @@ void CodeDigit::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 
 	auto clipPath = QPainterPath();
-	clipPath.addRoundedRect(rect(), st::boxRadius, st::boxRadius);
+	clipPath.addRoundedRect(rect(), style::CornerRadius(st::boxRadius), style::CornerRadius(st::boxRadius));
 	p.setClipPath(clipPath);
 
 	p.fillRect(rect(), st::windowBgOver);

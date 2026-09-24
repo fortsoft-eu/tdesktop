@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_ephemeral_plate.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_user.h"
 #include "lang/lang_keys.h"
 #include "history/view/history_view_element.h"
@@ -112,7 +113,7 @@ void PaintEphemeralPlate(
 		p.setPen(Qt::NoPen);
 		p.setBrush(sti->msgServiceBg);
 		const auto radius = height / 2;
-		p.drawRoundedRect(QRect(x, y, width, height), radius, radius);
+		p.drawRoundedRect(QRect(x, y, width, height), style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 	const auto &icon = st::historyEphemeralIconIn;
 	const auto lineHeight = st::historyEphemeralPlateStyle.font->height;

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/skeleton_animation.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "ui/widgets/labels.h"
 
@@ -128,7 +129,7 @@ base::EventFilterResult SkeletonAnimation::paint() {
 			lineTop + (lineHeight - thickness) / 2.,
 			lineWidth,
 			thickness);
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		lineTop += lineHeight;
 	}
 	return base::EventFilterResult::Cancel;

@@ -7,6 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/view/media_view_overlay_widget.h"
 
+#include "history/view/media/history_view_local_copy.h"
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "apiwrap.h"
 #include "api/api_attached_stickers.h"
 #include "api/api_peer_photo.h"
@@ -16,7 +20,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer_rpl.h"
 #include "lang/lang_keys.h"
 #include "menu/menu_sponsored.h"
-#include "boxes/premium_preview_box.h"
 #include "calls/calls_instance.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
@@ -212,7 +215,6 @@ constexpr auto kIdsPreloadAfter = 28;
 constexpr auto kLeftSiblingTextureIndex = 1;
 constexpr auto kRightSiblingTextureIndex = 2;
 constexpr auto kStoriesControlsOpacity = 1.;
-constexpr auto kStorySavePromoDuration = 3 * crl::time(1000);
 
 class PipDelegate final : public Pip::Delegate {
 public:
@@ -405,8 +407,8 @@ protected:
 			p.setBrush((over || down) ? st.textBgOver : st.textBg);
 			p.drawRoundedRect(
 				rect(),
-				st::mediaviewCaptionRadius,
-				st::mediaviewCaptionRadius);
+				style::CornerRadius(st::mediaviewCaptionRadius),
+				style::CornerRadius(st::mediaviewCaptionRadius));
 		}
 
 		Ui::RippleButton::paintRipple(p, 0, 0);
@@ -970,7 +972,6 @@ OverlayWidget::OverlayWidget()
 	_docCancel->addClickHandler([=] { saveCancel(); });
 
 	_dropdown->setHiddenCallback([this] { dropdownHidden(); });
-	_dropdownShowTimer.setCallback([=] { showDropdown(); });
 
 	orderWidgets();
 }
@@ -982,7 +983,7 @@ void OverlayWidget::showSaveMsgToast(const QString &path, auto phrase) {
 			tr::now,
 			lt_downloads,
 			tr::link(
-				tr::lng_mediaview_downloads(tr::now),
+				tr::lng_mediaview_downloads(tr::now, tr::bold),
 				"internal:show_saved_message"),
 			tr::marked),
 		st::mediaviewSaveMsgShown);
@@ -1005,14 +1006,10 @@ void OverlayWidget::showSaveMsgToastWith(
 		_minUsedTop + (_maxUsedHeight - h) / 2,
 		w,
 		h);
-	const auto callback = [=](float64 value) {
-		updateSaveMsg();
-		if (!_saveMsgAnimation.animating()) {
-			_saveMsgTimer.callOnce(duration);
-		}
-	};
+	const auto callback = [=](float64 value) { updateSaveMsg(); };
 	const auto animDuration = st::mediaviewSaveMsgShowing;
 	_saveMsgAnimation.start(callback, 0., 1., animDuration);
+	_saveMsgTimer.callOnce(std::max(duration - st::mediaviewSaveMsgHiding, crl::time(0)));
 	updateSaveMsg();
 }
 
@@ -1430,6 +1427,10 @@ QSize OverlayWidget::flipSizeByRotation(QSize size) const {
 }
 
 bool OverlayWidget::hasCopyMediaRestriction(bool skipPremiumCheck) const {
+	if ((_document && HistoryView::HasLocalMediaCopy(_document))
+		|| (_photo && HistoryView::HasLocalMediaCopy(_photo))) {
+		return false;
+	}
 	if (const auto story = _stories ? _stories->story() : nullptr) {
 		if (story->call()) {
 			return true;
@@ -1455,6 +1456,17 @@ bool OverlayWidget::showCopyMediaRestriction(bool skipPRemiumCheck) {
 			: tr::lng_error_nocopy_group(tr::now));
 	}
 	return true;
+}
+
+bool OverlayWidget::saveMediaAvailableLocally() const {
+	if (_document) {
+		return _documentMedia->loaded(true);
+	} else if (!_photo) {
+		return false;
+	}
+	return _photo->hasVideo()
+		? !_photoMedia->videoContent(Data::PhotoSize::Large).isEmpty()
+		: _photoMedia->loaded();
 }
 
 bool OverlayWidget::videoShown() const {
@@ -1589,10 +1601,29 @@ void OverlayWidget::documentUpdated(not_null<DocumentData*> document) {
 	}
 	if (_stories
 		&& !_documentLoadingTo.isEmpty()
-		&& _document->location(true).isEmpty()) {
-		showSaveMsgToast(
-			base::take(_documentLoadingTo),
-			tr::lng_mediaview_video_saved_to);
+		&& !_document->loading()) {
+		const auto path = base::take(_documentLoadingTo);
+		const auto info = QFileInfo(path);
+		const auto saved = info.isFile() && (!_document->size || info.size() == _document->size);
+		if (_saveStoryAsAfterDownload) {
+			_saveStoryAsAfterDownload = false;
+			const auto target = base::take(_saveStoryAsTarget);
+			const auto copy = saved ? HistoryView::ReadLocalMediaCopy(_document) : std::nullopt;
+			if (copy && !target.isEmpty() && HistoryView::WriteLocalMediaCopy(*copy, target)) {
+				showSaveMsgToast(target, tr::lng_mediaview_video_saved_to);
+				return;
+			}
+		} else if (_sendStoryCopyAfterDownload) {
+			_sendStoryCopyAfterDownload = false;
+			if (saved) {
+				sendStoryCopy(false);
+				return;
+			}
+		} else if (saved) {
+			showSaveMsgToast(path, tr::lng_mediaview_video_saved_to);
+			return;
+		}
+		showSaveMsgToastWith(QString(), { u"Could not save the file."_q }, st::mediaviewSaveMsgShown);
 	}
 }
 
@@ -1670,28 +1701,6 @@ void OverlayWidget::checkForSaveLoaded() {
 	} else {
 		Unexpected("SavePhotoVideo in OverlayWidget::checkForSaveLoaded.");
 	}
-}
-
-void OverlayWidget::showPremiumDownloadPromo() {
-	const auto filter = [=](const auto &...) {
-		if (const auto window = uiShow()->resolveWindow()) {
-			ShowPremiumPreviewBox(window, PremiumFeature::Stories);
-			window->window().activate();
-		}
-		return false;
-	};
-	uiShow()->showToast({
-		.text = tr::lng_stories_save_promo(
-			tr::now,
-			lt_link,
-			tr::link(
-				tr::bold(
-					tr::lng_send_as_premium_required_link(tr::now))),
-			tr::marked),
-		.filter = filter,
-		.adaptive = true,
-		.duration = kStorySavePromoDuration,
-	});
 }
 
 void OverlayWidget::updateControls() {
@@ -1838,17 +1847,20 @@ void OverlayWidget::updateControls() {
 			st::mediaviewTextStyle,
 			_fromName,
 			Ui::NameTextOptions());
+		const auto nameTop = height() - st::mediaviewTextTop;
+		const auto baseline = nameTop + st::mediaviewTextStyle.font->ascent;
+		const auto dateTop = baseline - st::mediaviewFont->ascent;
 		_nameNav = QRect(
 			st::mediaviewTextLeft,
-			height() - st::mediaviewTextTop,
+			nameTop,
 			qMin(_fromNameLabel.maxWidth(), width() / 3),
-			st::mediaviewFont->height);
+			st::mediaviewTextStyle.font->height);
 		const auto separatorWidth = st::mediaviewFont->width(Ui::kQBullet);
 		_separatorNav = QRect(
 			st::mediaviewTextLeft
 				+ _nameNav.width()
 				+ st::mediaviewTextSkipHalf,
-			height() - st::mediaviewTextTop,
+			dateTop,
 			separatorWidth,
 			st::mediaviewFont->height);
 		_dateNav = QRect(
@@ -1857,7 +1869,7 @@ void OverlayWidget::updateControls() {
 				+ st::mediaviewTextSkipHalf
 				+ separatorWidth
 				+ st::mediaviewTextSkipHalf,
-			height() - st::mediaviewTextTop,
+			dateTop,
 			st::mediaviewFont->width(_dateText),
 			st::mediaviewFont->height);
 	} else {
@@ -2164,7 +2176,7 @@ void OverlayWidget::refreshPollVotersWidget() {
 		const auto radius = st::mediaviewCaptionRadius;
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::mediaviewCaptionBg);
-		p.drawRoundedRect(raw->rect(), radius, radius);
+		p.drawRoundedRect(raw->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 
 		auto left = padding.left();
 
@@ -2290,7 +2302,7 @@ void OverlayWidget::fillContextMenuActions(
 			[=] { copyRecognitionSelection(); },
 			&st::mediaMenuIconCopy);
 	}
-	if (!hasRecognitionSelection && !hasCopyMediaRestriction()) {
+	if (!hasRecognitionSelection && (story || !hasCopyMediaRestriction())) {
 		if ((_document && documentContentShown()) || (_photo && _photoMedia->loaded())) {
 			addAction(
 				((_document && _streamed)
@@ -2338,6 +2350,22 @@ void OverlayWidget::fillContextMenuActions(
 			}, state->lifetime);
 		}
 	}
+	if (_message && !story) {
+		const auto id = _message->fullId();
+		addAction(u"Send a Copy..."_q, [=] {
+			if (const auto controller = findWindow()) {
+				HistoryView::ShowSendLocalCopies(controller, { id });
+				if (!_windowed) {
+					close();
+				}
+			}
+		}, &st::mediaMenuIconForward);
+	}
+	if (story && (_document || _photo)) {
+		addAction(u"Send a Copy..."_q, [=] {
+			sendStoryCopy();
+		}, &st::mediaMenuIconForward);
+	}
 	if (story && story->canShare()) {
 		addAction(tr::lng_mediaview_forward(tr::now), [=] {
 			_stories->shareRequested();
@@ -2368,7 +2396,7 @@ void OverlayWidget::fillContextMenuActions(
 			[=] { deleteMedia(); },
 			&st::mediaMenuIconDelete);
 	}
-	if (!hasCopyMediaRestriction(true)) {
+	if ((story && (_document || _photo)) || !hasCopyMediaRestriction(true)) {
 		addAction(
 			tr::lng_mediaview_save_as(tr::now),
 			[=] { saveAs(); },
@@ -3038,6 +3066,9 @@ void OverlayWidget::assignMediaPointer(DocumentData *document) {
 			_videoCoverMedia = nullptr;
 		}
 		_documentLoadingTo = QString();
+		_saveStoryAsTarget = QString();
+		_saveStoryAsAfterDownload = false;
+		_sendStoryCopyAfterDownload = false;
 	}
 }
 
@@ -3049,6 +3080,9 @@ void OverlayWidget::assignMediaPointer(not_null<PhotoData*> photo) {
 	_document = nullptr;
 	_documentMedia = nullptr;
 	_documentLoadingTo = QString();
+	_saveStoryAsTarget = QString();
+	_saveStoryAsAfterDownload = false;
+	_sendStoryCopyAfterDownload = false;
 	_videoCover = nullptr;
 	_videoCoverMedia = nullptr;
 	_videoStream = nullptr;
@@ -3072,6 +3106,9 @@ void OverlayWidget::assignMediaPointer(
 	_document = nullptr;
 	_documentMedia = nullptr;
 	_documentLoadingTo = QString();
+	_saveStoryAsTarget = QString();
+	_saveStoryAsAfterDownload = false;
+	_sendStoryCopyAfterDownload = false;
 	_videoCover = nullptr;
 	_videoCoverMedia = nullptr;
 	_flip = {};
@@ -3218,10 +3255,8 @@ void OverlayWidget::dropdownHidden() {
 	if (_stories) {
 		_stories->menuShown(false);
 	}
-	_ignoringDropdown = true;
 	_lastMouseMovePos = _widget->mapFromGlobal(QCursor::pos());
 	updateOver(_lastMouseMovePos);
-	_ignoringDropdown = false;
 	if (!_controlsHideTimer.isActive()) {
 		hideControls(true);
 	}
@@ -3270,11 +3305,59 @@ void OverlayWidget::notifyFileDialogShown(bool shown) {
 }
 
 void OverlayWidget::saveAs() {
+	const auto copy = _document
+		? HistoryView::ReadLocalMediaCopy(_document)
+		: _photo
+		? HistoryView::ReadLocalMediaCopy(_photo)
+		: std::nullopt;
+	if (copy) {
+		HistoryView::SaveLocalMediaCopy(*copy, _session, uiShow(), _window.get());
+		return;
+	}
+	if (_stories && _document) {
+		if (_saveStoryAsAfterDownload) {
+			showSaveMsgToastWith(QString(), { u"Please wait..."_q }, st::mediaviewSaveMsgShown);
+			return;
+		}
+		const auto document = _document;
+		auto name = base::FileNameFromUserString(document->filename());
+		if (name.isEmpty()) {
+			name = u"video.mp4"_q;
+		}
+		const auto mimeType = Core::MimeTypeForName(document->mimeString());
+		const auto patterns = mimeType.globPatterns();
+		const auto filter = patterns.isEmpty()
+			? FileDialog::AllFilesFilter()
+			: mimeType.filterString() + u";;"_q + FileDialog::AllFilesFilter();
+		FileDialog::GetWritePath(
+			_window.get(),
+			tr::lng_save_video(tr::now),
+			filter,
+			name,
+			crl::guard(_window, [=](const QString &target) {
+				if (target.isEmpty() || _document != document) {
+					return;
+				}
+				const auto directory = _session->local().tempDirectory();
+				QDir().mkpath(directory);
+				const auto temporary = filedialogNextFilename(name, QString(), directory);
+				if (temporary.isEmpty()) {
+					showSaveMsgToastWith(QString(), { u"Could not save the file."_q }, st::mediaviewSaveMsgShown);
+					return;
+				}
+				_saveStoryAsTarget = target;
+				_saveStoryAsAfterDownload = true;
+				_documentLoadingTo = temporary;
+				showSaveMsgToastWith(QString(), { u"Please wait..."_q }, st::mediaviewSaveMsgShown);
+				document->save(fileOrigin(), temporary);
+				updateControls();
+				updateOver(_lastMouseMovePos);
+			}));
+		return;
+	}
 	if (showCopyMediaRestriction(true)) {
 		return;
-	} else if (hasCopyMediaRestriction()) {
-		Assert(_stories != nullptr);
-		showPremiumDownloadPromo();
+	} else if (hasCopyMediaRestriction() && !saveMediaAvailableLocally()) {
 		return;
 	}
 	QString file;
@@ -3442,10 +3525,7 @@ void OverlayWidget::downloadMedia() {
 		return;
 	} else if (Core::App().settings().askDownloadPath()) {
 		return saveAs();
-	} else if (hasCopyMediaRestriction()) {
-		if (_stories && !hasCopyMediaRestriction(true)) {
-			showPremiumDownloadPromo();
-		}
+	} else if (hasCopyMediaRestriction() && !saveMediaAvailableLocally()) {
 		return;
 	}
 
@@ -3588,6 +3668,58 @@ void OverlayWidget::forwardMedia() {
 	}
 }
 
+void OverlayWidget::sendStoryCopy(bool allowDownload) {
+	const auto story = _stories ? _stories->story() : nullptr;
+	if (!story) {
+		return;
+	}
+	const auto media = _document
+		? HistoryView::ReadLocalMediaCopy(_document)
+		: _photo
+		? HistoryView::ReadLocalMediaCopy(_photo)
+		: std::nullopt;
+	if (media) {
+		if (const auto controller = findWindow()) {
+			const auto &caption = story->caption();
+			HistoryView::ShowSendLocalCopy(controller, {
+				.text = {
+					caption.text,
+					TextUtilities::ConvertEntitiesToTextTags(caption.entities),
+				},
+				.media = *media,
+			});
+			if (!_windowed) {
+				close();
+			}
+		}
+		return;
+	}
+	if (!allowDownload || !_document) {
+		showSaveMsgToastWith(QString(), { u"A complete copy is not available."_q }, st::mediaviewSaveMsgShown);
+		return;
+	} else if (_sendStoryCopyAfterDownload || _saveStoryAsAfterDownload || !_documentLoadingTo.isEmpty()) {
+		showSaveMsgToastWith(QString(), { u"Please wait..."_q }, st::mediaviewSaveMsgShown);
+		return;
+	}
+	auto name = base::FileNameFromUserString(_document->filename());
+	if (name.isEmpty()) {
+		name = u"video.mp4"_q;
+	}
+	const auto directory = _session->local().tempDirectory();
+	QDir().mkpath(directory);
+	const auto temporary = filedialogNextFilename(name, QString(), directory);
+	if (temporary.isEmpty()) {
+		showSaveMsgToastWith(QString(), { u"Could not prepare the copy."_q }, st::mediaviewSaveMsgShown);
+		return;
+	}
+	_sendStoryCopyAfterDownload = true;
+	_documentLoadingTo = temporary;
+	showSaveMsgToastWith(QString(), { u"Please wait..."_q }, st::mediaviewSaveMsgShown);
+	_document->save(fileOrigin(), temporary);
+	updateControls();
+	updateOver(_lastMouseMovePos);
+}
+
 void OverlayWidget::deleteMedia() {
 	if (_stories) {
 		_stories->deleteRequested();
@@ -3715,7 +3847,7 @@ void OverlayWidget::draw() {
 }
 
 void OverlayWidget::copyMedia() {
-	if (showCopyMediaRestriction()) {
+	if (!_stories && showCopyMediaRestriction()) {
 		return;
 	}
 	_dropdown->hideAnimated(Ui::DropdownMenu::HideOption::IgnoreShow);
@@ -6693,10 +6825,10 @@ void OverlayWidget::paintSaveMsgContent(
 		QRect outer,
 		QRect clip) {
 	p.setOpacity(_saveMsgAnimation.value(1.));
-	Ui::FillRoundRect(p, outer, st::mediaviewSaveMsgBg, Ui::MediaviewSaveCorners);
+	Ui::PaintClassicButton(p, outer, _widget, false);
 	st::mediaviewSaveMsgCheck.paint(p, outer.topLeft() + st::mediaviewSaveMsgCheckPos, width());
 
-	p.setPen(st::mediaviewSaveMsgFg);
+	p.setPen(st::classicMenuText);
 	_saveMsgText.draw(p, {
 		.position = QPoint(
 			outer.x() + st::mediaviewSaveMsgPadding.left(),
@@ -7022,7 +7154,8 @@ bool OverlayWidget::saveControlLocked() const {
 	const auto story = _stories ? _stories->story() : nullptr;
 	return story
 		&& story->canDownloadIfPremium()
-		&& !story->canDownloadChecked();
+		&& !story->canDownloadChecked()
+		&& !saveMediaAvailableLocally();
 }
 
 void OverlayWidget::paintControls(
@@ -7128,7 +7261,22 @@ void OverlayWidget::paintFooterContent(
 		QRect outer,
 		QRect clip,
 		float64 opacity) {
-	p.setPen(st::mediaviewControlFg);
+	p.save();
+	p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	static const auto white = style::owned_color(Qt::white);
+	static const auto palette = [] {
+		auto result = st::mediaviewTextPalette;
+		result.linkFg = white.color();
+		result.monoFg = white.color();
+		result.spoilerFg = white.color();
+		result.selectFg = white.color();
+		result.selectLinkFg = white.color();
+		result.selectMonoFg = white.color();
+		result.selectSpoilerFg = white.color();
+		return result;
+	}();
+	p.setTextPalette(palette);
+	p.setPen(Qt::white);
 	p.setFont(st::mediaviewThickFont);
 
 	// header
@@ -7138,7 +7286,7 @@ void OverlayWidget::paintFooterContent(
 	const auto date = _dateNav.translated(shift);
 	if (header.intersects(clip)) {
 		auto o = _headerHasLink ? overLevel(Over::Header) : 0;
-		p.setOpacity(controlOpacity(o) * opacity);
+		p.setOpacity(opacity);
 		p.drawText(header.left(), header.top() + st::mediaviewThickFont->ascent, _headerText);
 
 		if (o > 0) {
@@ -7152,20 +7300,22 @@ void OverlayWidget::paintFooterContent(
 	// name
 	if (_nameNav.isValid() && name.intersects(clip)) {
 		float64 o = _from ? overLevel(Over::Name) : 0.;
-		p.setOpacity(controlOpacity(o) * opacity);
+		p.setOpacity(opacity);
 		_fromNameLabel.drawElided(p, name.left(), name.top(), name.width());
 
 		if (o > 0) {
 			p.setOpacity(o * opacity);
-			p.drawLine(name.left(), name.top() + st::mediaviewFont->ascent + 1, name.right(), name.top() + st::mediaviewFont->ascent + 1);
+			const auto underline = name.top() + st::mediaviewTextStyle.font->ascent + 1;
+			p.drawLine(name.left(), underline, name.right(), underline);
 		}
 	}
 
 	// separator
+	p.setFont(st::mediaviewFont);
 	if (_separatorNav.isValid()) {
 		const auto separator = _separatorNav.translated(shift);
 		if (separator.intersects(clip)) {
-			p.setOpacity(controlOpacity(0.) * opacity);
+			p.setOpacity(opacity);
 			p.drawText(
 				separator.left(),
 				separator.top() + st::mediaviewFont->ascent,
@@ -7176,7 +7326,7 @@ void OverlayWidget::paintFooterContent(
 	// date
 	if (date.intersects(clip)) {
 		float64 o = overLevel(Over::Date);
-		p.setOpacity(controlOpacity(o) * opacity);
+		p.setOpacity(opacity);
 		p.drawText(date.left(), date.top() + st::mediaviewFont->ascent, _dateText);
 
 		if (o > 0) {
@@ -7184,10 +7334,19 @@ void OverlayWidget::paintFooterContent(
 			p.drawLine(date.left(), date.top() + st::mediaviewFont->ascent + 1, date.right(), date.top() + st::mediaviewFont->ascent + 1);
 		}
 	}
+	p.restoreTextPalette();
+	p.restore();
 }
 
 QRect OverlayWidget::footerGeometry() const {
-	return _headerNav.united(_nameNav).united(_separatorNav).united(_dateNav);
+	auto result = _headerNav.united(_nameNav);
+	result = result.united(_separatorNav);
+	result = result.united(_dateNav);
+	if (_nameNav.isValid()) {
+		result = result.united(QRect(_nameNav.topLeft(), QSize(_nameNav.width(), st::mediaviewTextStyle.font->height)));
+	}
+	result.setWidth(width() - result.x());
+	return result;
 }
 
 void OverlayWidget::paintCaptionContent(
@@ -7209,8 +7368,8 @@ void OverlayWidget::paintCaptionContent(
 		p.setPen(Qt::NoPen);
 		p.drawRoundedRect(
 			outer,
-			st::mediaviewCaptionRadius,
-			st::mediaviewCaptionRadius);
+			style::CornerRadius(st::mediaviewCaptionRadius),
+			style::CornerRadius(st::mediaviewCaptionRadius));
 	}
 	if (inner.intersects(clip)) {
 		p.setPen(st::mediaviewCaptionFg);
@@ -8240,11 +8399,6 @@ void OverlayWidget::updateOverRect(Over state) {
 bool OverlayWidget::updateOverState(Over newState) {
 	bool result = true;
 	if (_over != newState) {
-		if (!_stories && newState == Over::More && !_ignoringDropdown) {
-			_dropdownShowTimer.callOnce(0);
-		} else {
-			_dropdownShowTimer.cancel();
-		}
 		updateOverRect(_over);
 		updateOverRect(newState);
 		if (_over != Over::None) {

@@ -183,7 +183,7 @@ void InfoBox(
 Row::Row(not_null<RowDelegate*> delegate, const EntryData &data)
 : PeerListRow(data.hash)
 , _delegate(delegate)
-, _location(st::defaultTextStyle, LocationAndDate(data))
+, _location(st::settingsExperimentalTextStyle, LocationAndDate(data))
 , _data(data) {
 	setCustomStatus(_data.ip);
 }
@@ -193,7 +193,7 @@ void Row::update(const EntryData &data) {
 	setCustomStatus(
 		JoinNonEmpty({ _data.domain, _data.browser, _data.platform }));
 	refreshName(st::websiteListItem);
-	_location.setText(st::defaultTextStyle, LocationAndDate(_data));
+	_location.setText(st::settingsExperimentalTextStyle, LocationAndDate(_data));
 	_delegate->rowUpdateRow(this);
 }
 
@@ -232,7 +232,7 @@ QRect Row::elementGeometry(int element, int outerWidth) const {
 			st::websiteListItem.namePosition.x(),
 			st::websiteLocationTop,
 			outerWidth,
-			st::normalFont->height);
+			st::classicSettingsFont->height);
 	} break;
 	case 2: {
 		const auto size = QSize(
@@ -277,7 +277,7 @@ void Row::elementsPaint(
 		: st::sessionTerminate.icon;
 	icon.paint(p, position.x(), position.y(), outerWidth);
 
-	p.setFont(st::normalFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(st::sessionInfoFg);
 	const auto locationLeft = st::websiteListItem.namePosition.x();
 	const auto available = outerWidth - locationLeft;

@@ -37,6 +37,12 @@ channelEarnHeaderLabel: FlatLabel(channelEarnOverviewMajorLabel) {
 	}
 	textFg: windowActiveTextFg;
 }
+botEarnHeaderLabel: FlatLabel(channelEarnHeaderLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+	textFg: classicMenuText;
+}
 channelEarnHistorySubLabel: FlatLabel(channelEarnOverviewSubMinorLabel) {
 	style: TextStyle(defaultTextStyle) {
 		font: font(12px);
@@ -81,10 +87,10 @@ channelEarnHistoryRecipientButton: RoundButton {
 	numbersSkip: 7px;
 
 	width: 190px;
-	height: 34px;
+	height: classicButtonHeight;
 	padding: margins(0px, 0px, 0px, 0px);
 
-	textTop: 8px;
+	textTop: classicButtonTextTop;
 	radius: 8px;
 
 	iconPosition: point(0px, 0px);
@@ -130,7 +136,9 @@ channelEarnLearnChannelIcon: icon {{ "sponsored/channel", boxTextFg }};
 channelEarnLearnWithdrawalsIcon: icon {{ "sponsored/withdrawals", boxTextFg }};
 
 sponsoredReportLabel: FlatLabel(defaultFlatLabel) {
-	style: boxTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	minWidth: 150px;
 }
 

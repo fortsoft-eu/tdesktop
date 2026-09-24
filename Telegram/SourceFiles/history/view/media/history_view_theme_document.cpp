@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_theme_document.h"
 
+#include "ui/style/style_radius.h"
 #include "apiwrap.h"
 #include "base/unixtime.h"
 #include "boxes/background_preview_box.h"
@@ -263,7 +264,14 @@ void ThemeDocument::draw(Painter &p, const PaintContext &context) const {
 			auto statusY = painty + st::msgDateImgDelta + st::msgDateImgPadding.y();
 			auto statusW = st::normalFont->width(_statusText) + 2 * st::msgDateImgPadding.x();
 			auto statusH = st::normalFont->height + 2 * st::msgDateImgPadding.y();
-			Ui::FillRoundRect(p, style::rtlrect(statusX - st::msgDateImgPadding.x(), statusY - st::msgDateImgPadding.y(), statusW, statusH, width()), sti->msgDateImgBg, sti->msgDateImgBgCorners);
+			p.fillRect(
+				style::rtlrect(
+					statusX - st::msgDateImgPadding.x(),
+					statusY - st::msgDateImgPadding.y(),
+					statusW,
+					statusH,
+					width()),
+				sti->msgDateImgBg);
 			p.setFont(st::normalFont);
 			p.setPen(st->msgDateImgFg());
 			p.drawTextLeft(statusX, statusY, width(), _statusText, statusW - 2 * st::msgDateImgPadding.x());
@@ -521,6 +529,18 @@ TextWithEntities ThemeDocumentBox::title() {
 
 TextWithEntities ThemeDocumentBox::subtitle() {
 	return _parent->data()->notificationText();
+}
+
+const style::TextStyle &ThemeDocumentBox::subtitleStyle() const {
+	return st::msgServicePremiumGiftTextStyle;
+}
+
+const style::TextStyle &ThemeDocumentBox::buttonStyle() const {
+	return st::msgServicePremiumGiftButtonStyle;
+}
+
+bool ThemeDocumentBox::classicButton() const {
+	return true;
 }
 
 rpl::producer<QString> ThemeDocumentBox::button() {
@@ -814,7 +834,7 @@ void GiftServiceBox::cacheUniqueBackground(int width, int height) {
 		});
 		p.setBrush(gradient);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(inner, radius, radius);
+		p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 		_backroundPatterned = false;
 	}
 	if (!_backroundPatterned && _patternEmoji->ready()) {

@@ -118,7 +118,7 @@ TopBarWidget::TopBarWidget(
 , _primaryWindow(controller->isPrimary())
 , _clear(this, tr::lng_selected_clear(), st::topBarClearButton)
 , _forward(this, tr::lng_selected_forward(), st::defaultActiveButton)
-, _sendNow(this, tr::lng_selected_send_now(), st::defaultActiveButton)
+, _sendNow(this, tr::lng_context_send_now_msg(), st::defaultActiveButton)
 , _delete(this, tr::lng_selected_delete(), st::defaultActiveButton)
 , _back(this, st::historyTopBarBack)
 , _cancelChoose(this, st::topBarCloseChoose)
@@ -130,11 +130,6 @@ TopBarWidget::TopBarWidget(
 , _titlePeerText(st::windowMinWidth / 3)
 , _onlineUpdater([=] { updateOnlineDisplay(); }) {
 	setAttribute(Qt::WA_OpaquePaintEvent);
-
-	_clear->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
-	_forward->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
-	_sendNow->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
-	_delete->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 
 	Lang::Updated(
 	) | rpl::on_next([=] {
@@ -256,7 +251,8 @@ TopBarWidget::TopBarWidget(
 		updateConnectingState();
 	}, lifetime());
 
-	setCursor(style::cur_pointer);
+	setMouseTracking(true);
+	setCursor(style::cur_default);
 	_call->setAccessibleName(tr::lng_profile_action_short_call(tr::now));
 	_groupCall->setAccessibleName(tr::lng_group_call_title(tr::now));
 	_search->setAccessibleName(tr::lng_shortcuts_search(tr::now));
@@ -350,9 +346,7 @@ void TopBarWidget::setChooseForReportReason(
 		toggleSelectedControls(false);
 		finishAnimating();
 	}
-	setCursor((nowNoReason && !showSelectedState())
-		? style::cur_pointer
-		: style::cur_default);
+	setOnlineLinkOver(false);
 }
 
 bool TopBarWidget::createMenu(
@@ -497,7 +491,9 @@ int TopBarWidget::resizeGetHeight(int newWidth) {
 }
 
 void TopBarWidget::paintEvent(QPaintEvent *e) {
+	_onlineLinkRect = {};
 	if (_animatingMode) {
+		setOnlineLinkOver(false);
 		return;
 	}
 	updateConnectingState();
@@ -514,6 +510,9 @@ void TopBarWidget::paintEvent(QPaintEvent *e) {
 	if (slidingTop < 0) {
 		p.translate(0, slidingTop + st::topBarHeight);
 		paintTopBar(p);
+	}
+	if (_onlineLinkRect.isEmpty()) {
+		setOnlineLinkOver(false);
 	}
 }
 
@@ -573,6 +572,7 @@ void TopBarWidget::paintTopBar(Painter &p) {
 				st::historyStatusFgTyping,
 				now)) {
 			p.setPen(st::historyStatusFg);
+			p.setFont(st::classicSettingsFont);
 			p.drawTextLeft(nameleft, statustop, width(), _customTitleText);
 		}
 	} else if (folder
@@ -602,16 +602,22 @@ void TopBarWidget::paintTopBar(Painter &p) {
 			: peer->name();
 		const auto opacity = folder ? _titleShownRatio : 1.;
 		if (opacity > 0.) {
-			const auto textWidth = st::historySavedFont->width(text);
+			const auto &font = folder
+				? st::classicActionFont
+				: (_activeChat.section == Section::Pinned
+				|| _activeChat.section == Section::Scheduled)
+				? st::classicSettingsFont
+				: st::historySavedFont;
+			const auto textWidth = font->width(text);
 			if (namewidth < textWidth) {
-				text = st::historySavedFont->elided(text, namewidth);
+				text = font->elided(text, namewidth);
 			}
 			p.setOpacity(opacity);
 			p.setPen(st::dialogsNameFg);
-			p.setFont(st::historySavedFont);
+			p.setFont(font);
 			p.drawTextLeft(
 				nameleft,
-				(height() - st::historySavedFont->height) / 2,
+				(height() - font->height) / 2,
 				width(),
 				text);
 			p.setOpacity(1.);
@@ -738,7 +744,7 @@ bool TopBarWidget::paintSendAction(
 		p,
 		fg,
 		x,
-		y + st::normalFont->ascent,
+		y + st::historySendActionTextStyle.font->ascent,
 		outerWidth,
 		now);
 
@@ -767,6 +773,7 @@ bool TopBarWidget::paintConnectingState(
 	left += st::topBarConnectingPosition.x()
 		+ st::topBarConnectingAnimation.size.width()
 		+ st::topBarConnectingSkip;
+	p.setFont(st::classicSettingsFont);
 	p.setPen(st::historyStatusFg);
 	p.drawTextLeft(left, top, outerWidth, tr::lng_status_connecting(tr::now));
 	return true;
@@ -781,12 +788,23 @@ void TopBarWidget::paintStatus(
 	using Section = Dialogs::EntryState::Section;
 	const auto section = _activeChat.section;
 	if (section == Section::Replies || section == Section::SavedSublist) {
+		if (section == Section::SavedSublist) {
+			p.setFont(st::classicSettingsFont);
+		}
 		p.setPen(st::historyStatusFg);
 		p.drawTextLeft(left, top, outerWidth, _customTitleText);
+	} else if (_titlePeerTextOnline) {
+		const auto font = st::infoApplicationText.font;
+		const auto text = font->elided(_titlePeerText.toString(), std::max(availableWidth, 0));
+		const auto textWidth = std::clamp(font->width(text), 0, std::max(availableWidth, 0));
+		_onlineLinkRect = p.transform().mapRect(myrtlrect(left, top, textWidth, font->height)).intersected(rect());
+		const auto position = mapFromGlobal(QCursor::pos());
+		setOnlineLinkOver(underMouse() && _onlineLinkRect.contains(position) && !childAt(position));
+		p.setPen(st::historyStatusFgActive);
+		p.setFont(font->underline(_onlineLinkOver));
+		p.drawTextLeft(left, top, outerWidth, text);
 	} else {
-		p.setPen(_titlePeerTextOnline
-			? st::historyStatusFgActive
-			: st::historyStatusFg);
+		p.setPen(st::historyStatusFg);
 		_titlePeerText.drawLeftElided(
 			p,
 			left,
@@ -803,6 +821,34 @@ QRect TopBarWidget::getMembersShowAreaGeometry() const {
 	int membersTextHeight = st::topBarHeight - membersTextTop;
 
 	return myrtlrect(membersTextLeft, membersTextTop, membersTextWidth, membersTextHeight);
+}
+
+void TopBarWidget::setOnlineLinkOver(bool over) {
+	over = over && _titlePeerTextOnline && !_animatingMode && !_searchMode && !showSelectedState() && !_chooseForReportReason;
+	if (_onlineLinkOver != over) {
+		_onlineLinkOver = over;
+		setCursor(over ? style::cur_pointer : style::cur_default);
+		update();
+	}
+}
+
+void TopBarWidget::mouseMoveEvent(QMouseEvent *e) {
+	setOnlineLinkOver(_onlineLinkRect.contains(e->pos()));
+}
+
+void TopBarWidget::enterEventHook(QEnterEvent *e) {
+	setOnlineLinkOver(_onlineLinkRect.contains(mapFromGlobal(QCursor::pos())));
+	RpWidget::enterEventHook(e);
+}
+
+void TopBarWidget::leaveEventHook(QEvent *e) {
+	setOnlineLinkOver(false);
+	RpWidget::leaveEventHook(e);
+}
+
+void TopBarWidget::leaveToChildEvent(QEvent *e, QWidget *child) {
+	setOnlineLinkOver(false);
+	RpWidget::leaveToChildEvent(e, child);
 }
 
 void TopBarWidget::mousePressEvent(QMouseEvent *e) {
@@ -876,6 +922,9 @@ void TopBarWidget::setActiveChat(
 
 	_activeChat = activeChat;
 	_titlePeerText.clear();
+	_titlePeerTextOnline = false;
+	_onlineLinkRect = {};
+	setOnlineLinkOver(false);
 	_back->clearState();
 	update();
 
@@ -981,7 +1030,7 @@ void TopBarWidget::handleEmojiInteractionSeen(const QString &emoticon) {
 	}
 	seen->till = crl::now() + kEmojiInteractionSeenDuration;
 	seen->text.setText(
-		st::dialogsTextStyle,
+		st::historySendActionTextStyle,
 		tr::lng_user_action_watching_animations(tr::now, lt_emoji, emoticon),
 		Ui::NameTextOptions());
 	update();
@@ -1231,18 +1280,8 @@ void TopBarWidget::updateControlsGeometry() {
 			fieldWidth,
 			_searchField->height());
 
-		const auto fieldY = _searchField->y();
-		const auto cancelLeft = fieldLeft
-			+ fieldWidth
-			- _searchCancel->width();
-		_searchCancel->moveToLeft(cancelLeft, fieldY);
-		if (_jumpToDate) {
-			_jumpToDate->moveToLeft(
-				cancelLeft - st::dialogsCalendarTopBar.width,
-				fieldY);
-		}
-		updateChooseFromUserGeometry();
 		updateSearchJumpToDateVisibility();
+		updateSearchControlsGeometry();
 	}
 
 	_rightTaken = 0;
@@ -1489,9 +1528,7 @@ void TopBarWidget::showSelected(SelectedState state) {
 		updateControlsVisibility();
 	}
 	if (wasSelectedState != nowSelectedState && !_chooseForReportReason) {
-		setCursor(nowSelectedState
-			? style::cur_default
-			: style::cur_pointer);
+		setOnlineLinkOver(false);
 
 		updateMembersShowArea();
 		toggleSelectedControls(nowSelectedState);
@@ -1508,12 +1545,15 @@ bool TopBarWidget::toggleSearch(bool shown, anim::type animated) {
 		return false;
 	}
 	_searchMode = shown;
+	setOnlineLinkOver(false);
 	if (shown && !_searchField) {
-		_searchField.create(this, st::dialogsFilter, tr::lng_dlg_filter());
+		_searchField.create(this, st::dialogsSearchField, tr::lng_dlg_filter());
 		_searchField->setFocusPolicy(Qt::StrongFocus);
 		_searchField->customUpDown(true);
 		_searchField->show();
 		_searchCancel.create(this, st::dialogsCancelSearch);
+		_searchCancel->setClassic(true);
+		_searchCancel->setCursor(style::cur_default);
 		_searchCancel->show(anim::type::instant);
 		_searchCancel->setClickedCallback([=] { _searchCancelled.fire({}); });
 		_searchField->submits(
@@ -1570,8 +1610,12 @@ void TopBarWidget::searchEnableJumpToDate(bool enable) {
 			object_ptr<Ui::IconButton>(this, st::dialogsCalendarTopBar));
 		_jumpToDate->toggle(false, anim::type::instant);
 		_jumpToDate->setUpdatedCallback([=](float64) {
-			updateChooseFromUserGeometry();
+			updateSearchControlsGeometry();
 		});
+		_jumpToDate->shownValue(
+		) | rpl::on_next([=] {
+			updateSearchControlsGeometry();
+		}, _jumpToDate->lifetime());
 		_jumpToDate->entity()->clicks(
 		) | rpl::to_empty | rpl::start_to_stream(
 			_jumpToDateRequests,
@@ -1585,7 +1629,7 @@ bool TopBarWidget::searchJumpToDateFits() const {
 	if (!_searchField) {
 		return false;
 	}
-	const auto &fieldSt = st::dialogsFilter;
+	const auto &fieldSt = st::dialogsSearchField;
 	const auto placeholderWidth = fieldSt.textMargins.left()
 		+ fieldSt.placeholderMargins.left()
 		+ fieldSt.placeholderFont->width(tr::lng_dlg_filter(tr::now))
@@ -1594,26 +1638,51 @@ bool TopBarWidget::searchJumpToDateFits() const {
 		+ st::dialogsFilterPadding.x()
 		+ st::dialogsSearchFromTopBar.width
 		+ st::dialogsCalendarTopBar.width
-		+ st::dialogsCancelSearch.width;
-	return (_searchField->width() >= required);
-}
-
-void TopBarWidget::updateChooseFromUserGeometry() {
-	if (!_searchField || !_searchCancel || !_chooseFromUser) {
-		return;
-	}
+		+ st::dialogsCancelSearch.width
+		+ 3 * st::dialogsSearchButtonSkip;
+	const auto fieldLeft = _back->isHidden()
+		? st::topBarArrowPadding.right()
+		: _leftTaken;
 	const auto fieldRight = st::dialogsFilterSkip
 		+ st::dialogsFilterPadding.x();
-	const auto cancelLeft = width() - fieldRight - _searchCancel->width();
-	const auto reserved = _jumpToDate
-		? anim::interpolate(
-			0,
-			st::dialogsCalendarTopBar.width,
-			_jumpToDate->shownProgress())
-		: 0;
-	_chooseFromUser->moveToLeft(
-		cancelLeft - reserved - st::dialogsSearchFromTopBar.width,
-		_searchField->y());
+	return (width() - fieldLeft - fieldRight >= required);
+}
+
+void TopBarWidget::updateSearchControlsGeometry() {
+	if (!_searchField || !_searchCancel) {
+		return;
+	}
+	const auto fieldLeft = _back->isHidden()
+		? st::topBarArrowPadding.right()
+		: _leftTaken;
+	const auto fieldRight = st::dialogsFilterSkip
+		+ st::dialogsFilterPadding.x();
+	auto right = width() - fieldRight;
+	const auto placeControl = [&](auto control, bool reserve) {
+		if (!control) {
+			return;
+		}
+		control->moveToLeft(
+			right - control->width(),
+			_searchField->y()
+				+ (_searchField->height() - control->height()) / 2);
+		if (reserve) {
+			right -= control->width() + st::dialogsSearchButtonSkip;
+		}
+	};
+	placeControl(_searchCancel.data(), true);
+	placeControl(
+		_jumpToDate.data(),
+		_jumpToDate && (_jumpToDate->toggled() || _jumpToDate->animating()));
+	placeControl(
+		_chooseFromUser.data(),
+		_chooseFromUser
+			&& (_chooseFromUser->toggled() || _chooseFromUser->animating()));
+	_searchField->setGeometryToLeft(
+		fieldLeft,
+		_searchField->y(),
+		std::max(right - fieldLeft, 0),
+		_searchField->height());
 }
 
 void TopBarWidget::updateSearchJumpToDateVisibility() {
@@ -1635,6 +1704,12 @@ void TopBarWidget::searchEnableChooseFromUser(bool enable, bool visible) {
 		_chooseFromUser.create(
 			this,
 			object_ptr<Ui::IconButton>(this, st::dialogsSearchFromTopBar));
+		_chooseFromUser->setUpdatedCallback([=](float64) {
+			updateSearchControlsGeometry();
+		});
+		_chooseFromUser->shownValue() | rpl::on_next([=] {
+			updateSearchControlsGeometry();
+		}, _chooseFromUser->lifetime());
 		_chooseFromUser->toggle(visible, anim::type::instant);
 		_chooseFromUser->entity()->clicks(
 		) | rpl::to_empty | rpl::start_to_stream(
@@ -1643,11 +1718,6 @@ void TopBarWidget::searchEnableChooseFromUser(bool enable, bool visible) {
 	} else {
 		_chooseFromUser->toggle(visible, anim::type::normal);
 	}
-	auto additional = QMargins();
-	if (_chooseFromUser && _chooseFromUser->toggled()) {
-		additional.setRight(_chooseFromUser->width());
-	}
-	_searchField->setAdditionalMargins(additional);
 	updateControlsVisibility();
 	updateControlsGeometry();
 }
@@ -1970,8 +2040,8 @@ void TopBarWidget::updateOnlineDisplay() {
 			text = channel->isMegagroup() ? tr::lng_group_status(tr::now) : tr::lng_channel_status(tr::now);
 		}
 	}
-	if (_titlePeerText.toString() != text) {
-		_titlePeerText.setText(st::dialogsTextStyle, text);
+	if (_titlePeerText.toString() != text || _titlePeerTextOnline != titlePeerTextOnline) {
+		_titlePeerText.setText(st::infoApplicationText, text);
 		_titlePeerTextOnline = titlePeerTextOnline;
 		updateMembersShowArea();
 		update();

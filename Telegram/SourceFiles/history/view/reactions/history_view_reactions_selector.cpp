@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/reactions/history_view_reactions_selector.h"
 
+#include "ui/style/style_classic.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/widgets/popup_menu.h"
@@ -49,7 +50,7 @@ constexpr auto kFullDuration = kExpandDuration + kScaleDuration;
 constexpr auto kExpandDelay = crl::time(40);
 constexpr auto kAcceptClicksAfter = crl::time(300);
 constexpr auto kDefaultColumns = 8;
-constexpr auto kMinNonTransparentColumns = 7;
+constexpr auto kMinNonTransparentColumns = 1;
 
 class StripEmoji final : public Ui::Text::CustomEmoji {
 public:
@@ -216,10 +217,8 @@ Selector::Selector(
 	st,
 	std::move(show),
 	reactions,
-	(reactions.customAllowed
+	(reactions.stickers.empty()
 		? ChatHelpers::EmojiListMode::FullReactions
-		: reactions.stickers.empty()
-		? ChatHelpers::EmojiListMode::RecentReactions
 		: ChatHelpers::EmojiListMode::MessageEffects),
 	{},
 	std::move(about),
@@ -303,7 +302,7 @@ Selector::Selector(
 		});
 	}
 
-	_useTransparency = child || Ui::Platform::TranslucentWindowsSupported();
+	_useTransparency = child;
 }
 
 Selector::~Selector() = default;
@@ -317,7 +316,7 @@ int Selector::recentCount() const {
 }
 
 int Selector::countSkipLeft() const {
-	const auto addedToMax = _reactions.customAllowed;
+	const auto addedToMax = _listMode == ChatHelpers::EmojiListMode::FullReactions;
 	const auto max = recentCount() + (addedToMax ? 1 : 0);
 	return std::max(
 		(st::reactStripMinWidth - (max * _size)) / 2,
@@ -325,7 +324,7 @@ int Selector::countSkipLeft() const {
 }
 
 int Selector::countWidth(int desiredWidth, int maxWidth) {
-	const auto addedToMax = _reactions.customAllowed;
+	const auto addedToMax = _listMode == ChatHelpers::EmojiListMode::FullReactions;
 	const auto max = recentCount() + (addedToMax ? 1 : 0);
 	const auto desiredColumns = std::max(
 		(desiredWidth - 2 * _skipx + _size - 1) / _size,
@@ -336,7 +335,7 @@ int Selector::countWidth(int desiredWidth, int maxWidth) {
 	_columns = _strip ? std::min(possibleColumns, max) : kDefaultColumns;
 	_small = (possibleColumns - _columns > 1);
 	_recentRows = (recentCount() + _columns - 1) / _columns;
-	const auto added = (_columns < max || _reactions.customAllowed)
+	const auto added = _columns < max || addedToMax
 		? Strip::AddedButton::Expand
 		: Strip::AddedButton::None;
 	if (_strip) {
@@ -372,14 +371,14 @@ int Selector::effectPreviewHeight() const {
 }
 
 QMargins Selector::marginsForShadow() const {
-	const auto line = st::lineWidth;
+	const auto border = 2 * st::lineWidth;
 	return useTransparency()
 		? st::reactionCornerShadow
-		: QMargins(line, line, line, line);
+		: QMargins(border, border, border, border);
 }
 
 int Selector::extendTopForCategories() const {
-	return _reactions.customAllowed ? _st.footer : 0;
+	return _listMode == ChatHelpers::EmojiListMode::FullReactions ? _st.footer : 0;
 }
 
 int Selector::extendTopForCategoriesAndAbout(int width) const {
@@ -676,15 +675,19 @@ void Selector::paintCollapsed(QPainter &p) {
 		}
 		p.drawImage(_outer.topLeft(), _paintBuffer);
 	} else {
-		p.fillRect(_outer.marginsRemoved(marginsForShadow()), _st.bg);
+		p.fillRect(_outer.marginsRemoved(marginsForShadow()).marginsRemoved(st::reactPanelClassicStripInset), _st.bg);
 	}
+	const auto clip = _useTransparency ? _inner : _inner.marginsRemoved(st::reactPanelClassicStripInset);
+	p.save();
+	p.setClipRect(clip);
 	_strip->paint(
 		p,
 		_inner.topLeft() + QPoint(_skipx, _skipy - skipYBubbleUpShift()),
 		{ _size, 0 },
-		_inner,
+		clip,
 		1.,
 		false);
+	p.restore();
 }
 
 void Selector::paintExpanding(Painter &p, float64 progress) {
@@ -723,8 +726,8 @@ Selector::ExpandingRects Selector::updateExpandingRects(float64 progress) {
 	const auto frame = int(base::SafeRound(progress * (kFramesCount - 1)));
 	const auto radiusStart = st::reactStripHeight / 2.;
 	const auto radiusEnd = st::emojiPanRadius;
-	const auto radius = _reactions.customAllowed
-		? (radiusStart + progress * (radiusEnd - radiusStart))
+	const auto radius = _listMode == ChatHelpers::EmojiListMode::FullReactions
+		? radiusStart + progress * (radiusEnd - radiusStart)
 		: radiusStart;
 	const auto margins = marginsForShadow();
 	const auto expanding = anim::easeOutCirc(1., progress);
@@ -807,13 +810,7 @@ void Selector::paintFadingExpandIcon(QPainter &p, float64 progress) {
 void Selector::paintNonTransparentExpandRect(
 		QPainter &p,
 		const QRect &inner) const {
-	p.fillRect(inner, _st.bg);
-	p.fillRect(
-		inner.x(),
-		inner.y() + inner.height(),
-		inner.width(),
-		st::lineWidth,
-		st::defaultPopupMenu.shadowFallback);
+	p.fillRect(inner.marginsRemoved(st::reactPanelClassicScrollInset), _st.bg);
 }
 
 void Selector::paintExpanded(QPainter &p) {
@@ -1020,7 +1017,7 @@ void Selector::expand() {
 	preloadAllRecentsAnimations();
 	const auto parent = parentWidget()->geometry();
 	const auto margins = marginsForShadow();
-	const auto heightLimit = _reactions.customAllowed
+	const auto heightLimit = _listMode == ChatHelpers::EmojiListMode::FullReactions
 		? st::emojiPanMaxHeight
 		: minimalHeight(width());
 	const auto opaqueAdded = _useTransparency ? 0 : _opaqueHeightExpand;
@@ -1087,7 +1084,7 @@ void Selector::createList() {
 		_strip.get());
 	_scroll = Ui::CreateChild<Ui::ScrollArea>(this, !_useTransparency
 		? st::emojiScroll
-		: _reactions.customAllowed
+		: _listMode == EmojiListMode::FullReactions
 		? st::reactPanelScroll
 		: st::reactPanelScrollRounded);
 	_scroll->hide();
@@ -1095,7 +1092,7 @@ void Selector::createList() {
 	const auto effects = !_reactions.stickers.empty();
 	const auto st = lifetime().make_state<style::EmojiPan>(_st);
 	st->padding.setTop(_skipy);
-	if (!_reactions.customAllowed) {
+	if (_listMode != EmojiListMode::FullReactions) {
 		st->bg = st::transparent;
 	}
 	auto lists = _scroll->setOwnedWidget(
@@ -1103,6 +1100,9 @@ void Selector::createList() {
 	auto recentList = _strip
 		? _unifiedFactoryOwner->unifiedIdsList()
 		: _recent;
+	auto allowedCustomIds = _reactions.customAllowed
+		? std::optional<base::flat_set<DocumentId>>()
+		: std::optional<base::flat_set<DocumentId>>(std::in_place, begin(recentList), end(recentList));
 	auto freeEffects = base::flat_set<DocumentId>();
 	if (effects) {
 		auto free = base::flat_set<Data::ReactionId>();
@@ -1128,6 +1128,7 @@ void Selector::createList() {
 			.paused = _paused ? _paused : [] { return false; },
 			.customRecentList = DocumentListToRecent(recentList),
 			.customRecentFactory = _unifiedFactoryOwner->factory(),
+			.allowedCustomIds = std::move(allowedCustomIds),
 			.freeEffects = std::move(freeEffects),
 			.st = st,
 			.mediaPreviewParent = _mediaPreviewParent
@@ -1176,7 +1177,7 @@ void Selector::createList() {
 	) | rpl::on_next(_jumpedToPremium, _list->lifetime());
 
 	const auto inner = rect().marginsRemoved(marginsForShadow());
-	const auto footer = _reactions.customAllowed
+	const auto footer = (_listMode == EmojiListMode::FullReactions)
 		? _list->createFooter().data()
 		: nullptr;
 	if ((_footer = static_cast<StickersListFooter*>(footer))) {
@@ -1202,9 +1203,11 @@ void Selector::createList() {
 		}, _shadow->lifetime());
 		_shadow->show();
 	}
-	const auto geometry = inner.marginsRemoved(_st.margin);
+	const auto scrollGeometry = inner.marginsRemoved(QMargins(_st.margin.left(), _footer ? _footer->height() : 0, 0, 0)
+		+ (!_useTransparency ? st::reactPanelClassicScrollInset : QMargins()));
+	const auto geometry = scrollGeometry.marginsRemoved(QMargins(0, 0, st::classicScrollBarWidth, 0));
 	lists->move(0, 0);
-	lists->resizeToWidth(geometry.width());
+	lists->resizeToWidth(std::max(geometry.width(), 0));
 	_list->refreshEmoji();
 	lists->show();
 
@@ -1224,12 +1227,7 @@ void Selector::createList() {
 		}
 	}, _list->lifetime());
 
-	_scroll->setGeometry(inner.marginsRemoved({
-		_st.margin.left(),
-		_footer ? _footer->height() : 0,
-		0,
-		0,
-	}));
+	_scroll->setGeometry(scrollGeometry);
 	if (_stickers) {
 		_list->setMinimalHeight(geometry.width(), 0);
 		_stickers->setMinimalHeight(geometry.width(), 0);
@@ -1258,7 +1256,7 @@ void Selector::createList() {
 			return _showEmptySearch;
 		}) | rpl::on_next([=] {
 			auto p = QPainter(_scroll);
-			p.setPen(st::windowSubTextFg);
+			p.setPen(Ui::ClassicTextColor(_scroll, st::windowSubTextFg));
 			p.setFont(st::normalFont);
 			p.drawText(
 				_scroll->rect(),
@@ -1266,7 +1264,7 @@ void Selector::createList() {
 				style::al_center);
 		}, _scroll->lifetime());
 	} else {
-		_list->setMinimalHeight(geometry.width(), _scroll->height());
+		_list->setMinimalHeight(std::max(geometry.width(), 0), _scroll->height());
 	}
 
 	updateVisibleTopBottom();
@@ -1277,14 +1275,15 @@ bool AdjustMenuGeometryForSelector(
 		QPoint desiredPosition,
 		not_null<Selector*> selector) {
 	const auto useTransparency = selector->useTransparency();
+	const auto margins = selector->marginsForShadow();
+	menu->setClassicFrameOverlay(!useTransparency);
 	const auto extend = useTransparency
 		? st::reactStripExtend
-		: QMargins(0, st::lineWidth + st::reactStripHeight, 0, 0);
+		: QMargins(0, margins.bottom() + st::reactStripHeight, 0, 0);
 	const auto added = extend.left() + extend.right();
 	const auto desiredWidth = menu->menu()->width() + added;
 	const auto maxWidth = menu->st().menu.widthMax + added;
 	const auto width = selector->countWidth(desiredWidth, maxWidth);
-	const auto margins = selector->marginsForShadow();
 	const auto categoriesAboutTop = selector->useTransparency()
 		? selector->extendTopForCategoriesAndAbout(width)
 		: selector->opaqueExtendTopAbout(width);
@@ -1306,12 +1305,12 @@ bool AdjustMenuGeometryForSelector(
 		fullTop,
 		margins.right() + extend.right(),
 		additionalPaddingBottom
-	), QMargins(
+	), useTransparency ? QMargins(
 		margins.left(),
 		margins.top(),
 		margins.right(),
 		std::min(additionalPaddingBottom, margins.bottom())
-	));
+	) : QMargins());
 	if (!menu->prepareGeometryFor(desiredPosition)) {
 		return false;
 	}
@@ -1328,18 +1327,19 @@ bool AdjustMenuGeometryForSelector(
 				menu->setFixedSize(updated.size());
 				menu->setGeometry(updated);
 			}
+			menu->setClassicFrameOverlay(true);
 		});
 		menu->setAdditionalMenuPadding(QMargins(
 			margins.left() + extend.left(),
 			fullTop,
 			margins.right() + extend.right(),
 			0
-		), QMargins(
+		), useTransparency ? QMargins(
 			margins.left(),
 			margins.top(),
 			margins.right(),
 			0
-		));
+		) : QMargins());
 		return menu->prepareGeometryFor(desiredPosition);
 	} else if (!additionalPaddingBottom || expandDown) {
 		return true;
@@ -1489,7 +1489,6 @@ auto AttachSelectorToMenu(
 	if (reactions.recent.empty()) {
 		return base::make_unexpected(AttachSelectorResult::Skipped);
 	}
-	const auto withSearch = reactions.customAllowed;
 	const auto selector = Ui::CreateChild<Selector>(
 		menu.get(),
 		st,
@@ -1503,12 +1502,17 @@ auto AttachSelectorToMenu(
 	if (!AdjustMenuGeometryForSelector(menu, desiredPosition, selector)) {
 		return base::make_unexpected(AttachSelectorResult::Failed);
 	}
-	if (withSearch) {
-		Ui::Platform::FixPopupMenuNativeEmojiPopup(menu);
+	if (!selector->useTransparency()) {
+		selector->willExpand() | rpl::on_next([=] {
+			Ui::PostponeCall(menu, [=] {
+				menu->setClassicFrameOverlay(true);
+			});
+		}, selector->lifetime());
 	}
+	Ui::Platform::FixPopupMenuNativeEmojiPopup(menu);
 	const auto selectorInnerTop = selector->useTransparency()
 		? (menu->preparedPadding().top() - st::reactStripExtend.top())
-		: st::lineWidth;
+		: selector->marginsForShadow().top();
 	menu->animatePhaseValue(
 	) | rpl::on_next([=](Ui::PopupMenu::AnimatePhase phase) {
 		if (phase == Ui::PopupMenu::AnimatePhase::StartHide) {
@@ -1517,6 +1521,9 @@ auto AttachSelectorToMenu(
 	}, selector->lifetime());
 	selector->initGeometry(selectorInnerTop);
 	selector->show();
+	if (!selector->useTransparency()) {
+		menu->setClassicFrameOverlay(true);
+	}
 
 	const auto correctTop = selector->y();
 	menu->showStateValue(

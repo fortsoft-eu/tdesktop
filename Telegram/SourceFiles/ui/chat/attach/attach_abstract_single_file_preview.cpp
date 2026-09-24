@@ -182,7 +182,7 @@ void AbstractSingleFilePreview::paintEvent(QPaintEvent *e) {
 		_data.name,
 		_data.nameWidth);
 
-	p.setFont(st::normalFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(_st.files.statusFg);
 	p.drawTextLeft(
 		x + nameleft,
@@ -255,7 +255,7 @@ void AbstractSingleFilePreview::updateTextWidthFor(Data &data) {
 			Qt::ElideMiddle);
 		data.nameWidth = st::semiboldFont->width(data.name);
 	}
-	data.statusWidth = st::normalFont->width(data.statusText);
+	data.statusWidth = st::classicSettingsFont->width(data.statusText);
 	data.captionAvailableWidth = availableCaptionWidth;
 }
 

@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/animations.h"
 #include "ui/text/text_options.h"
 #include "ui/painter.h"
+#include "styles/style_chat.h"
 #include "styles/style_dialogs.h"
 
 namespace HistoryView {
@@ -46,7 +47,7 @@ SendActionPainter::SendActionPainter(
 : _history(history)
 , _rootId(rootId)
 , _weak(&_history->session())
-, _st(st::dialogsTextStyle)
+, _st(st::historySendActionTextStyle)
 , _sendActionText(st::dialogsTextWidthMin) {
 }
 
@@ -161,7 +162,7 @@ bool SendActionPainter::paint(
 			p,
 			color,
 			left + x,
-			y + st::normalFont->ascent,
+			y + _st.font->ascent,
 			outerWidth,
 			ms);
 		// availableWidth should be the same
@@ -369,7 +370,7 @@ bool SendActionPainter::updateNeedsAnimating(crl::time now, bool force) {
 		if (_sendActionString != newTypingString) {
 			_sendActionString = newTypingString;
 			_sendActionText.setText(
-				st::dialogsTextStyle,
+				_st,
 				_sendActionString,
 				Ui::NameTextOptions());
 		}

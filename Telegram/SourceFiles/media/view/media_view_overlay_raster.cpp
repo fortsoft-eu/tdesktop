@@ -315,7 +315,26 @@ void OverlayWidget::RendererSW::paintControl(
 
 void OverlayWidget::RendererSW::paintFooter(QRect outer, float64 opacity) {
 	if (outer.intersects(_clipOuter)) {
-		_owner->paintFooterContent(*_p, outer, _clipOuter, opacity);
+		const auto ratio = _p->device()->devicePixelRatioF();
+		const auto size = outer.size() * ratio;
+		if (_footerImage.size() != size || _footerImage.devicePixelRatioF() != ratio) {
+			_footerImage = QImage(size, QImage::Format_ARGB32_Premultiplied);
+			_footerImage.setDevicePixelRatio(ratio);
+		}
+		_footerImage.fill(Qt::transparent);
+		const auto local = QRect(QPoint(), outer.size());
+		{
+			auto p = Painter(&_footerImage);
+			_owner->paintFooterContent(p, local, local, opacity);
+			p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+			p.setOpacity(1.);
+			p.fillRect(local, Qt::white);
+		}
+		_p->save();
+		_p->setCompositionMode(QPainter::CompositionMode_SourceOver);
+		_p->setOpacity(1.);
+		_p->drawImage(outer.topLeft(), _footerImage);
+		_p->restore();
 	}
 }
 

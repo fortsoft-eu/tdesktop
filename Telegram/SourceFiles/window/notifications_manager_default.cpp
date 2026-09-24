@@ -662,7 +662,7 @@ Notification::Notification(
 , _forwardedCount(forwardedCount)
 , _fromScheduled(fromScheduled)
 , _close(this, st::notifyClose)
-, _reply(this, tr::lng_notification_reply(), st::defaultBoxButton) {
+, _reply(this, tr::lng_notification_reply(), st::compactBoxButton) {
 	_reply->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 
 	Lang::Updated(

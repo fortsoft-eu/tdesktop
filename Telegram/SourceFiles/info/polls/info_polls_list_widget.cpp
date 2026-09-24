@@ -18,7 +18,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/view/history_view_list_widget.h"
-#include "history/view/history_view_corner_buttons.h"
 #include "history/view/history_view_element.h"
 #include "history/view/history_view_service_message.h"
 #include "history/view/reactions/history_view_reactions_button.h"
@@ -31,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
+#include "ui/controls/jump_down_button.h"
 #include "ui/widgets/elastic_scroll.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/ui_utility.h"
@@ -40,19 +40,17 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
+#include "base/event_filter.h"
 #include "info/info_wrap_widget.h"
 #include "window/window_peer_menu.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_dialogs.h"
-#include "styles/style_polls.h"
 #include "styles/style_widgets.h"
 
 namespace Info::Polls {
 
-class ListWidget::Inner final
-	: private HistoryView::ListDelegate
-	, private HistoryView::CornerButtonsDelegate {
+class ListWidget::Inner final : private HistoryView::ListDelegate {
 public:
 	Inner(
 		not_null<QWidget*> parent,
@@ -89,8 +87,8 @@ private:
 		SparseIdsMergedSlice::UniversalMsgId aroundId) const;
 	void setupHistory();
 	void updateInnerVisibleArea();
-	void updateNewPollButtonPosition();
-	void updateNewPollButtonVisibility();
+	void updateFooterControls();
+	void updateScrollToTopVisibility();
 
 	HistoryView::Context listContext() override;
 	bool listScrollTo(int top, bool syntetic = true) override;
@@ -192,15 +190,6 @@ private:
 		std::unique_ptr<QMimeData> data,
 		Fn<void()> finished) override;
 
-	void cornerButtonsShowAtPosition(
-		Data::MessagePosition position) override;
-	Data::Thread *cornerButtonsThread() override;
-	FullMsgId cornerButtonsCurrentId() override;
-	bool cornerButtonsIgnoreVisibility() override;
-	std::optional<bool> cornerButtonsDownShown() override;
-	bool cornerButtonsUnreadMayBeShown() override;
-	bool cornerButtonsHas(HistoryView::CornerButtonType type) override;
-
 	const not_null<AbstractController*> _controller;
 	const not_null<QWidget*> _parent;
 	const Fn<void(int top)> _inlineScrollTo;
@@ -214,15 +203,14 @@ private:
 	const std::unique_ptr<Ui::ElasticScroll> _scroll;
 
 	QPointer<HistoryView::ListWidget> _list;
-	std::unique_ptr<HistoryView::CornerButtons> _cornerButtons;
+	std::unique_ptr<Ui::RpWidget> _footer;
+	object_ptr<Ui::JumpDownButton> _toTop = { nullptr };
 	bool _viewerRefreshed = false;
 	int _inlineVisibleTop = 0;
 	int _inlineViewportHeight = 0;
 	QString _searchQuery;
 
-	object_ptr<Ui::RoundButton> _newPollButton = { nullptr };
-	Ui::Animations::Simple _newPollButtonAnimation;
-	bool _newPollButtonShown = true;
+	object_ptr<Ui::FlatButton> _newPollButton = { nullptr };
 
 	std::unique_ptr<Lottie::Icon> _emptyIcon;
 	Ui::Text::String _emptyText = { 1 };
@@ -279,10 +267,25 @@ void ListWidget::Inner::setupHistory() {
 			_scroll.get(),
 			_session,
 			static_cast<HistoryView::ListDelegate*>(this)));
-	_cornerButtons = std::make_unique<HistoryView::CornerButtons>(
-		_scroll.get(),
-		_chatStyle.get(),
-		static_cast<HistoryView::CornerButtonsDelegate*>(this));
+	_footer = std::make_unique<Ui::RpWidget>(_parent);
+	_footer->paintRequest() | rpl::on_next([=] {
+		auto p = QPainter(_footer.get());
+		p.fillRect(_footer->rect(), st::windowBg);
+	}, _footer->lifetime());
+	_footer->show();
+	_toTop.create(_footer.get(), st::dialogsToUp);
+	_toTop->setAccessibleName(tr::lng_sr_scroll_to_top(tr::now));
+	_toTop->setClickedCallback([=] {
+		_list->showAtPosition(Data::MaxMessagePosition, {});
+	});
+	_toTop->hide();
+	base::install_event_filter(_toTop, [=](not_null<QEvent*> e) {
+		if (e->type() != QEvent::Wheel) {
+			return base::EventFilterResult::Continue;
+		}
+		_scroll->viewportEvent(e);
+		return base::EventFilterResult::Cancel;
+	});
 
 	_scroll->scrolls(
 	) | rpl::on_next([=] {
@@ -297,69 +300,52 @@ void ListWidget::Inner::setupHistory() {
 		_scroll->keyPressEvent(e);
 	}, _scroll->lifetime());
 
-	const auto topic = _controller->topic();
-	const auto canCreate = topic
-		? Data::CanSend(topic, ChatRestriction::SendPolls)
-		: _history->peer->canCreatePolls();
-	if (!canCreate) {
-		return;
-	}
 	_newPollButton.create(
-		_scroll.get(),
-		tr::lng_polls_create_title(),
-		st::defaultActiveButton);
-	_newPollButton->setFullRadius(true);
+		_footer.get(),
+		tr::lng_polls_create_title(tr::now),
+		st::historyCompactComposeButton);
+	_newPollButton->setPointerCursor(false);
 	_newPollButton->setClickedCallback([=] {
-		Window::PeerMenuCreatePoll(
-			_controller->parentController(),
-			_history->peer);
+		if (canCreatePoll()) {
+			createPoll();
+		}
 	});
-	_newPollButton->show();
+	tr::lng_polls_create_title() | rpl::on_next([=](const QString &text) {
+		_newPollButton->setText(text);
+		updateFooterControls();
+	}, _newPollButton->lifetime());
 }
 
-void ListWidget::Inner::updateNewPollButtonPosition() {
-	if (!_newPollButton) {
+void ListWidget::Inner::updateFooterControls() {
+	if (!_footer) {
 		return;
 	}
-	const auto progress = _newPollButtonAnimation.value(
-		_newPollButtonShown ? 1. : 0.);
-	const auto buttonWidth = _newPollButton->width();
-	const auto buttonHeight = _newPollButton->height();
-	const auto x = (_scroll->width() - buttonWidth) / 2;
-	const auto bottom = st::infoPollsNewButtonBottom;
-	const auto top = anim::interpolate(
-		_scroll->height(),
-		_scroll->height() - buttonHeight - bottom,
-		progress);
-	_newPollButton->moveToLeft(x, top);
-	const auto shouldBeHidden = !_newPollButtonShown
-		&& !_newPollButtonAnimation.animating();
-	if (shouldBeHidden != _newPollButton->isHidden()) {
-		_newPollButton->setVisible(!shouldBeHidden);
+	_toTop->moveToRight(
+		st::historyToDownPosition.x(),
+		(_footer->height() - st::historyToDownButtonSize) / 2 - (_toTop->height() - st::historyToDownButtonSize));
+	if (_newPollButton) {
+		const auto available = std::max(_footer->width() - 2 * (st::historyToDownPosition.x() + _toTop->width()), 0);
+		_newPollButton->resize(std::min(available, st::historyBottomButtonWidth), _newPollButton->height());
+		_newPollButton->moveToLeft((_footer->width() - _newPollButton->width()) / 2, (_footer->height() - _newPollButton->height()) / 2);
+		_newPollButton->setVisible(canCreatePoll());
 	}
 }
 
-void ListWidget::Inner::updateNewPollButtonVisibility() {
-	const auto scrollTop = _scroll->scrollTop();
-	const auto scrollTopMax = _scroll->scrollTopMax();
-	const auto nearBottom = (scrollTop + st::historyToDownShownAfter / 2)
-		>= scrollTopMax;
-	const auto shown = !nearBottom;
-	if (_newPollButtonShown != shown) {
-		_newPollButtonShown = shown;
-		_newPollButtonAnimation.start(
-			[=] { updateNewPollButtonPosition(); },
-			shown ? 0. : 1.,
-			shown ? 1. : 0.,
-			st::historyToDownDuration);
+void ListWidget::Inner::updateScrollToTopVisibility() {
+	if (_scroll->scrollTop() > st::historyToDownShownAfter) {
+		_toTop->show();
+	} else if (_list->loadedAtTopKnown()) {
+		_toTop->setVisible(!_list->loadedAtTop());
 	}
 }
 
 void ListWidget::Inner::updateGeometry(QRect rect) {
 	if (_scroll) {
+		const auto footerHeight = std::clamp(rect.height(), 0, st::historyComposeAreaHeight);
+		_footer->setGeometry(rect.x(), rect.y() + rect.height() - footerHeight, rect.width(), footerHeight);
+		rect.setHeight(rect.height() - footerHeight);
 		_scroll->setGeometry(rect);
-		_cornerButtons->updatePositions();
-		updateNewPollButtonPosition();
+		updateFooterControls();
 	}
 
 	if (rect.isEmpty()) {
@@ -403,8 +389,8 @@ void ListWidget::Inner::setInlineVisibleRegion(int top, int bottom) {
 void ListWidget::Inner::updateInnerVisibleArea() {
 	const auto scrollTop = _scroll->scrollTop();
 	_list->setVisibleTopBottom(scrollTop, scrollTop + _scroll->height());
-	_cornerButtons->updateJumpDownVisibility();
-	updateNewPollButtonVisibility();
+	updateScrollToTopVisibility();
+	updateFooterControls();
 }
 
 int ListWidget::Inner::scrollTop() const {
@@ -876,48 +862,6 @@ bool ListWidget::Inner::listAllowsDragForward() {
 void ListWidget::Inner::listLaunchDrag(
 		std::unique_ptr<QMimeData> data,
 		Fn<void()> finished) {
-}
-
-void ListWidget::Inner::cornerButtonsShowAtPosition(
-		Data::MessagePosition position) {
-	if (position == Data::UnreadMessagePosition) {
-		position = Data::MaxMessagePosition;
-	}
-	_list->showAtPosition(
-		position,
-		{},
-		_cornerButtons->doneJumpFrom(position.fullId, {}, true));
-}
-
-Data::Thread *ListWidget::Inner::cornerButtonsThread() {
-	return _history;
-}
-
-FullMsgId ListWidget::Inner::cornerButtonsCurrentId() {
-	return {};
-}
-
-bool ListWidget::Inner::cornerButtonsIgnoreVisibility() {
-	return false;
-}
-
-std::optional<bool> ListWidget::Inner::cornerButtonsDownShown() {
-	if (_scroll->scrollTop() > st::historyToDownShownAfter) {
-		return true;
-	} else if (_list->loadedAtTopKnown()) {
-		return !_list->loadedAtTop();
-	}
-	return std::nullopt;
-}
-
-bool ListWidget::Inner::cornerButtonsUnreadMayBeShown() {
-	return false;
-}
-
-bool ListWidget::Inner::cornerButtonsHas(
-		HistoryView::CornerButtonType type) {
-	return (type == HistoryView::CornerButtonType::Down)
-		|| (type == HistoryView::CornerButtonType::PollVotes);
 }
 
 InlinePolls ListWidget::MakeInline(

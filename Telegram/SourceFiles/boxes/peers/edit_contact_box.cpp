@@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/vertical_layout.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
@@ -72,6 +73,19 @@ namespace {
 
 constexpr auto kAnimationStartFrame = 0;
 constexpr auto kAnimationEndFrame = 21;
+
+[[nodiscard]] style::InputField ContactFieldStyle(style::InputField result) {
+	result.placeholderFont = st::classicSettingsFont;
+	result.placeholderFg = st::placeholderFg;
+	result.placeholderFgActive = st::placeholderFgActive;
+	return result;
+}
+
+[[nodiscard]] style::FlatLabel ContactLabelStyle(style::FlatLabel result) {
+	result.style.font = st::classicSettingsFont;
+	result.textFg = st::classicMenuText;
+	return result;
+}
 
 QString UserPhone(not_null<UserData*> user) {
 	const auto phone = user->phone();
@@ -169,7 +183,7 @@ Cover::Cover(
 	_name->setSelectable(true);
 	_name->setContextCopyText(tr::lng_profile_copy_fullname(tr::now));
 
-	_status = object_ptr<Ui::FlatLabel>(this, _st.status);
+	_status = object_ptr<Ui::FlatLabel>(this, ContactLabelStyle(_st.status));
 	_status->setAttribute(Qt::WA_TransparentForMouseEvents);
 
 	initViewers(std::move(status));
@@ -280,6 +294,12 @@ Controller::Controller(
 }
 
 void Controller::prepare() {
+	_box->setProperty("classicSettingsStyle", false);
+	_box->setProperty("classicFormFrame", true);
+	const auto boxStyle = _box->lifetime().make_state<style::Box>(st::defaultBox);
+	boxStyle->title.style.font = st::classicActionFont;
+	boxStyle->title.textFg = st::classicMenuText;
+	_box->setStyle(*boxStyle);
 	setupContent();
 
 	_box->setTitle(_user->isContact()
@@ -318,14 +338,14 @@ void Controller::setupNameFields() {
 	_firstNameField = _box->addRow(
 		object_ptr<Ui::InputField>(
 			_box,
-			st::defaultInputField,
+			st::addContactNamedInput,
 			tr::lng_signup_firstname(),
 			_user->firstName),
 		st::addContactFieldMargin);
 	const auto first = _firstNameField;
 	auto preparedLast = object_ptr<Ui::InputField>(
 		_box,
-		st::defaultInputField,
+		st::addContactNamedInput,
 		tr::lng_signup_lastname(),
 		_user->lastName);
 	const auto last = inverted
@@ -431,7 +451,7 @@ void Controller::setupWarning() {
 		object_ptr<Ui::FlatLabel>(
 			_box,
 			tr::lng_contact_phone_after(tr::now, lt_user, _user->shortName()),
-			st::changePhoneLabel),
+			ContactLabelStyle(st::changePhoneLabel)),
 		st::addContactWarningMargin);
 }
 
@@ -439,14 +459,20 @@ void Controller::setupNotesField() {
 	Ui::AddSkip(_box->verticalLayout());
 	Ui::AddDivider(_box->verticalLayout());
 	Ui::AddSkip(_box->verticalLayout());
+	_box->addRow(
+		object_ptr<Ui::FlatLabel>(_box, tr::lng_contact_add_notes(), ContactLabelStyle(st::boxLabel)),
+		QMargins(st::addContactFieldMargin.left(), 0, st::addContactFieldMargin.right(), st::lineWidth));
+	auto fieldStyle = st::settingsBio;
+	fieldStyle.textMargins.setRight(fieldStyle.textMargins.right() + st::notesFieldWithEmoji.textMargins.right());
 	_notesField = _box->addRow(
 		object_ptr<Ui::InputField>(
 			_box,
-			st::notesFieldWithEmoji,
+			fieldStyle,
 			Ui::InputField::Mode::MultiLine,
-			tr::lng_contact_add_notes(),
+			rpl::single(QString()),
 			QString()),
 		st::addContactFieldMargin);
+	_notesField->setAccessibleName(tr::lng_contact_add_notes(tr::now));
 	_notesField->setMarkdownSet(Ui::MarkdownSet::Notes);
 	_notesField->setCustomTextContext(Core::TextContext({
 		.session = &_user->session()
@@ -470,16 +496,16 @@ void Controller::setupNotesField() {
 		}
 	));
 
-	const auto container = _box->getDelegate()->outerContainer();
 	using Selector = ChatHelpers::TabbedSelector;
+	auto emojiSelector = object_ptr<Selector>(nullptr, _window->uiShow(), Window::GifPauseReason::Layer, Selector::Mode::EmojiOnly);
 	_emojiPanel = base::make_unique_q<ChatHelpers::TabbedPanel>(
-		container,
-		_window,
-		object_ptr<Selector>(
-			nullptr,
-			_window->uiShow(),
-			Window::GifPauseReason::Layer,
-			Selector::Mode::EmojiOnly));
+		_window->window().widget()->bodyWidget(),
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = _window,
+			.ownedSelector = std::move(emojiSelector),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
+		});
 	_emojiPanel->setDesiredHeightValues(
 		1.,
 		st::emojiPanMinHeight / 2,
@@ -509,7 +535,7 @@ void Controller::setupNotesField() {
 		_box,
 		_window,
 		_emojiPanel.get(),
-		st::sendGifWithCaptionEmojiPosition,
+		st::addContactNotesEmojiPosition,
 		false);
 	emojiButton->show();
 
@@ -548,9 +574,14 @@ void Controller::setupNotesField() {
 		checkCharsLimitation();
 	}, _notesField->lifetime());
 
+	const auto divider = _box->lifetime().make_state<style::DividerLabel>(
+		st::addContactNotesDividerLabel);
+	divider->label = ContactLabelStyle(divider->label);
 	Ui::AddDividerText(
 		_box->verticalLayout(),
-		tr::lng_contact_add_notes_about());
+		tr::lng_contact_add_notes_about(),
+		st::defaultBoxDividerLabelPadding,
+		*divider);
 }
 
 void Controller::setupPhotoButtons() {
@@ -578,7 +609,7 @@ void Controller::setupPhotoButtons() {
 	const auto suggestBirthdayButton = Settings::AddButtonWithIcon(
 		suggestBirthdayWrap->entity(),
 		tr::lng_suggest_birthday(),
-		st::settingsButtonLight,
+		st::editContactActionButton,
 		{ &st::editContactSuggestBirthday });
 	suggestBirthdayButton->setClickedCallback([=] {
 		Core::App().openInternalUrl(
@@ -623,7 +654,7 @@ void Controller::setupPhotoButtons() {
 	const auto suggestButton = Settings::AddButtonWithIcon(
 		suggestButtonWrap->entity(),
 		tr::lng_suggest_photo_for(lt_user, rpl::duplicate(nameValue)),
-		st::settingsButtonLight,
+		st::editContactActionButton,
 		{ nullptr });
 
 	_suggestIconWidget = Ui::CreateChild<Ui::RpWidget>(suggestButton);
@@ -655,7 +686,7 @@ void Controller::setupPhotoButtons() {
 	const auto setButton = Settings::AddButtonWithIcon(
 		inner,
 		tr::lng_set_photo_for_user(lt_user, rpl::duplicate(nameValue)),
-		st::settingsButtonLight,
+		st::editContactActionButton,
 		{ nullptr });
 
 	_cameraIconWidget = Ui::CreateChild<Ui::RpWidget>(setButton);
@@ -692,7 +723,7 @@ void Controller::setupPhotoButtons() {
 	const auto resetButton = Settings::AddButtonWithIcon(
 		resetButtonWrap->entity(),
 		tr::lng_profile_photo_reset(),
-		st::settingsButtonLight,
+		st::editContactActionButton,
 		{ nullptr });
 
 	const auto userpicButton = Ui::CreateChild<Ui::UserpicButton>(
@@ -734,9 +765,13 @@ void Controller::setupPhotoButtons() {
 
 	Ui::AddSkip(inner);
 
+	const auto divider = _box->lifetime().make_state<style::DividerLabel>(st::addContactNotesDividerLabel);
+	divider->label = ContactLabelStyle(divider->label);
 	Ui::AddDividerText(
 		inner,
-		tr::lng_contact_photo_replace_info(lt_user, std::move(nameValue)));
+		tr::lng_contact_photo_replace_info(lt_user, std::move(nameValue)),
+		st::defaultBoxDividerLabelPadding,
+		*divider);
 	Ui::AddSkip(inner);
 }
 
@@ -748,7 +783,7 @@ void Controller::setupDeleteContactButton() {
 	const auto deleteButton = Settings::AddButtonWithIcon(
 		inner,
 		tr::lng_info_delete_contact(),
-		st::settingsAttentionButton,
+		st::editContactAttentionButton,
 		{ nullptr });
 	deleteButton->setClickedCallback([=] {
 		const auto text = tr::lng_sure_delete_contact(
@@ -785,13 +820,13 @@ void Controller::setupSharePhoneNumber() {
 			_box,
 			tr::lng_contact_share_phone(tr::now),
 			true,
-			st::defaultBoxCheckbox),
+			Ui::ClassicSettingsStyle(st::defaultBoxCheckbox)),
 		st::addContactWarningMargin);
 	_box->addRow(
 		object_ptr<Ui::FlatLabel>(
 			_box,
 			tr::lng_contact_phone_will_be_shared(tr::now, lt_user, _user->shortName()),
-			st::changePhoneLabel),
+			ContactLabelStyle(st::changePhoneLabel)),
 		st::addContactWarningMargin);
 
 }

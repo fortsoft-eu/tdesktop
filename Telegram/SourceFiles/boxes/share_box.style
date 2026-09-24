@@ -12,24 +12,38 @@ shareRowHeight: 108px;
 sharePhotoTop: 6px;
 shareBoxList: PeerList(defaultPeerList) {
 	bg: boxBg;
+	about: FlatLabel(defaultPeerListAbout) {
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
 	item: shareBoxListItem;
 }
 shareNameTop: 6px;
 shareColumnSkip: 6px;
 shareActivateDuration: 150;
 shareScrollDuration: 300;
+shareMultiSelectField: InputField(defaultMultiSelectSearchField) {
+	textMargins: margins(3px, 8px, 3px, 4px);
+	placeholderMargins: margins(0px, 0px, 2px, 0px);
+	heightMin: 32px;
+}
+shareMultiSelect: MultiSelect(defaultMultiSelect) {
+	field: shareMultiSelectField;
+}
 shareComment: InputField(defaultInputField) {
 	style: defaultTextStyle;
-	textMargins: margins(8px, 8px, 8px, 6px);
-	heightMin: 36px;
+	textMargins: margins(3px, 6px, 3px, 6px);
+	heightMin: 28px;
 	heightMax: 72px;
 	placeholderFg: placeholderFg;
 	placeholderFgActive: placeholderFgActive;
 	placeholderFgError: placeholderFgActive;
-	placeholderMargins: margins(2px, 0px, 2px, 0px);
+	placeholderMargins: margins(0px, 0px, 2px, 0px);
 	placeholderScale: 0.;
 	placeholderFont: normalFont;
-	border: 0px;
-	borderActive: 0px;
+	border: 3px;
+	borderActive: 2px;
 }
-shareCommentPadding: margins(5px, 5px, 5px, 5px);
+shareCommentPadding: margins(3px, 5px, 3px, 5px);

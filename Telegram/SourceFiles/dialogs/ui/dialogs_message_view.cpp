@@ -413,19 +413,19 @@ void MessageView::paint(
 	_lastPaintGeometry = geometry;
 	p.setFont(st::dialogsTextFont);
 	p.setPen(context.active
-		? st::dialogsTextFgActive
+		? QColor(255, 255, 255)
 		: context.selected
-		? st::dialogsTextFgOver
-		: st::dialogsTextFg);
+		? st::dialogsTextFgOver->c
+		: st::dialogsTextFg->c);
 	const auto withTopic = _topics && context.st->topicsHeight;
 	const auto palette = &(withTopic
 		? (context.active
-			? st::dialogsTextPaletteInTopicActive
+			? SelectionTextPalette()
 			: context.selected
 			? st::dialogsTextPaletteInTopicOver
 			: st::dialogsTextPaletteInTopic)
 		: (context.active
-			? st::dialogsTextPaletteActive
+			? SelectionTextPalette()
 			: context.selected
 			? st::dialogsTextPaletteOver
 			: st::dialogsTextPalette));

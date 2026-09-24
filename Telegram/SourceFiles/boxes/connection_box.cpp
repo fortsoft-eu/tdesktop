@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/connection_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "base/qthelp_regex.h"
@@ -16,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "core/local_url_handlers.h"
 #include "lang/lang_keys.h"
+#include "ui/style/style_classic.h"
 #include "main/main_account.h"
 #include "main/main_session.h"
 #include "mtproto/facade.h"
@@ -219,8 +221,8 @@ using ProxyData = MTP::ProxyData;
 		p.setBrush(Qt::white);
 		p.drawRoundedRect(
 			QRect(QPoint(), size),
-			st::introQrBackgroundRadius,
-			st::introQrBackgroundRadius);
+			style::CornerRadius(st::introQrBackgroundRadius),
+			style::CornerRadius(st::introQrBackgroundRadius));
 		p.drawImage(QRect(skip, skip, qrSize, qrSize), qr);
 		const auto logo = ProxyQrLogo();
 		p.drawImage(
@@ -1093,6 +1095,7 @@ void ProxiesBox::keyPressEvent(QKeyEvent *e) {
 }
 
 void ProxiesBox::prepare() {
+	Ui::SetClassicSettingsStyle(this);
 	setTitle(tr::lng_proxy_settings());
 
 	_addProxyButton = addButton(tr::lng_proxy_add(), [=] { addNewProxy(); });
@@ -1474,6 +1477,7 @@ ProxyBox::ProxyBox(
 , _callback(std::move(callback))
 , _shareCallback(std::move(shareCallback))
 , _content(this) {
+	Ui::SetClassicSettingsStyle(this);
 	setupControls(data);
 }
 

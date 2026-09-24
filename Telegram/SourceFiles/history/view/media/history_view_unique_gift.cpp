@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_unique_gift.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/unixtime.h"
 #include "boxes/star_gift_box.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -56,7 +59,8 @@ public:
 		QMargins margins,
 		Fn<void()> repaint,
 		ClickHandlerPtr link,
-		QColor bg = QColor(0, 0, 0, 0));
+		QColor bg = QColor(0, 0, 0, 0),
+		bool classic = false);
 
 	void draw(
 		Painter &p,
@@ -80,6 +84,8 @@ private:
 	QMargins _margins;
 	QColor _bg;
 	QSize _size;
+	bool _classic = false;
+	bool _pressed = false;
 
 	ClickHandlerPtr _link;
 	std::unique_ptr<Ui::RippleAnimation> _ripple;
@@ -97,7 +103,8 @@ public:
 		TextWithEntities text,
 		QMargins margins,
 		Data::UniqueGiftBackdrop backdrop,
-		ClickHandlerPtr link);
+		ClickHandlerPtr link,
+		const style::TextStyle &textStyle = st::uniqueGiftReleasedBy.style);
 
 	void draw(
 		Painter &p,
@@ -127,7 +134,8 @@ public:
 		not_null<Element*> parent,
 		const TextWithEntities &text,
 		const QString &placeholder,
-		std::shared_ptr<Ui::DynamicImage> image);
+		std::shared_ptr<Ui::DynamicImage> image,
+		const style::TextStyle &textStyle = st::chatUniqueTextStyle);
 
 	void draw(
 		Painter &p,
@@ -161,11 +169,12 @@ TextBubblePart::TextBubblePart(
 	TextWithEntities text,
 	QMargins margins,
 	Data::UniqueGiftBackdrop backdrop,
-	ClickHandlerPtr link)
+	ClickHandlerPtr link,
+	const style::TextStyle &textStyle)
 : MediaGenericTextPart(
 	std::move(text),
 	margins,
-	st::uniqueGiftReleasedBy.style,
+	textStyle,
 	{},
 	{},
 	style::al_top)
@@ -185,7 +194,7 @@ void TextBubblePart::draw(
 	const auto radius = height() / 2.;
 	const auto left = (outerWidth - width()) / 2;
 	const auto r = QRect(left, 0, width(), height());
-	p.drawRoundedRect(r, radius, radius);
+	p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setOpacity(1.);
 
 	MediaGenericTextPart::draw(p, owner, context, outerWidth);
@@ -221,10 +230,11 @@ UniqueGiftMessagePart::UniqueGiftMessagePart(
 	not_null<Element*> parent,
 	const TextWithEntities &text,
 	const QString &placeholder,
-	std::shared_ptr<Ui::DynamicImage> image)
+	std::shared_ptr<Ui::DynamicImage> image,
+	const style::TextStyle &textStyle)
 : _parent(parent)
 , _text(
-	st::chatUniqueTextStyle,
+	textStyle,
 	(text.empty() ? tr::marked(placeholder) : text),
 	kMarkupTextOptions,
 	0,
@@ -328,8 +338,11 @@ ButtonPart::ButtonPart(
 	QMargins margins,
 	Fn<void()> repaint,
 	ClickHandlerPtr link,
-	QColor bg)
-: _text(st::semiboldTextStyle, text)
+	QColor bg,
+	bool classic)
+: _text(
+	classic ? st::msgServicePremiumGiftButtonStyle : st::semiboldTextStyle,
+	text)
 , _margins(margins)
 , _bg(bg)
 , _size(
@@ -338,11 +351,15 @@ ButtonPart::ButtonPart(
 		+ st::msgServiceGiftBoxButtonPadding.left()
 		+ st::msgServiceGiftBoxButtonPadding.right()),
 	st::msgServiceGiftBoxButtonHeight)
+, _classic(classic)
 , _link(std::move(link))
 , _stars([=](const QRect &) {
 	repaint();
 }, Ui::Premium::MiniStarsType::SlowStars)
 , _repaint(std::move(repaint)) {
+	if (_classic && _link) {
+		_link->setProperty(kClassicButtonCursorProperty, QVariant::fromValue(true));
+	}
 }
 
 void ButtonPart::draw(
@@ -350,23 +367,34 @@ void ButtonPart::draw(
 		not_null<const MediaGeneric*> owner,
 		const PaintContext &context,
 		int outerWidth) const {
-	PainterHighQualityEnabler hq(p);
-
-	const auto customColors = (_bg.alpha() > 0);
-
 	const auto position = QPoint(
 		(outerWidth - width()) / 2 + _margins.left(),
 		_margins.top());
 	p.translate(position);
+	const auto r = Rect(_size);
+	if (_classic) {
+		Ui::PaintClassicButton(p, r, nullptr, _pressed);
+		const auto offset = Ui::ClassicMessageButtonContentOffset(_pressed, context.messageViewport);
+		p.save();
+		p.translate(offset);
+		Ui::PaintClassicButtonLabel(p, bool(_link), [&](style::color) {
+			_text.draw(p, 0, (_size.height() - _text.minHeight()) / 2, _size.width(), style::al_top);
+		});
+		p.restore();
+		p.translate(-position);
+		return;
+	}
+
+	PainterHighQualityEnabler hq(p);
+	const auto customColors = (_bg.alpha() > 0);
 
 	p.setPen(Qt::NoPen);
 	p.setBrush(customColors ? QBrush(_bg) : context.st->msgServiceBg());
 	const auto radius = _size.height() / 2.;
-	const auto r = Rect(_size);
-	p.drawRoundedRect(r, radius, radius);
+	p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	auto white = QColor(255, 255, 255);
-	const auto fg = customColors ? white : context.st->msgServiceFg()->c;
+	const auto fg = !_link ? st::menuFgDisabled->c : customColors ? white : context.st->msgServiceFg()->c;
 	if (!_starsLastColor || *_starsLastColor != fg) {
 		_starsLastColor = fg;
 		_stars.setColorOverride(QGradientStops{
@@ -379,7 +407,7 @@ void ButtonPart::draw(
 	}
 
 	auto clipPath = QPainterPath();
-	clipPath.addRoundedRect(r, radius, radius);
+	clipPath.addRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setClipPath(clipPath);
 	_stars.setPaused(context.paused);
 	_stars.paint(p);
@@ -433,6 +461,9 @@ void ButtonPart::clickHandlerPressedChanged(
 		bool pressed) {
 	if (p != _link) {
 		return;
+	} else if (_classic) {
+		_pressed = pressed;
+		_repaint();
 	} else if (pressed) {
 		if (!_ripple) {
 			const auto radius = _size.height() / 2;
@@ -482,7 +513,7 @@ auto GenerateUniqueGiftMedia(
 				std::move(text),
 				margins,
 				[color](const auto&) { return color; },
-				st));
+				descriptor.classicText ? st::giftBoxPreviewTextStyle : st));
 		};
 
 		const auto item = parent->data();
@@ -538,7 +569,8 @@ auto GenerateUniqueGiftMedia(
 					tr::marked),
 				st::giftBoxReleasedByMargin,
 				gift->backdrop,
-				handler));
+				handler,
+				descriptor.classicText ? st::giftBoxPreviewTextStyle : st::uniqueGiftReleasedBy.style));
 		}
 
 		const auto name = [](const Data::UniqueGiftAttribute &value) {
@@ -556,7 +588,9 @@ auto GenerateUniqueGiftMedia(
 			std::move(attributes),
 			st::chatUniqueTextPadding + tableAddedMargins,
 			[c = gift->backdrop.textColor](const auto&) { return c; },
-			[](const auto&) { return QColor(255, 255, 255); }));
+			[](const auto&) { return QColor(255, 255, 255); },
+			Ui::Text::MarkedContext(),
+			descriptor.classicText ? &st::giftBoxPreviewTextStyle : nullptr));
 		if (!descriptor.message.empty()
 			|| !descriptor.messagePlaceholder.isEmpty()) {
 			auto image = descriptor.messageAuthor
@@ -566,7 +600,8 @@ auto GenerateUniqueGiftMedia(
 				parent,
 				descriptor.message,
 				descriptor.messagePlaceholder,
-				std::move(image)));
+				std::move(image),
+				descriptor.classicText ? st::giftBoxPreviewTextStyle : st::chatUniqueTextStyle));
 		}
 
 		if (descriptor.skipViewAction) {
@@ -588,7 +623,8 @@ auto GenerateUniqueGiftMedia(
 auto UniqueGiftBg(
 	not_null<Element*> view,
 	std::shared_ptr<Data::UniqueGift> gift,
-	std::shared_ptr<UniqueGiftBgCache> cache)
+	std::shared_ptr<UniqueGiftBgCache> cache,
+	bool classicText)
 -> Fn<void(
 		Painter&,
 		const Ui::ChatPaintContext&,
@@ -627,7 +663,7 @@ auto UniqueGiftBg(
 			pen.setWidthF(thickness);
 			p.setPen(pen);
 			p.setBrush(Qt::transparent);
-			p.drawRoundedRect(inner, radius, radius);
+			p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 		auto gradient = QRadialGradient(inner.center(), inner.height() / 2);
 		gradient.setStops({
@@ -636,12 +672,12 @@ auto UniqueGiftBg(
 		});
 		p.setBrush(gradient);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(inner, radius, radius);
+		p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		const auto shift = media->width() / 12;
 		const auto outer = full.marginsAdded(Margins(shift));
 		auto clipPath = QPainterPath();
-		clipPath.addRoundedRect(inner, radius, radius);
+		clipPath.addRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 		p.setClipPath(clipPath);
 		Ui::PaintBgPoints(
 			p,
@@ -666,6 +702,7 @@ auto UniqueGiftBg(
 			.bg1 = (burned ? burnedBg : gift->backdrop.edgeColor),
 			.bg2 = (burned ? burnedBg : gift->backdrop.patternColor),
 			.fg = (burned ? st::white->c : gift->backdrop.textColor),
+			.classic = classicText,
 		};
 		if (cache->badgeCache.isNull() || cache->badgeKey != badge) {
 			cache->badgeKey = badge;
@@ -804,7 +841,7 @@ auto AuctionBg(
 			{ 1., backdrop.edgeColor },
 		});
 		p.setBrush(gradient);
-		p.drawRoundedRect(full, radius, radius);
+		p.drawRoundedRect(full, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		/*if (state->pattern) {
 			const auto width = media->width();
@@ -873,7 +910,7 @@ auto AuctionBg(
 
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::slideFadeOutBg);
-		p.drawRoundedRect(timerRect, timerRadius, timerRadius);
+		p.drawRoundedRect(timerRect, style::CornerRadius(timerRadius), style::CornerRadius(timerRadius));
 
 		p.setPen(backdrop.textColor);
 		p.setFont(font);
@@ -891,6 +928,14 @@ std::unique_ptr<MediaGenericPart> MakeGenericButtonPart(
 		ClickHandlerPtr link,
 		QColor bg) {
 	return std::make_unique<ButtonPart>(text, margins, repaint, link, bg);
+}
+
+std::unique_ptr<MediaGenericPart> MakeGenericClassicButtonPart(
+		const QString &text,
+		QMargins margins,
+		Fn<void()> repaint,
+		ClickHandlerPtr link) {
+	return std::make_unique<ButtonPart>(text, margins, std::move(repaint), std::move(link), QColor(), true);
 }
 
 TextPartColored::TextPartColored(
@@ -916,16 +961,18 @@ AttributeTable::AttributeTable(
 	QMargins margins,
 	Fn<QColor(const PaintContext &)> labelColor,
 	Fn<QColor(const PaintContext &)> valueColor,
-	const Ui::Text::MarkedContext &context)
+	const Ui::Text::MarkedContext &context,
+	const style::TextStyle *textStyle)
 : _margins(margins)
 , _labelColor(std::move(labelColor))
 , _valueColor(std::move(valueColor)) {
+	const auto &style = textStyle ? *textStyle : st::chatUniqueTextStyle;
 	for (const auto &entry : entries) {
 		_parts.emplace_back();
 		auto &part = _parts.back();
-		part.label.setText(st::chatUniqueTextStyle, entry.label);
+		part.label.setText(style, entry.label);
 		part.value.setMarkedText(
-			st::chatUniqueTextStyle,
+			style,
 			entry.value,
 			kMarkupTextOptions,
 			context);

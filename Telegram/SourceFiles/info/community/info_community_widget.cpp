@@ -180,7 +180,7 @@ Widget::Widget(
 	}, _inner->lifetime());
 
 	if (_pinnedToTop) {
-		_inner->widthValue(
+		widthValue(
 		) | rpl::on_next([=](int w) {
 			_pinnedToTop->resizeToWidth(w);
 			setScrollTopSkip(_pinnedToTop->height());

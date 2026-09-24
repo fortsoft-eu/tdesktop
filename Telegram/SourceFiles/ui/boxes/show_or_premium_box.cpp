@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/boxes/show_or_premium_box.h"
 
+#include "ui/style/style_classic.h"
 #include "base/object_ptr.h"
 #include "lang/lang_keys.h"
 #include "lottie/lottie_icon.h"
@@ -113,7 +114,16 @@ void ShowOrPremiumBox(
 			u"show_or_premium_readtime"_q,
 		};
 
-	box->setStyle(st::showOrBox);
+	auto buttonStyle = st::premiumPreviewBox.button;
+	buttonStyle.width = st::settingsTerminateSessionsButton.width;
+	const auto boxStyle = box->lifetime().make_state<style::Box>(st::showOrBox);
+	const auto frameWidth = box->property("classicFormFrame").toBool() ? 4 * st::lineWidth : 0;
+	const auto buttonSpace = st::boxWideWidth + frameWidth - buttonStyle.width;
+	boxStyle->buttonPadding.setLeft(buttonSpace / 2);
+	boxStyle->buttonPadding.setRight(buttonSpace - buttonSpace / 2);
+	boxStyle->buttonHeight = buttonStyle.height;
+	boxStyle->buttonWide = false;
+	box->setStyle(*boxStyle);
 	box->setWidth(st::boxWideWidth);
 	box->addTopButton(st::boxTitleClose, [=] {
 		box->closeBox();
@@ -157,8 +167,9 @@ void ShowOrPremiumBox(
 		object_ptr<RoundButton>(
 			box,
 			std::move(skin.showButton),
-			st::showOrShowButton),
-		buttonPadding);
+			buttonStyle),
+		buttonPadding,
+		style::al_top);
 	box->addRow(
 		MakeShowOrLabel(box, std::move(skin.orPremium)),
 		st::showOrLabelPadding + buttonPadding,
@@ -181,21 +192,28 @@ void ShowOrPremiumBox(
 	const auto premium = CreateChild<GradientButton>(
 		box.get(),
 		Premium::ButtonGradientStops());
+	premium->setClassic(true);
 
-	premium->resize(st::showOrShowButton.width, st::showOrShowButton.height);
+	premium->resize(buttonStyle.width, buttonStyle.height);
 
+	auto labelStyle = st::premiumPreviewButtonLabel;
+	labelStyle.maxHeight = labelStyle.style.font->height;
 	const auto label = CreateChild<FlatLabel>(
 		premium,
 		std::move(skin.premiumButton),
-		st::premiumPreviewButtonLabel);
+		labelStyle);
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);
 	rpl::combine(
 		premium->widthValue(),
-		label->widthValue()
-	) | rpl::on_next([=](int outer, int width) {
+		label->naturalWidthValue(),
+		premium->contentOffsetValue()
+	) | rpl::on_next([=](int outer, int natural, QPoint offset) {
+		const auto width = std::min(natural,
+			ClassicButtonContentRect(premium->rect(), premium).width());
+		label->resizeToWidth(width);
 		label->moveToLeft(
-			(outer - width) / 2,
-			st::premiumPreviewBox.button.textTop,
+			(outer - width) / 2 + offset.x(),
+			st::premiumPreviewBox.button.textTop + offset.y(),
 			outer);
 	}, label->lifetime());
 

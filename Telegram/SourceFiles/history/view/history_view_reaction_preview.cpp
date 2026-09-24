@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_reaction_preview.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "base/event_filter.h"
 #include "boxes/sticker_set_box.h"
@@ -270,8 +271,8 @@ bool ShowReactionPreview(
 				p.setBrush(st::windowBg);
 				p.drawRoundedRect(
 					innerRect,
-					st::boxRadius,
-					st::boxRadius);
+					style::CornerRadius(st::boxRadius),
+					style::CornerRadius(st::boxRadius));
 			});
 
 			labelRaw->show();

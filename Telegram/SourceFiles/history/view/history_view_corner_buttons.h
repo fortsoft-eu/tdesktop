@@ -63,11 +63,13 @@ public:
 	CornerButtons(
 		not_null<Ui::ScrollArea*> parent,
 		not_null<const Ui::ChatStyle*> st,
-		not_null<CornerButtonsDelegate*> delegate);
+		not_null<CornerButtonsDelegate*> delegate,
+		bool messageViewport = false);
 	CornerButtons(
 		not_null<Ui::ElasticScroll*> parent,
 		not_null<const Ui::ChatStyle*> st,
-		not_null<CornerButtonsDelegate*> delegate);
+		not_null<CornerButtonsDelegate*> delegate,
+		bool messageViewport = false);
 
 	using Type = CornerButtonType;
 
@@ -103,7 +105,8 @@ private:
 		not_null<QWidget*> parent,
 		Fn<bool(QEvent*)> scrollViewportEvent,
 		not_null<const Ui::ChatStyle*> st,
-		not_null<CornerButtonsDelegate*> delegate);
+		not_null<CornerButtonsDelegate*> delegate,
+		bool messageViewport);
 
 	bool eventFilter(QObject *o, QEvent *e) override;
 

@@ -97,6 +97,7 @@ public:
 	}
 	void searchForGifs(const QString &query);
 	void sendInlineRequest();
+	void focusSearch();
 
 	void cancelled();
 	rpl::producer<> cancelRequests() const;

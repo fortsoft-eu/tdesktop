@@ -38,6 +38,7 @@ public:
 	void applyLangPackDifference(const MTPLangPackDifference &difference);
 	void setCurrentVersions(int version, int baseVersion);
 
+	void applyPersonalDefault();
 	void resetToDefault();
 	void switchWithWarning(const QString &id);
 	void switchToLanguage(const QString &id);
@@ -86,6 +87,7 @@ private:
 
 	QString _offerSwitchToId;
 	bool _restartAfterSwitch = false;
+	bool _applyingPersonalDefault = false;
 
 	QString _suggestedLanguage;
 	bool _languageWasSuggested = false;

@@ -20,6 +20,7 @@ class IconButton;
 class AbstractButton;
 class LabelSimple;
 class FlatLabel;
+class FlatButton;
 struct GroupCallUser;
 class GroupCallUserpics;
 class Show;
@@ -92,7 +93,7 @@ private:
 	object_ptr<SignalBars> _signalBars;
 	object_ptr<Ui::FlatLabel> _fullInfoLabel;
 	object_ptr<Ui::FlatLabel> _shortInfoLabel;
-	object_ptr<Ui::LabelSimple> _hangupLabel;
+	object_ptr<Ui::FlatButton> _endCall;
 	object_ptr<Mute> _mute;
 	object_ptr<Ui::AbstractButton> _info;
 	object_ptr<Ui::IconButton> _hangup;

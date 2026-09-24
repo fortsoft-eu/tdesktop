@@ -15,7 +15,10 @@ userpicBuilderEmojiSubtitle: FlatLabel(defaultFlatLabel) {
 	align: align(center);
 	minWidth: 356px;
 	maxHeight: 24px;
-	textFg: windowSubTextFg;
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 userpicBuilderEmojiSubtitlePadding: margins(0px, 9px, 0px, 2px);
 userpicBuilderEmojiBubblePaletteWidth: 356px;
@@ -23,7 +26,7 @@ userpicBuilderEmojiBubblePalettePadding: margins(12px, 8px, 12px, 8px);
 
 userpicBuilderEmojiSelectorLeft: 5px;
 
-userpicBuilderEmojiButton: RoundButton(defaultBoxButton) {
+userpicBuilderEmojiButton: RoundButton(compactBoxButton) {
 	textFg: boxTextFg;
 	textFgOver: boxTextFg;
 	textBg: boxDividerBg;

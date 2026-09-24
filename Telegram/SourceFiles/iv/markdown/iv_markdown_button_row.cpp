@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/markdown/iv_markdown_button_row.h"
+
+#include "ui/style/style_radius.h"
 #include "api/api_bot.h"
 #include "base/weak_ptr.h"
 #include "core/click_handler_types.h"
@@ -306,7 +308,7 @@ void PaintButtonPill(
 	const auto radius = st.height / 2;
 	p.setPen(Qt::NoPen);
 	p.setBrush(colors.bg);
-	p.drawRoundedRect(button.rect, radius, radius);
+	p.drawRoundedRect(button.rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	if (ripple) {
 		const auto mode = p.compositionMode();
 		if (eraseRipple) {
@@ -452,8 +454,8 @@ void PaintRichButtonLoadingOutline(
 	p.setPen(QPen(brush, pen));
 	p.drawRoundedRect(
 		QRectF(rect).adjusted(half, half, -half, -half),
-		radius - half,
-		radius - half);
+		style::CornerRadius(radius - half),
+		style::CornerRadius(radius - half));
 }
 
 [[nodiscard]] bool RichButtonLoadingIdle(
@@ -761,7 +763,7 @@ void PaintRichButtonLoading(
 	};
 	p.setPen(Qt::NoPen);
 	p.setBrush(QBrush(sweep(kLoadingGlareOpacity)));
-	p.drawRoundedRect(rect, radius, radius);
+	p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	PaintRichButtonLoadingOutline(
 		p,
 		rect,

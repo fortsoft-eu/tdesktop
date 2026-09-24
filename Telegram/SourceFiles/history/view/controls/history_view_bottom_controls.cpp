@@ -47,6 +47,9 @@ BottomControls::BottomControls(
 , _topic(descriptor.topic)
 , _sublist(descriptor.sublist)
 , _mode(descriptor.mode) {
+	paintRequest() | rpl::on_next([=](QRect clip) {
+		QPainter(this).fillRect(clip, st::windowBg);
+	}, lifetime());
 	setupButtons();
 	setupOpenChatButton();
 	setupAboutHiddenAuthor();
@@ -101,6 +104,7 @@ void BottomControls::updateReportMessagesText(int selectedCount) {
 			selectedCount,
 			tr::upper)
 		: tr::lng_report_messages_none(tr::now, tr::upper));
+	updateControlsGeometry();
 }
 
 void BottomControls::applyPeerUpdate(Data::PeerUpdate::Flags flags) {
@@ -227,24 +231,24 @@ void BottomControls::setupButtons() {
 	if (_mode == BottomControlsMode::History) {
 		_unblock = std::make_unique<Ui::FlatButton>(
 			this,
-			tr::lng_unblock_button(tr::now).toUpper(),
-			st::historyUnblock);
+			tr::lng_unblock_button(tr::now),
+			st::historyCompactUnblock);
 		_botStart = std::make_unique<Ui::FlatButton>(
 			this,
-			tr::lng_bot_start(tr::now).toUpper(),
-			st::historyComposeButton);
+			tr::lng_bot_start(tr::now),
+			st::historyCompactComposeButton);
 		_joinChannel = std::make_unique<Ui::FlatButton>(
 			this,
-			tr::lng_profile_join_channel(tr::now).toUpper(),
-			st::historyComposeButton);
+			tr::lng_profile_join_channel(tr::now),
+			st::historyCompactComposeButton);
 		_muteUnmute = std::make_unique<Ui::FlatButton>(
 			this,
-			tr::lng_channel_mute(tr::now).toUpper(),
-			st::historyComposeButton);
+			tr::lng_channel_mute(tr::now),
+			st::historyCompactComposeButton);
 		_reportMessages = std::make_unique<Ui::FlatButton>(
 			this,
 			QString(),
-			st::historyComposeButton);
+			st::historyCompactComposeButton);
 		_unblock->hide();
 		_botStart->hide();
 		_joinChannel->hide();
@@ -278,7 +282,7 @@ void BottomControls::setupButtons() {
 		_joinGroup = std::make_unique<Ui::FlatButton>(
 			this,
 			QString(),
-			st::historyComposeButton);
+			st::historyCompactComposeButton);
 		_joinGroup->hide();
 		_joinGroup->setClickedCallback([=] {
 			_actionRequests.fire(BottomControlsAction::JoinGroup);
@@ -289,7 +293,7 @@ void BottomControls::setupButtons() {
 
 void BottomControls::setupGiftToChannelButton() {
 	_giftToChannel = Ui::CreateChild<Ui::IconButton>(
-		_muteUnmute.get(),
+		this,
 		st::historyGiftToChannel);
 	_giftToChannel->setAccessibleName(tr::lng_gift_channel_title(tr::now));
 	_giftToChannel->setClickedCallback([=] {
@@ -302,7 +306,7 @@ void BottomControls::setupGiftToChannelButton() {
 
 void BottomControls::setupDirectMessageButton() {
 	_directMessage = Ui::CreateChild<Ui::IconButton>(
-		_muteUnmute.get(),
+		this,
 		st::historyDirectMessage);
 	_directMessage->setAccessibleName(
 		tr::lng_profile_direct_messages(tr::now));
@@ -327,31 +331,17 @@ void BottomControls::setupOverlayIconButton(
 		not_null<Ui::IconButton*> button,
 		bool alignRight,
 		Fn<void()> refresh) {
-	widthValue() | rpl::on_next([=](int width) {
+	sizeValue() | rpl::on_next([=](QSize size) {
+		const auto top = (size.height() - button->height()) / 2;
 		if (alignRight) {
-			button->moveToRight(0, 0, width);
+			button->moveToRight(st::historySendPadding, top, size.width());
 		} else {
-			button->moveToLeft(0, 0, width);
+			button->moveToLeft(st::historySendPadding, top, size.width());
 		}
 	}, button->lifetime());
-	rpl::combine(
-		_muteUnmute->shownValue(),
-		_joinChannel->shownValue()
-	) | rpl::on_next([=](bool muteUnmute, bool joinChannel) {
-		const auto newParent = (muteUnmute && !joinChannel)
-			? _muteUnmute.get()
-			: (joinChannel && !muteUnmute)
-			? _joinChannel.get()
-			: nullptr;
-		if (newParent) {
-			button->setParent(newParent);
-			if (alignRight) {
-				button->moveToRight(0, 0);
-			} else {
-				button->moveToLeft(0, 0);
-			}
-			refresh();
-		}
+	rpl::combine(_muteUnmute->shownValue(), _joinChannel->shownValue()
+	) | rpl::on_next([=](bool, bool) {
+		refresh();
 	}, button->lifetime());
 }
 
@@ -372,7 +362,7 @@ void BottomControls::setupOpenChatButton() {
 			: _sublist->sublistPeer()->isUser()
 			? tr::lng_saved_open_chat(tr::now)
 			: tr::lng_saved_open_group(tr::now)),
-		st::historyComposeButton);
+		st::historyCompactComposeButton);
 
 	_openChatButton->setClickedCallback([=] {
 		_controller->showPeerHistory(
@@ -435,8 +425,9 @@ void BottomControls::refreshJoinChannelText() {
 			? tr::lng_profile_join_channel(tr::now)
 			: (channel->requestToJoin() && !channel->amCreator())
 			? tr::lng_profile_apply_to_join_group(tr::now)
-			: tr::lng_profile_join_group(tr::now)).toUpper());
+			: tr::lng_profile_join_group(tr::now)));
 	}
+	updateControlsGeometry();
 }
 
 void BottomControls::refreshJoinGroupText() {
@@ -448,9 +439,10 @@ void BottomControls::refreshJoinGroupText() {
 			? tr::lng_profile_join_channel(tr::now)
 			: (channel->requestToJoin() && !channel->amCreator())
 			? tr::lng_profile_apply_to_join_group(tr::now)
-			: tr::lng_profile_join_group(tr::now)).toUpper());
+			: tr::lng_profile_join_group(tr::now)));
 	}
 	_canSendTexts = !isJoinGroup();
+	updateControlsGeometry();
 }
 
 void BottomControls::refreshUnblockText() {
@@ -461,7 +453,8 @@ void BottomControls::refreshUnblockText() {
 		&& _peer->asUser()->isBot()
 		&& !_peer->asUser()->isSupport())
 			? tr::lng_restart_button(tr::now)
-			: tr::lng_unblock_button(tr::now)).toUpper());
+			: tr::lng_unblock_button(tr::now)));
+	updateControlsGeometry();
 }
 
 void BottomControls::refreshMuteUnmuteText() {
@@ -470,7 +463,8 @@ void BottomControls::refreshMuteUnmuteText() {
 	}
 	_muteUnmute->setText((_history->muted()
 		? tr::lng_channel_unmute(tr::now)
-		: tr::lng_channel_mute(tr::now)).toUpper());
+		: tr::lng_channel_mute(tr::now)));
+	updateControlsGeometry();
 }
 
 void BottomControls::refreshGiftToChannelShown() {
@@ -480,7 +474,8 @@ void BottomControls::refreshGiftToChannelShown() {
 	const auto channel = _peer->asChannel();
 	_giftToChannel->setVisible(channel
 		&& channel->isBroadcast()
-		&& channel->stargiftsAvailable());
+		&& channel->stargiftsAvailable()
+		&& (!_joinChannel->isHidden() || !_muteUnmute->isHidden()));
 }
 
 void BottomControls::refreshDirectMessageShown() {
@@ -489,7 +484,8 @@ void BottomControls::refreshDirectMessageShown() {
 	}
 	const auto channel = _peer->asChannel();
 	const auto monoforum = channel ? channel->broadcastMonoforum() : nullptr;
-	const auto visible = monoforum && !monoforum->monoforumDisabled();
+	const auto visible = monoforum && !monoforum->monoforumDisabled()
+		&& (!_joinChannel->isHidden() || !_muteUnmute->isHidden());
 	_directMessage->setVisible(visible);
 	if (visible) {
 		using Flags = Data::Flags<ChannelDataFlags>;
@@ -506,13 +502,14 @@ void BottomControls::refreshDirectMessageShown() {
 
 void BottomControls::recomputeContentHeight() {
 	const auto h = _openChatButton
-		? _openChatButton->height()
+		? st::historyComposeButton.height
 		: _aboutHiddenAuthor
 		? st::historyUnblock.height
 		: isButtonActive()
 		? st::historyComposeButton.height
 		: 0;
 	resize(width(), h);
+	updateControlsGeometry();
 	setVisible(h > 0);
 	_contentHeight = h;
 }
@@ -583,33 +580,26 @@ bool BottomControls::isChoosingTheme() const {
 
 void BottomControls::resizeEvent(QResizeEvent *e) {
 	RpWidget::resizeEvent(e);
+	updateControlsGeometry();
+}
+
+void BottomControls::updateControlsGeometry() {
 	const auto w = width();
-	if (_openChatButton) {
-		_openChatButton->setGeometry(0, 0, w, _openChatButton->height());
-		return;
-	}
 	if (_aboutHiddenAuthor) {
 		_aboutHiddenAuthor->setGeometry(0, 0, w, st::historyUnblock.height);
 		return;
 	}
-	const auto fullRect = QRect(0, 0, w, st::historyComposeButton.height);
-	if (_botStart) {
-		_botStart->setGeometry(fullRect);
-	}
-	if (_unblock) {
-		_unblock->setGeometry(fullRect);
-	}
-	if (_joinChannel) {
-		_joinChannel->setGeometry(fullRect);
-	}
-	if (_joinGroup) {
-		_joinGroup->setGeometry(fullRect);
-	}
-	if (_muteUnmute) {
-		_muteUnmute->setGeometry(fullRect);
-	}
-	if (_reportMessages) {
-		_reportMessages->setGeometry(fullRect);
+	for (const auto button : { _openChatButton.get(), _botStart.get(), _unblock.get(),
+			_joinChannel.get(), _joinGroup.get(), _muteUnmute.get(), _reportMessages.get() }) {
+		if (!button) {
+			continue;
+		}
+		const auto available = std::max(w - 2 * (st::historySendPadding
+			+ st::historyGiftToChannel.width), 0);
+		const auto buttonWidth = std::min(available,
+			st::historyBottomButtonWidth);
+		button->setGeometry((w - buttonWidth) / 2, (height() - button->height()) / 2,
+			buttonWidth, button->height());
 	}
 }
 

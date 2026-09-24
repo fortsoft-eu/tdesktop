@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_sticker.h"
 
+#include "ui/style/style_radius.h"
 #include "base/options.h"
 #include "boxes/sticker_set_box.h"
 #include "history/history.h"
@@ -276,7 +277,7 @@ void Sticker::paintSensitiveTag(
 	const auto radius = std::min(size.width(), size.height()) / 2;
 	p.setPen(Qt::NoPen);
 	p.setBrush(context.st->msgServiceBg());
-	p.drawRoundedRect(outer, radius, radius);
+	p.drawRoundedRect(outer, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setPen(context.st->msgServiceFg());
 	if (iconSkip) {
 		st::mediaMenuIconStealth.paint(

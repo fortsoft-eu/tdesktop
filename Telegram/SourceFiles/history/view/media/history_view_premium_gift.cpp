@@ -258,7 +258,38 @@ rpl::producer<QString> PremiumGift::button() {
 		: tr::lng_prize_open();
 }
 
+const style::TextStyle &PremiumGift::titleStyle() const {
+	return (_data.type == Data::GiftType::Premium)
+		? st::msgServicePremiumGiftTitleStyle
+		: starGift()
+		? st::msgServicePremiumGiftTextStyle
+		: ServiceBoxContent::titleStyle();
+}
+
+const style::TextStyle &PremiumGift::subtitleStyle() const {
+	return (_data.type == Data::GiftType::Premium)
+		? st::msgServicePremiumGiftTextStyle
+		: ServiceBoxContent::subtitleStyle();
+}
+
+const style::TextStyle &PremiumGift::buttonStyle() const {
+	return (_data.type == Data::GiftType::Premium || starGift())
+		? st::msgServicePremiumGiftButtonStyle
+		: ServiceBoxContent::buttonStyle();
+}
+
+bool PremiumGift::whiteText() const {
+	return (_data.type == Data::GiftType::Premium);
+}
+
+bool PremiumGift::classicButton() const {
+	return (_data.type == Data::GiftType::Premium) || starGift();
+}
+
 std::optional<Ui::Premium::MiniStarsType> PremiumGift::buttonMinistars() {
+	if (classicButton()) {
+		return std::nullopt;
+	}
 	return tonGift()
 		? Ui::Premium::MiniStarsType::SlowDiamondStars
 		: Ui::Premium::MiniStarsType::SlowStars;

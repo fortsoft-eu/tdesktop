@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/sponsored_message_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
 #include "core/ui_integration.h" // TextContext
@@ -71,7 +72,7 @@ public:
 				&rippleColor);
 			p.setBrush(colors.bg);
 			p.setPen(Qt::NoPen);
-			p.drawRoundedRect(r, r.height() / 2, r.height() / 2);
+			p.drawRoundedRect(r, style::CornerRadius(r.height() / 2), style::CornerRadius(r.height() / 2));
 			p.setFont(st::stickersHeaderBadgeFont);
 			p.setPen(colors.fg);
 			p.drawText(r, text(tr::now), style::al_center);

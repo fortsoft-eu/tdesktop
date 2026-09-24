@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "editor/video/video_editor.h"
 
+#include "ui/style/style_radius.h"
 #include "base/timer.h"
 #include "editor/editor_crop.h"
 #include "editor/video/video_quality_slider.h"
@@ -19,6 +20,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "media/view/media_view_pip.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/layers/layer_widget.h"
+#include "ui/rect.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/painter.h"
@@ -54,11 +57,7 @@ private:
 
 void ControlsBar::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-	auto hq = PainterHighQualityEnabler(p);
-	const auto radius = std::min(width(), height()) / 2.;
-	p.setPen(Qt::NoPen);
-	p.setBrush(st::roundedBg);
-	p.drawRoundedRect(rect(), radius, radius);
+	Ui::PaintClassicMenuFrame(p, rect());
 }
 
 void ControlsBar::layoutChildren() {
@@ -92,50 +91,46 @@ class BarTextButton final : public Ui::RippleButton {
 public:
 	BarTextButton(
 		not_null<Ui::RpWidget*> parent,
-		const QString &text,
-		const style::color &fg);
+		const QString &text);
 
 private:
 	void paintEvent(QPaintEvent *e) override;
-	[[nodiscard]] QImage prepareRippleMask() const override;
 
-	const style::color &_fg;
 	const QString _text;
+	const int _width;
+	const QRect _buttonRect;
 
 };
 
 BarTextButton::BarTextButton(
 	not_null<Ui::RpWidget*> parent,
-	const QString &text,
-	const style::color &fg)
+	const QString &text)
 : RippleButton(parent, st::photoEditorRotateButton.ripple)
-, _fg(fg)
-, _text(text) {
-	const auto &padding = st::photoEditorTextButtonPadding;
+, _text(text)
+, _width(st::photoEditorButtonStyle.font->width(_text)
+	+ st::photoEditorTextButtonPadding.left()
+	+ st::photoEditorTextButtonPadding.right())
+, _buttonRect(QRect(
+	rect::m::pos::tl(st::photoEditorEdgeButtonMargins),
+	QSize(
+		_width,
+		st::photoEditorButtonBarHeight
+			- rect::m::sum::v(st::photoEditorEdgeButtonMargins)))) {
 	resize(
-		st::photoEditorButtonStyle.font->width(_text)
-			+ padding.left()
-			+ padding.right(),
+		_width + rect::m::sum::h(st::photoEditorEdgeButtonMargins),
 		st::photoEditorButtonBarHeight);
-}
-
-QImage BarTextButton::prepareRippleMask() const {
-	return Ui::RippleAnimation::RoundRectMask(size(), height() / 2);
 }
 
 void BarTextButton::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-	auto hq = PainterHighQualityEnabler(p);
-	if (isOver() || isDown()) {
-		const auto radius = height() / 2.;
-		p.setPen(Qt::NoPen);
-		p.setBrush(st::photoEditorEdgeButtonBg);
-		p.drawRoundedRect(rect(), radius, radius);
-	}
-	paintRipple(p, 0, 0);
-	p.setPen(_fg);
-	p.setFont(st::photoEditorButtonStyle.font);
-	p.drawText(rect(), Qt::AlignCenter, _text);
+	Ui::PaintClassicButton(p, _buttonRect, this, isDown());
+	const auto offset = Ui::ClassicButtonContentOffset(this, isDown());
+	const auto font = st::photoEditorButtonStyle.font;
+	p.setFont(font);
+	const auto baseline = QPoint(
+		_buttonRect.x() + (_buttonRect.width() - font->width(_text)) / 2,
+		_buttonRect.y() + (_buttonRect.height() - font->height) / 2 + font->ascent) + offset;
+	Ui::PaintClassicText(p, baseline, _text, st::classicMenuText->c);
 }
 
 [[nodiscard]] float64 ShapeRadius(
@@ -165,7 +160,7 @@ void BarTextButton::paintEvent(QPaintEvent *e) {
 	if (radius <= 0.) {
 		result.addRect(rect);
 	} else {
-		result.addRoundedRect(rect, radius, radius);
+		result.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 	return result;
 }
@@ -349,8 +344,7 @@ void VideoEditor::setupControls() {
 
 	_cancelButton = base::make_unique_q<BarTextButton>(
 		bar,
-		tr::lng_cancel(tr::now),
-		st::mediaviewCaptionFg);
+		tr::lng_cancel(tr::now));
 	_rotate = base::make_unique_q<Ui::IconButton>(
 		bar,
 		st::photoEditorRotateButton);
@@ -367,8 +361,7 @@ void VideoEditor::setupControls() {
 		bar,
 		(_data.editor.confirm.isEmpty()
 			? tr::lng_box_done(tr::now)
-			: _data.editor.confirm),
-		st::mediaviewTextLinkFg);
+			: _data.editor.confirm));
 
 	if (!_data.hint.isEmpty()) {
 		_hint = base::make_unique_q<Ui::FlatLabel>(

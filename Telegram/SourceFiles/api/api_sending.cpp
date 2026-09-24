@@ -783,7 +783,8 @@ void SendMusicSelection(
 void SendExistingPhoto(
 		MessageToSend &&message,
 		not_null<PhotoData*> photo,
-		std::optional<MsgId> localMessageId) {
+		std::optional<MsgId> localMessageId,
+		Data::FileOrigin origin) {
 	const auto inputMedia = [=] {
 		return MTP_inputMediaPhoto(
 			MTP_flags(0),
@@ -795,7 +796,7 @@ void SendExistingPhoto(
 		std::move(message),
 		photo,
 		inputMedia,
-		Data::FileOrigin(),
+		std::move(origin),
 		std::move(localMessageId));
 }
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/new_badges.h"
 
+#include "ui/style/style_radius.h"
 #include "lang/lang_keys.h"
 #include "ui/painter.h"
 #include "ui/widgets/labels.h"
@@ -18,13 +19,16 @@ namespace Ui::NewBadge {
 not_null<Ui::RpWidget*> CreateNewBadge(
 		not_null<Ui::RpWidget*> parent,
 		rpl::producer<QString> text) {
+	auto label = object_ptr<Ui::FlatLabel>(
+		parent,
+		std::move(text),
+		st::settingsPremiumNewBadge);
+	const auto labelRaw = label.data();
 	const auto badge = Ui::CreateChild<Ui::PaddingWrap<Ui::FlatLabel>>(
 		parent.get(),
-		object_ptr<Ui::FlatLabel>(
-			parent,
-			std::move(text),
-			st::settingsPremiumNewBadge),
+		std::move(label),
 		st::settingsPremiumNewBadgePadding);
+	labelRaw->setTextColorOverride(st::premiumButtonFg->c);
 	badge->show();
 	badge->setAttribute(Qt::WA_TransparentForMouseEvents);
 	badge->paintRequest() | rpl::on_next([=] {
@@ -33,7 +37,7 @@ not_null<Ui::RpWidget*> CreateNewBadge(
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::windowBgActive);
 		const auto r = st::settingsPremiumNewBadgePadding.left();
-		p.drawRoundedRect(badge->rect(), r, r);
+		p.drawRoundedRect(badge->rect(), style::CornerRadius(r), style::CornerRadius(r));
 	}, badge->lifetime());
 	return badge;
 }

@@ -92,7 +92,7 @@ void AnchoredTooltip::show(
 			widget,
 			rpl::single(std::move(text)),
 			st::boxWideWidth,
-			st::defaultImportantTooltipLabel),
+			st::historyHiddenSenderTooltipLabel),
 		st::defaultImportantTooltip);
 	const auto raw = _tooltip.get();
 	raw->toggleFast(false);

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/menu/history_view_poll_menu.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_polls.h"
 #include "api/api_toggling_media.h"
 #include "apiwrap.h"
@@ -495,7 +496,7 @@ void ShowPollDocumentPreview(
 				auto hq = PainterHighQualityEnabler(p);
 				p.setPen(Qt::NoPen);
 				p.setBrush(st::windowBg);
-				p.drawRoundedRect(outer, st::boxRadius, st::boxRadius);
+				p.drawRoundedRect(outer, style::CornerRadius(st::boxRadius), style::CornerRadius(st::boxRadius));
 			}
 
 			const auto padding = st::mediaviewFilePadding;
@@ -620,11 +621,11 @@ void ShowPollGeoPreview(
 			p.setPen(Qt::NoPen);
 			p.setBrush(st::windowBg);
 			const auto radius = st::boxRadius;
-			p.drawRoundedRect(outer, radius, radius);
+			p.drawRoundedRect(outer, style::CornerRadius(radius), style::CornerRadius(radius));
 
 			if (!view->isNull()) {
 				auto path = QPainterPath();
-				path.addRoundedRect(outer, radius, radius);
+				path.addRoundedRect(outer, style::CornerRadius(radius), style::CornerRadius(radius));
 				p.setClipPath(path);
 				p.drawImage(outer, view->scaled(
 					outer.size() * style::DevicePixelRatio(),

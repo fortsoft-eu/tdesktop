@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/ui/dialogs_layout.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/options.h"
 #include "base/unixtime.h"
 #include "core/ui_integration.h"
@@ -95,15 +98,18 @@ void PaintRowTopRight(
 		: st::dialogsDateFont->width(text);
 	rectForName.setWidth(rectForName.width() - width - st::dialogsDateSkip);
 	p.setFont(st::dialogsDateFont);
-	p.setPen(context.active
-		? st::dialogsDateFgActive
+	const auto color = context.active
+		? QColor(255, 255, 255)
 		: context.selected
-		? st::dialogsDateFgOver
-		: st::dialogsDateFg);
-	p.drawText(
-		rectForName.left() + rectForName.width() + st::dialogsDateSkip,
-		rectForName.top() + st::semiboldFont->height - st::normalFont->descent,
-		text);
+		? st::dialogsDateFgOver->c
+		: st::dialogsDateFg->c;
+	::Ui::PaintClassicText(
+		p,
+		QPointF(
+			rectForName.left() + rectForName.width() + st::dialogsDateSkip,
+			rectForName.top() + st::semiboldFont->height - st::normalFont->descent),
+		text,
+		color);
 }
 
 int PaintRightButtonImpl(QPainter &p, const PaintContext &context) {
@@ -117,7 +123,13 @@ int PaintRightButtonImpl(QPainter &p, const PaintContext &context) {
 		const auto left = context.width
 			- size.width()
 			- rightButton->st->margin.right();
-		const auto top = rightButton->st->margin.top();
+		const auto bottom = rightButton->st->margin.bottom();
+		const auto rowHeight = context.rowHeight
+			? context.rowHeight
+			: context.st->height;
+		const auto top = rightButton->top = bottom
+			? rowHeight - bottom - size.height()
+			: rightButton->st->margin.top();
 		p.drawImage(
 			left,
 			top,
@@ -146,10 +158,12 @@ int PaintRightButtonImpl(QPainter &p, const PaintContext &context) {
 			: rightButton->st->button.textFg);
 		rightButton->text.draw(p, {
 			.position = QPoint(
-				left + size.height() / 2,
-				top + rightButton->st->button.textTop),
-			.outerWidth = size.width() - size.height() / 2,
-			.availableWidth = size.width() - size.height() / 2,
+				left + st::dialogsUnreadPadding,
+				top + (bottom
+					? (size.height() - rightButton->st->button.style.font->height) / 2
+					: rightButton->st->button.textTop)),
+			.outerWidth = size.width() - 2 * st::dialogsUnreadPadding,
+			.availableWidth = size.width() - 2 * st::dialogsUnreadPadding,
 			.elisionLines = 1,
 		});
 		return size.width() + st::dialogsUnreadPadding;
@@ -297,16 +311,16 @@ void PaintExpandedTopicsBar(QPainter &p, float64 progress) {
 			st::forumDialogRow.padding.top(),
 			3. * radius + width,
 			st::forumDialogRow.photoSize),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 }
 
 void PaintNarrowCounter(
 		QPainter &p,
 		const PaintContext &context,
 		BadgesState badgesState) {
-	const auto top = context.st->padding.top()
-		+ context.st->photoSize
+	const auto top = (context.rowHeight ? context.rowHeight : context.st->height)
+		- st::dialogsUnreadBottomSkip
 		- st::dialogsUnreadHeight;
 	PaintBadges(
 		p,
@@ -326,10 +340,9 @@ int PaintWideCounter(
 		int texttop,
 		int availableWidth,
 		bool displayPinnedIcon) {
-	const auto top = texttop
-		+ st::dialogsTextFont->ascent
-		- st::dialogsUnreadFont->ascent
-		- (st::dialogsUnreadHeight - st::dialogsUnreadFont->height) / 2;
+	const auto top = (context.rowHeight ? context.rowHeight : context.st->height)
+		- st::dialogsUnreadBottomSkip
+		- st::dialogsUnreadHeight;
 	const auto used = PaintBadges(
 		p,
 		context,
@@ -353,15 +366,15 @@ void PaintFolderEntryText(
 	folder->validateListEntryCache();
 	p.setFont(st::dialogsTextFont);
 	p.setPen(context.active
-		? st::dialogsTextFgActive
+		? QColor(255, 255, 255)
 		: context.selected
-		? st::dialogsTextFgOver
-		: st::dialogsTextFg);
+		? st::dialogsTextFgOver->c
+		: st::dialogsTextFg->c);
 	folder->listEntryCache().draw(p, {
 		.position = rect.topLeft(),
 		.availableWidth = rect.width(),
 		.palette = &(context.active
-			? st::dialogsTextPaletteArchiveActive
+			? SelectionTextPalette()
 			: context.selected
 			? st::dialogsTextPaletteArchiveOver
 			: st::dialogsTextPaletteArchive),
@@ -392,15 +405,15 @@ void PaintCommunityEntryText(
 	info->validateListEntryCache();
 	p.setFont(st::dialogsTextFont);
 	p.setPen(context.active
-		? st::dialogsTextFgActive
+		? QColor(255, 255, 255)
 		: context.selected
-		? st::dialogsTextFgOver
-		: st::dialogsTextFg);
+		? st::dialogsTextFgOver->c
+		: st::dialogsTextFg->c);
 	info->listEntryCache().draw(p, {
 		.position = rect.topLeft(),
 		.availableWidth = rect.width(),
 		.palette = &(context.active
-			? st::dialogsTextPaletteArchiveActive
+			? SelectionTextPalette()
 			: context.selected
 			? st::dialogsTextPaletteArchiveOver
 			: st::dialogsTextPaletteArchive),
@@ -647,10 +660,10 @@ void PaintRow(
 				DialogTextOptions());
 		}
 		p.setPen(context.active
-			? st::dialogsTextFgActive
+			? QColor(255, 255, 255)
 			: context.selected
-			? st::dialogsTextFgOver
-			: st::dialogsTextFg);
+			? st::dialogsTextFgOver->c
+			: st::dialogsTextFg->c);
 		history->cloudDraftTextCache().draw(p, {
 			.position = { nameleft, texttop },
 			.availableWidth = availableWidth,
@@ -686,7 +699,7 @@ void PaintRow(
 
 		p.setFont(st::dialogsTextFont);
 		auto &color = context.active
-			? st::dialogsTextFgServiceActive
+			? SelectionTextColor()
 			: context.selected
 			? st::dialogsTextFgServiceOver
 			: st::dialogsTextFgService;
@@ -739,21 +752,21 @@ void PaintRow(
 					context);
 			}
 			p.setPen(context.active
-				? st::dialogsTextFgActive
+				? QColor(255, 255, 255)
 				: context.selected
-				? st::dialogsTextFgOver
-				: st::dialogsTextFg);
+				? st::dialogsTextFgOver->c
+				: st::dialogsTextFg->c);
 			cache.draw(p, {
 				.position = { nameleft, texttop },
 				.availableWidth = availableWidth,
 				.palette = &(supportMode
 					? (context.active
-						? st::dialogsTextPaletteTakenActive
+						? SelectionTextPalette()
 						: context.selected
 						? st::dialogsTextPaletteTakenOver
 						: st::dialogsTextPaletteTaken)
 					: (context.active
-						? st::dialogsTextPaletteDraftActive
+						? SelectionTextPalette()
 						: context.selected
 						? st::dialogsTextPaletteDraftOver
 						: st::dialogsTextPaletteDraft)),
@@ -779,7 +792,7 @@ void PaintRow(
 		}
 
 		auto &color = context.active
-			? st::dialogsTextFgServiceActive
+			? SelectionTextColor()
 			: context.selected
 			? st::dialogsTextFgServiceOver
 			: st::dialogsTextFgService;
@@ -920,16 +933,25 @@ void PaintRow(
 		if (textWidth > rectForName.width()) {
 			text = st::semiboldFont->elided(text, rectForName.width());
 		}
-		p.setPen(context.active
-			? st::dialogsNameFgActive
-			: context.selected
-			? st::dialogsNameFgOver
-			: st::dialogsNameFg);
-		p.drawTextLeft(
-			rectForName.left(),
-			rectForName.top(),
-			context.width,
-			text);
+		if (context.active) {
+			const auto left = style::RightToLeft()
+				? context.width - rectForName.left() - textWidth
+				: rectForName.left();
+			::Ui::PaintClassicText(
+				p,
+				QPointF(left, rectForName.top() + st::semiboldFont->ascent),
+				text,
+				Qt::white);
+		} else {
+			p.setPen(context.selected
+				? st::dialogsNameFgOver->c
+				: st::dialogsNameFg->c);
+			p.drawTextLeft(
+				rectForName.left(),
+				rectForName.top(),
+				context.width,
+				text);
+		}
 	} else if (from) {
 		const auto drawMuteIcon = DialogsMuteIcon.value()
 			&& thread
@@ -951,10 +973,10 @@ void PaintRow(
 			badgeWidth = widthBefore - rectForName.width();
 		}
 		p.setPen(context.active
-			? st::dialogsNameFgActive
+			? QColor(255, 255, 255)
 			: context.selected
-			? st::dialogsNameFgOver
-			: st::dialogsNameFg);
+			? st::dialogsNameFgOver->c
+			: st::dialogsNameFg->c);
 		rowName.draw(p, {
 			.position = rectForName.topLeft(),
 			.availableWidth = rectForName.width(),
@@ -978,10 +1000,10 @@ void PaintRow(
 		}
 	} else if (hiddenSenderInfo) {
 		p.setPen(context.active
-			? st::dialogsNameFgActive
+			? QColor(255, 255, 255)
 			: context.selected
-			? st::dialogsNameFgOver
-			: st::dialogsNameFg);
+			? st::dialogsNameFgOver->c
+			: st::dialogsNameFg->c);
 		hiddenSenderInfo->nameText().draw(p, {
 			.position = rectForName.topLeft(),
 			.availableWidth = rectForName.width(),
@@ -989,14 +1011,14 @@ void PaintRow(
 		});
 	} else {
 		p.setPen(context.active
-			? st::dialogsNameFgActive
+			? QColor(255, 255, 255)
 			: entry->folder()
 			? (context.selected
-				? st::dialogsArchiveFgOver
-				: st::dialogsArchiveFg)
+				? st::dialogsArchiveFgOver->c
+				: st::dialogsArchiveFg->c)
 			: (context.selected
-				? st::dialogsNameFgOver
-				: st::dialogsNameFg));
+				? st::dialogsNameFgOver->c
+				: st::dialogsNameFg->c));
 		rowName.draw(p, {
 			.position = rectForName.topLeft(),
 			.availableWidth = rectForName.width(),
@@ -1005,12 +1027,40 @@ void PaintRow(
 	}
 
 	if (const auto tags = context.chatsFilterTags) {
+		auto reserved = 0;
+		if (badgesState.unread) {
+			const auto counter = FormatUnreadCounter(
+				badgesState.unreadCounter,
+				badgesState.mention || badgesState.reaction || badgesState.poll,
+				false);
+			reserved = CountUnreadBadgeSize(counter, UnreadBadgeStyle()).width()
+				+ st::dialogsUnreadPadding;
+		} else if (context.rightButton) {
+			reserved = context.rightButton->bg.width() / style::DevicePixelRatio()
+				+ st::dialogsUnreadPadding;
+		}
+		if (badgesState.mention || badgesState.reaction) {
+			reserved += st::dialogsUnreadHeight + st::dialogsUnreadPadding;
+		}
+		if (badgesState.poll) {
+			reserved += st::dialogsUnreadHeight + st::dialogsUnreadPadding;
+		}
+		const auto tagWidth = std::max(
+			context.width - context.st->padding.right() - reserved - nameleft,
+			0);
+		p.save();
+		p.setClipRect(QRect(
+			nameleft,
+			context.st->tagTop,
+			tagWidth,
+			geometry.height() - context.st->tagTop), Qt::IntersectClip);
 		auto left = nameleft;
 		for (const auto &tag : *tags) {
 			p.drawImage(left, context.st->tagTop, *tag);
 			left += st::dialogRowFilterTagSkip
 				+ (tag->width() / style::DevicePixelRatio());
 		}
+		p.restore();
 	}
 	if (swipeTranslation) {
 		p.translate(swipeTranslation, 0);
@@ -1070,6 +1120,24 @@ void PaintRow(
 
 } // namespace
 
+const style::color &SelectionTextColor() {
+	static const auto result = style::complex_color([] {
+		return QColor(255, 255, 255);
+	});
+	return result.color();
+}
+
+const style::TextPalette &SelectionTextPalette() {
+	static const auto result = [] {
+		auto result = st::defaultTextPalette;
+		result.linkFg = SelectionTextColor();
+		result.monoFg = SelectionTextColor();
+		result.spoilerFg = SelectionTextColor();
+		return result;
+	}();
+	return result;
+}
+
 const style::icon *ChatTypeIcon(not_null<PeerData*> peer) {
 	return ChatTypeIcon(peer, {
 		.st = &st::defaultDialogRow,
@@ -1119,7 +1187,9 @@ void RowPainter::Paint(
 		Painter &p,
 		not_null<const Row*> row,
 		VideoUserpic *videoUserpic,
-		const PaintContext &context) {
+		const PaintContext &paintContext) {
+	auto context = paintContext;
+	context.rowHeight = row->height();
 	const auto entry = row->entry();
 	const auto history = row->history();
 	const auto thread = row->thread();
@@ -1188,7 +1258,7 @@ void RowPainter::Paint(
 			namewidth,
 			displayPinnedIcon);
 		const auto &color = context.active
-			? st::dialogsTextFgServiceActive
+			? SelectionTextColor()
 			: context.selected
 			? st::dialogsTextFgServiceOver
 			: st::dialogsTextFgService;
@@ -1407,14 +1477,15 @@ void PaintCollapsedRow(
 
 	const auto unreadTop = (st::dialogsImportantBarHeight - st::dialogsUnreadHeight) / 2;
 	if (!context.narrow || !folder) {
-		p.setFont(st::semiboldFont);
-		p.setPen(st::dialogsNameFg);
+		const auto font = st::classicActionFont;
+		auto renderedFont = QFont(font);
+		renderedFont.setUnderline(context.selected);
+		p.setFont(renderedFont);
+		p.setPen(st::windowActiveTextFg);
 
-		const auto textBaseline = unreadTop
-			+ (st::dialogsUnreadHeight - st::dialogsUnreadFont->height) / 2
-			+ st::dialogsUnreadFont->ascent;
+		const auto textBaseline = (st::dialogsImportantBarHeight - font->height) / 2 + font->ascent;
 		const auto left = context.narrow
-			? ((context.width - st::semiboldFont->width(text)) / 2)
+			? ((context.width - font->width(text)) / 2)
 			: st::dialogsTopBarLeftPadding;
 			// : context.st->padding.left();
 		p.drawText(left, textBaseline, text);

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_chat_switch_process.h"
 
+#include "ui/style/style_radius.h"
 #include "core/application.h"
 #include "core/shortcuts.h"
 #include "data/components/recent_peers.h"
@@ -197,7 +198,7 @@ void Button::paintEvent(QPaintEvent *e) {
 	p.setPen(pen);
 	const auto r = QRectF(rect()).marginsRemoved(
 		{ line / 2., line / 2., line / 2., line / 2. });
-	p.drawRoundedRect(r, radius, radius);
+	p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 }
 
 void Button::mouseMoveEvent(QMouseEvent *e) {

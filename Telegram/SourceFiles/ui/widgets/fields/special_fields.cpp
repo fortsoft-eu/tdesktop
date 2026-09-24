@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/fields/special_fields.h"
 
+#include "ui/style/style_classic.h"
 #include "lang/lang_keys.h"
 #include "countries/countries_instance.h" // Countries::ValidPhoneCode
 #include "styles/style_widgets.h"
@@ -128,7 +129,7 @@ void PhonePartInput::paintAdditionalPlaceholder(QPainter &p) {
 			if (tw < phRect.width()) {
 				phRect.setLeft(phRect.left() + tw);
 				placeholderAdditionalPrepare(p);
-				p.drawText(phRect, ph, style::al_topleft);
+				PaintClassicText(p, phRect.topLeft() + QPoint(0, p.fontMetrics().ascent()), ph, p.pen().color());
 			}
 		}
 	}
@@ -308,7 +309,10 @@ void UsernameInput::paintAdditionalPlaceholder(QPainter &p) {
 	if (!_linkPlaceholder.isEmpty()) {
 		p.setFont(_st.style.font);
 		p.setPen(_st.placeholderFg);
-		p.drawText(QRect(_st.textMargins.left(), _st.textMargins.top(), width(), height() - _st.textMargins.top() - _st.textMargins.bottom()), _linkPlaceholder, style::al_topleft);
+		const auto metrics = fontMetrics();
+		const auto rect = contentsRect();
+		const auto baseline = rect.top() + (rect.height() - metrics.height() + 1) / 2 + metrics.ascent();
+		PaintClassicText(p, QPoint(_st.textMargins.left(), baseline), _linkPlaceholder, p.pen().color());
 	}
 }
 
@@ -385,7 +389,8 @@ void PhoneInput::paintAdditionalPlaceholder(QPainter &p) {
 			if (tw < phRect.width()) {
 				phRect.setLeft(phRect.left() + tw);
 				placeholderAdditionalPrepare(p);
-				p.drawText(phRect, ph, style::al_topleft);
+				PaintClassicText(p, phRect.topLeft()
+					+ QPoint(0, p.fontMetrics().ascent()), ph, p.pen().color());
 			}
 		}
 	}

@@ -250,7 +250,7 @@ void FileLoader::localLoaded(
 void FileLoader::start() {
 	if (_finished || tryLoadLocal()) {
 		return;
-	} else if (_fromCloud == LoadFromLocalOnly) {
+	} else if (_fromCloud == LoadFromLocalOnly && !supportsLocalOnlyParts()) {
 		cancel();
 		return;
 	}

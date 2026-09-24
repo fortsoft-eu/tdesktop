@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/info_profile_top_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_peer_colors.h"
 #include "api/api_peer_photo.h"
 #include "api/api_user_privacy.h"
@@ -90,7 +91,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/horizontal_fit_container.h"
 #include "ui/widgets/labels.h"
-#include "ui/widgets/marquee_label.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/shadow.h"
@@ -106,6 +106,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info_profile_top_bar.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
+#include "styles/style_settings.h"
 
 #include <QtGui/QClipboard>
 #include <QtGui/QGuiApplication>
@@ -162,72 +163,6 @@ using AnimatedPatternPoint = TopBar::AnimatedPatternPoint;
 	return Ui::IsLightBackground(background)
 		? QColor(Qt::black)
 		: st::groupCallMembersFg->c;
-}
-
-class BackdropIconButton final : public Ui::IconButton {
-public:
-	using Ui::IconButton::IconButton;
-
-	void setBackdropColor(std::optional<QColor> color);
-
-protected:
-	void paintEvent(QPaintEvent *e) override;
-	void onStateChanged(State was, StateChangeSource source) override;
-
-private:
-	std::optional<QColor> _backdropColor;
-	style::owned_color _rippleColor = style::owned_color(QColor());
-	Ui::Animations::Simple _overAnimation;
-
-};
-
-void BackdropIconButton::setBackdropColor(std::optional<QColor> color) {
-	_backdropColor = color;
-	setIconColorOverride(color);
-	if (color) {
-		_rippleColor.update(anim::with_alpha(
-			*color,
-			st::infoProfileTopBarBackdropRippleOpacity));
-	}
-	setRippleColorOverride(color ? &_rippleColor.color() : nullptr);
-	update();
-}
-
-void BackdropIconButton::paintEvent(QPaintEvent *e) {
-	const auto shown = _backdropColor
-		? _overAnimation.value(isOver() ? 1. : 0.)
-		: 0.;
-	if (shown > 0.) {
-		auto p = QPainter(this);
-		auto hq = PainterHighQualityEnabler(p);
-		p.setOpacity(shown);
-		p.setPen(Qt::NoPen);
-		p.setBrush(_rippleColor.color());
-		p.drawEllipse(QRect(
-			st().rippleAreaPosition,
-			QSize(st().rippleAreaSize, st().rippleAreaSize)));
-	}
-	Ui::IconButton::paintEvent(e);
-}
-
-void BackdropIconButton::onStateChanged(
-		State was,
-		StateChangeSource source) {
-	Ui::IconButton::onStateChanged(was, source);
-
-	const auto over = isOver();
-	if (over != ((was & StateFlag::Over) != 0)) {
-		_overAnimation.start(
-			[=] { update(); },
-			over ? 0. : 1.,
-			over ? 1. : 0.,
-			st::universalDuration);
-	}
-}
-
-[[nodiscard]] not_null<BackdropIconButton*> Backdrop(
-		not_null<Ui::IconButton*> button) {
-	return static_cast<BackdropIconButton*>(button.get());
 }
 
 struct PatternColors {
@@ -392,7 +327,9 @@ TopBar::TopBar(
 			? 0
 			: st::infoProfileTopBarActionButtonsHeight);
 }())
-, _title(this, nameValue(), _st.title)
+, _title(this, nameValue(), descriptor.source == Source::Preview
+	? st::settingsCoverName
+	: st::infoProfileTopBarName)
 , _starsRating((_peer->isUser() && !_savedMessages)
 	? std::make_unique<Ui::StarsRating>(
 		this,
@@ -883,10 +820,20 @@ void TopBar::finalizeActions(
 			: (ratio <= 0.5)
 			? 0
 			: int(h * (ratio - 0.5) / 0.5);
+		const auto availableWidth = size.width()
+			- rect::m::sum::h(padding);
+		const auto count = int(buttons.size());
+		const auto space = st::infoProfileTopBarActionButtonsSpace;
+		const auto buttonWidth = std::max(
+			(availableWidth - (2 * space)) / 3,
+			0);
+		const auto actionsWidth = count
+			? (count * buttonWidth) + ((count - 1) * space)
+			: 0;
 		_actions->setGeometry(
-			padding.left(),
+			(size.width() - actionsWidth) / 2,
 			size.height() - resultHeight - padding.bottom(),
-			size.width() - rect::m::sum::h(padding),
+			actionsWidth,
 			resultHeight);
 	}, _actions->lifetime());
 	_actions->geometryValue() | rpl::on_next([=](QRect geometry) {
@@ -958,18 +905,19 @@ void TopBar::setupActions(not_null<Window::SessionController*> controller) {
 	_actions = base::make_unique_q<Ui::HorizontalFitContainer>(
 		this,
 		st::infoProfileTopBarActionButtonsSpace);
-	const auto chechMax = [&, max = 3] {
+	const auto hasMore = [&] {
+		if (isSide) {
+			return false;
+		}
+		const auto guard = gsl::finally([&] { _peerMenu = nullptr; });
+		showTopBarMenu(controller, true);
+		return bool(_peerMenu);
+	}();
+	const auto chechMax = [&, max = hasMore ? 2 : 3] {
 		return buttons.size() >= max;
 	};
 	const auto addMore = [&] {
-		if ([&]() -> bool {
-			if (isSide) {
-				return false;
-			}
-			const auto guard = gsl::finally([&] { _peerMenu = nullptr; });
-			showTopBarMenu(controller, true);
-			return _peerMenu;
-		}()) {
+		if (hasMore) {
 			const auto moreButton = Ui::CreateChild<TopBarActionButton>(
 				this,
 				tr::lng_profile_action_short_more(tr::now),
@@ -1078,15 +1026,9 @@ void TopBar::setupActions(not_null<Window::SessionController*> controller) {
 			[=, skip = st::infoProfileTopBarActionMenuSkip] {
 				return notifications->mapToGlobal(
 					QPoint(0, notifications->height() + skip));
-			});
+		});
 		buttons.push_back(notifications);
 		_actions->add(notifications);
-		_edgeColor.value() | rpl::on_next([=](
-				std::optional<QColor> c) {
-			notifications->setLottieColor(c
-				? (const style::color*)(nullptr)
-				: &st::windowBoldFg);
-		}, notifications->lifetime());
 	}
 	if (chechMax()) {
 		return;
@@ -1853,8 +1795,8 @@ void TopBar::paintEdges(
 		p.setBrush(brush);
 		p.drawRoundedRect(
 			r + QMargins{ 0, 0, 0, radius + 1 },
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	} else {
 		p.fillRect(r.intersected(clip), brush);
 	}
@@ -2047,9 +1989,15 @@ void TopBar::updateStatusPosition(float64 progressCurrent) {
 			st::infoProfileTopBarActionButtonsPadding.right(),
 			progressCurrent);
 		const auto maxWidth = width() - buttonMostLeft - buttonMostRight;
-		if (_forumButton->contentWidth() > maxWidth) {
-			_forumButton->setFullWidth(maxWidth);
-		}
+		const auto availableWidth = width()
+			- rect::m::sum::h(st::infoProfileTopBarActionButtonsPadding);
+		const auto expandedWidth = (availableWidth
+			- (2 * st::infoProfileTopBarActionButtonsSpace)) / 3;
+		const auto targetWidth = anim::interpolate(
+			std::min(_forumButton->contentWidth(), maxWidth),
+			expandedWidth,
+			progressCurrent);
+		_forumButton->setFullWidth(std::min(targetWidth, maxWidth));
 		const auto buttonLeft = anim::interpolate(
 			mostLeft,
 			(width() - _forumButton->width()) / 2,
@@ -2094,12 +2042,17 @@ void TopBar::updateStatusPosition(float64 progressCurrent) {
 	_status->moveToLeft(statusLeft + statusShift, statusTop);
 
 	if (_showLastSeen->toggled()) {
+		const auto &buttonStyle = _showLastSeen->entity()->st();
+		const auto buttonTop = statusTop + _status->st().margin.top()
+			+ _status->st().style.font->ascent
+			- buttonStyle.padding.top() - buttonStyle.textTop
+			- buttonStyle.style.font->ascent;
 		_showLastSeen->moveToLeft(
 			statusLeft
 				+ statusShift
 				+ _status->textMaxWidth()
 				+ st::infoProfileTopBarLastSeenSkip.x(),
-			statusTop + st::infoProfileTopBarLastSeenSkip.y());
+			buttonTop);
 		_showLastSeen->setOpacity(progressCurrent);
 		_showLastSeen->entity()->setAttribute(
 			Qt::WA_TransparentForMouseEvents,
@@ -2276,8 +2229,8 @@ void TopBar::createTabSelectionBar() {
 		p.setBrush(_st.bg);
 		p.drawRoundedRect(
 			inner->rect() + QMargins(0, 0, 0, radius),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 		const auto line = st::lineWidth;
 		p.fillRect(
 			0,
@@ -2451,8 +2404,8 @@ void TopBar::showTabSearch() {
 			p.setBrush(_st.bg);
 			p.drawRoundedRect(
 				inner->rect() + QMargins(0, 0, 0, radius),
-				radius,
-				radius);
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 			const auto line = st::lineWidth;
 			p.fillRect(
 				0,
@@ -2473,17 +2426,22 @@ void TopBar::showTabSearch() {
 			}
 		}, _tabSearchField->lifetime());
 
-		const auto cancel = Ui::CreateChild<Ui::IconButton>(
+		const auto cancel = Ui::CreateChild<Ui::CrossButton>(
 			inner,
-			st::infoTopBarBlackClose);
+			_st.searchRow.fieldCancel);
+		cancel->setClassic(true);
+		cancel->setCursor(style::cur_default);
 		cancel->setAccessibleName(tr::lng_sr_cancel_search(tr::now));
-		cancel->show();
+		cancel->show(anim::type::instant);
 		cancel->addClickHandler([=] {
 			cancelTabSearch();
 		});
-		inner->widthValue(
-		) | rpl::on_next([=](int newWidth) {
-			cancel->moveToRight(0, 0, newWidth);
+		inner->sizeValue(
+		) | rpl::on_next([=](QSize size) {
+			cancel->moveToRight(
+				_st.searchRow.padding.right(),
+				(size.height() - cancel->height()) / 2,
+				size.width());
 		}, cancel->lifetime());
 
 		_tabSearchField->show();
@@ -2503,7 +2461,7 @@ void TopBar::hideTabSearch() {
 	}
 	_tabSearchShown = false;
 	if (_back) {
-		Backdrop(_back->entity())->setBackdropColor(buttonsColorOverride());
+		_back->entity()->setIconColorOverride(buttonsColorOverride());
 	}
 	if (_tabSearchField->hasFocus()) {
 		setFocus();
@@ -2549,7 +2507,7 @@ void TopBar::raiseTabSearchOverlay() {
 	_tabSearchBar->raise();
 	if (_back) {
 		_back->raise();
-		Backdrop(_back->entity())->setBackdropColor(std::nullopt);
+		_back->entity()->setIconColorOverride(std::nullopt);
 	}
 }
 
@@ -2896,8 +2854,8 @@ void TopBar::paintEvent(QPaintEvent *e) {
 				const auto radius = st::boxRadius;
 				_cachedClipPath.addRoundedRect(
 					rect() + QMargins{ 0, 0, 0, radius + 1 },
-					radius,
-					radius);
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 			}
 			auto hq = PainterHighQualityEnabler(p);
 			p.setPen(Qt::NoPen);
@@ -2944,7 +2902,7 @@ void TopBar::setupButtons(
 
 		_back = base::make_unique_q<Ui::FadeWrap<Ui::IconButton>>(
 			this,
-			object_ptr<BackdropIconButton>(
+			object_ptr<Ui::IconButton>(
 				this,
 				(isLayer
 					? st::infoLayerTopBarBlackBack
@@ -2963,7 +2921,7 @@ void TopBar::setupButtons(
 		if (!isLayer && !isSide) {
 			_close = nullptr;
 		} else {
-			_close = base::make_unique_q<BackdropIconButton>(
+			_close = base::make_unique_q<Ui::IconButton>(
 				this,
 				(isLayer
 					? st::infoLayerTopBarBlackClose
@@ -2983,7 +2941,7 @@ void TopBar::setupButtons(
 
 		_tabMenuToggle = base::make_unique_q<Ui::FadeWrap<Ui::IconButton>>(
 			this,
-			object_ptr<BackdropIconButton>(
+			object_ptr<Ui::IconButton>(
 				this,
 				st::infoTopBarBlackMenu),
 			st::infoTopBarScale);
@@ -2998,7 +2956,7 @@ void TopBar::setupButtons(
 
 		_tabSearchToggle = base::make_unique_q<Ui::FadeWrap<Ui::IconButton>>(
 			this,
-			object_ptr<BackdropIconButton>(
+			object_ptr<Ui::IconButton>(
 				this,
 				st::infoTopBarBlackSearch),
 			st::infoTopBarScale);
@@ -3013,7 +2971,7 @@ void TopBar::setupButtons(
 
 		_tabGroupToggle = base::make_unique_q<Ui::FadeWrap<Ui::IconButton>>(
 			this,
-			object_ptr<BackdropIconButton>(
+			object_ptr<Ui::IconButton>(
 				this,
 				st::infoTopBarBlackGroup),
 			st::infoTopBarScale);
@@ -3055,7 +3013,7 @@ void TopBar::setupButtons(
 void TopBar::addTopBarEditButton(
 		not_null<Window::SessionController*> controller,
 		Wrap wrap) {
-	_topBarButton = base::make_unique_q<BackdropIconButton>(
+	_topBarButton = base::make_unique_q<Ui::IconButton>(
 		this,
 		((wrap == Wrap::Layer)
 			? st::infoLayerTopBarBlackEdit
@@ -3086,7 +3044,7 @@ void TopBar::updateButtonsColorOverride() {
 	const auto color = buttonsColorOverride();
 	const auto apply = [&](Ui::IconButton *button) {
 		if (button) {
-			Backdrop(button)->setBackdropColor(color);
+			button->setIconColorOverride(color);
 		}
 	};
 	apply(_back ? _back->entity() : nullptr);

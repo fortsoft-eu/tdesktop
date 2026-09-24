@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/controls/history_view_voice_record_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_send_progress.h"
 #include "base/event_filter.h"
 #include "base/random.h"
@@ -37,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/animation_value.h"
 #include "ui/effects/animation_value_f.h"
 #include "ui/effects/ripple_animation.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/format_values.h"
 #include "ui/text/text_utilities.h"
 #include "ui/dynamic_image.h"
@@ -46,6 +48,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 #include "ui/ui_utility.h"
 #include "webrtc/webrtc_video_track.h"
+
+#include <QtGui/QFontMetrics>
+
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
 #include "styles/style_history_view_voice_record_bar.h"
@@ -735,7 +740,7 @@ private:
 	const not_null<Ui::RoundVideoResult*> _data;
 	const bool _allowTrim = false;
 	const base::unique_qptr<Ui::IconButton> _delete;
-	const style::font &_durationFont;
+	const style::font _durationFont;
 	QString _duration;
 	int _durationWidth = 0;
 	const style::MediaPlayerButton &_playPauseSt;
@@ -788,7 +793,7 @@ ListenWrap::ListenWrap(
 , _data(data)
 , _allowTrim(allowTrim)
 , _delete(base::make_unique_q<Ui::IconButton>(parent, _st.remove))
-, _durationFont(font)
+, _durationFont(font->bold())
 , _duration(FormatTrimDuration(_data->duration))
 , _durationWidth(_durationFont->width(_duration))
 , _playPauseSt(st::mediaPlayerButton)
@@ -889,11 +894,17 @@ void ListenWrap::init() {
 			p.setBrush(anim::with_alpha(
 				_st.cancelActive->c,
 				st::historyRecordWaveformOutsideAlpha));
-			p.drawRoundedRect(bgRect, radius, radius);
+			p.drawRoundedRect(
+				bgRect,
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 			if (canTrim() && !trimFrameRect.isEmpty()) {
 				const auto activeBgRect = trimFrameRect.intersected(bgRect);
 				auto clipPath = QPainterPath();
-				clipPath.addRoundedRect(bgRect, radius, radius);
+				clipPath.addRoundedRect(
+					bgRect,
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 				p.save();
 				p.setClipPath(clipPath);
 				if (activeBgRect.isEmpty()) {
@@ -1015,8 +1026,8 @@ void ListenWrap::init() {
 							+ (handle.height() - height) / 2;
 						p.drawRoundedRect(
 							QRect(x, y, width, height),
-							width / 2.,
-							width / 2.);
+							style::CornerRadius(width / 2.),
+							style::CornerRadius(width / 2.));
 					};
 					p.setBrush(_activeWaveformBar);
 					drawInner(trimLeftHandleRect);
@@ -1044,21 +1055,27 @@ void ListenWrap::init() {
 					p.setBrush(_st.cancelActive);
 					p.drawRoundedRect(
 						_controlRect,
-						_controlRect.height() / 2.,
-						_controlRect.height() / 2.);
+						style::CornerRadius(_controlRect.height() / 2.),
+						style::CornerRadius(_controlRect.height() / 2.));
 
 					if (_controlHasDuration) {
 						p.setFont(_durationFont);
-						p.setPen(st::historyRecordVoiceFgActiveIcon);
 						const auto ascent = _durationFont->ascent;
 						const auto left = rect::right(_playPauseButton)
 							/*+ st::historyRecordCenterControlTextSkip*/;
 						const auto top = _controlRect.y()
 							+ (_controlRect.height() - ascent) / 2;
-						p.drawText(
-							QRect(left, top, _durationWidth, ascent),
+						const auto metrics = QFontMetricsF(p.font(), p.device());
+						const auto textRect = metrics.boundingRect(
+							QRectF(left, top, _durationWidth, ascent),
 							style::al_left,
 							_duration);
+						Ui::PaintClassicText(
+							p,
+							textRect.topLeft()
+								+ QPointF(0, metrics.ascent()),
+							_duration,
+							Qt::white);
 					}
 				}
 			}
@@ -1872,12 +1889,12 @@ void RecordLock::drawProgress(QPainter &p) {
 			}
 			p.drawRoundedRect(
 				blockRect - QMargins(0, 0, pauseLineOffset, 0),
-				xRadius,
-				3);
+				style::CornerRadius(xRadius),
+				style::CornerRadius(3));
 			p.drawRoundedRect(
 				blockRect - QMargins(pauseLineOffset, 0, 0, 0),
-				xRadius,
-				3);
+				style::CornerRadius(xRadius),
+				style::CornerRadius(3));
 		} else {
 			// Paint an animation frame.
 			auto frame = QImage(
@@ -1900,12 +1917,12 @@ void RecordLock::drawProgress(QPainter &p) {
 					_lockToStopProgress);
 				q.drawRoundedRect(
 					blockRect - QMarginsF(0, 0, offset, 0),
-					xRadius,
-					3);
+					style::CornerRadius(xRadius),
+					style::CornerRadius(3));
 				q.drawRoundedRect(
 					blockRect - QMarginsF(offset, 0, 0, 0),
-					xRadius,
-					3);
+					style::CornerRadius(xRadius),
+					style::CornerRadius(3));
 			}
 
 			const auto offsetTranslate = _lockToStopProgress *
@@ -1976,7 +1993,7 @@ void RecordLock::requestPaintProgress(float64 progress) {
 void RecordLock::requestPaintLockToStopProgress(float64 progress) {
 	_lockToStopProgress = progress;
 	if (isStopState()) {
-		setCursor(style::cur_pointer);
+		setCursor(style::cur_default);
 		setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
 		resize(
@@ -2025,8 +2042,7 @@ class CancelButton final : public Ui::RippleButton {
 public:
 	CancelButton(
 		not_null<Ui::RpWidget*> parent,
-		const style::RecordBar &st,
-		int height);
+		const style::RecordBar &st);
 
 	void requestPaintProgress(float64 progress);
 
@@ -2037,10 +2053,6 @@ protected:
 private:
 	void init();
 
-	const style::RecordBar &_st;
-	const int _width;
-	const QRect _rippleRect;
-
 	rpl::variable<float64> _showProgress = 0.;
 
 	Ui::Text::String _text;
@@ -2049,15 +2061,13 @@ private:
 
 CancelButton::CancelButton(
 	not_null<Ui::RpWidget*> parent,
-	const style::RecordBar &st,
-	int height)
+	const style::RecordBar &st)
 : Ui::RippleButton(parent, st.cancelRipple)
-, _st(st)
-, _width(st::historyRecordCancelButtonWidth)
-, _rippleRect(QRect(0, (height - _width) / 2, _width, _width))
-, _text(st::semiboldTextStyle, tr::lng_selected_clear(tr::now)) {
+, _text(st::historyRecordCancelTextStyle, tr::lng_cancel(tr::now)) {
 	setAccessibleName(tr::lng_record_cancel_recording(tr::now));
-	resize(_width, height);
+	resize(
+		st::historyRecordCancelButtonWidth,
+		st::historyRecordCancelButtonHeight);
 	init();
 }
 
@@ -2074,24 +2084,25 @@ void CancelButton::init() {
 
 		p.setOpacity(_showProgress.current());
 
-		Ui::RippleButton::paintRipple(p, _rippleRect.x(), _rippleRect.y());
-
-		p.setPen(_st.cancelActive);
+		Ui::PaintClassicButton(p, rect(), this, isDown());
+		const auto shift = Ui::ClassicButtonContentOffset(this, isDown());
+		p.setPen(st::classicMenuText);
 		_text.draw(p, {
-			.position = QPoint(0, (height() - _text.minHeight()) / 2),
+			.position = QPoint(0, (height() - _text.minHeight()) / 2) + shift,
 			.outerWidth = width(),
 			.availableWidth = width(),
 			.align = style::al_center,
+			.elisionLines = 1,
 		});
 	}, lifetime());
 }
 
 QImage CancelButton::prepareRippleMask() const {
-	return Ui::RippleAnimation::EllipseMask(_rippleRect.size());
+	return Ui::RippleAnimation::RectMask(size());
 }
 
 QPoint CancelButton::prepareRippleStartPosition() const {
-	return mapFromGlobal(QCursor::pos()) - _rippleRect.topLeft();
+	return mapFromGlobal(QCursor::pos());
 }
 
 void CancelButton::requestPaintProgress(float64 progress) {
@@ -2109,7 +2120,7 @@ VoiceRecordBar::VoiceRecordBar(
 , _send(std::move(descriptor.send))
 , _lock(std::make_unique<RecordLock>(_outerContainer, _st.lock))
 , _level(std::make_unique<VoiceRecordButton>(_outerContainer, _st))
-, _cancel(std::make_unique<CancelButton>(this, _st, descriptor.recorderHeight))
+, _cancel(std::make_unique<CancelButton>(this, _st))
 , _startTimer([=] { startRecording(); })
 , _message(
 	st::historyRecordTextStyle,
@@ -2141,6 +2152,11 @@ VoiceRecordBar::~VoiceRecordBar() {
 	if (isActive()) {
 		stopRecording(StopType::Cancel);
 	}
+}
+
+void VoiceRecordBar::disablePointerCursor() {
+	DisablePointerCursor(this);
+	DisablePointerCursor(_level.get());
 }
 
 void VoiceRecordBar::updateMessageGeometry() {
@@ -2261,7 +2277,9 @@ void VoiceRecordBar::init() {
 				_cancelFont->width(FormatVoiceDuration(kMaxSamples)),
 				ascent);
 		}
-		_cancel->moveToLeft((size.width() - _cancel->width()) / 2, 0);
+		_cancel->moveToLeft(
+			(size.width() - _cancel->width()) / 2,
+			(size.height() - _cancel->height()) / 2);
 		updateMessageGeometry();
 	}, lifetime());
 

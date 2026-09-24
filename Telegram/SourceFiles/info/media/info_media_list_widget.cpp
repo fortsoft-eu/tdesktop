@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_forum_topic.h"
 #include "data/data_saved_sublist.h"
 #include "history/view/media/history_view_save_document_action.h"
+#include "history/view/media/history_view_local_copy.h"
 #include "history/view/history_view_cursor_state.h"
 #include "history/view/history_view_service_message.h"
 #include "history/history.h"
@@ -1541,7 +1542,7 @@ void ListWidget::showContextMenu(
 					std::move(handler),
 					&st::menuIconShowInFolder);
 			}
-			if (_provider->allowSaveFileAs(item, document)) {
+			if (_provider->allowSaveFileAs(item, document) || (item->isHistoryEntry() && HistoryView::HasLocalMediaCopy(document))) {
 				HistoryView::AddSaveDocumentAction(
 					Ui::Menu::CreateAddActionCallback(_contextMenu),
 					item,

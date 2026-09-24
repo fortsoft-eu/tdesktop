@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QLockFile>
 #include <QtGui/QSessionManager>
 #include <QtGui/QScreen>
+#include <QtWidgets/QStyleFactory>
 #include <QtGui/qpa/qplatformscreen.h>
 
 namespace Core {
@@ -47,6 +48,7 @@ base::options::toggle OptionDeadlockDetector({
 	.id = kOptionDeadlockDetector,
 	.name = "Deadlock Detector",
 	.description = "Check once every 30 seconds that main thread is still responsive.",
+	.defaultValue = false,
 });
 
 constexpr auto kCleanupIpcTimeout = 10 * crl::time(1000);
@@ -62,6 +64,9 @@ bool Sandbox::SystemShuttingDown = false;
 Sandbox::Sandbox(int &argc, char **argv)
 : QApplication(argc, argv)
 , _mainThreadId(QThread::currentThreadId()) {
+	if (const auto classic = QStyleFactory::create(u"windows"_q)) {
+		QApplication::setStyle(classic);
+	}
 #ifdef Q_OS_MAC
 	Platform::CreateGlobalMenu();
 #endif // Q_OS_MAC

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/compose_ai_box.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_compose_with_ai.h"
 #include "apiwrap.h"
 #include "boxes/create_ai_tone_box.h"
@@ -330,7 +331,7 @@ struct ComposeAiStylePanel {
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::aiComposeStyleTabsBg);
 		const auto radius = st::aiComposeStyleTabsRadius;
-		p.drawRoundedRect(bg->rect(), radius, radius);
+		p.drawRoundedRect(bg->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	}, bg->lifetime());
 	panel->sizeValue() | rpl::on_next([=](QSize size) {
 		bg->setGeometry(QRect(QPoint(), size));
@@ -626,7 +627,7 @@ ComposeAiModeButton::ComposeAiModeButton(
 : RippleButton(parent, st::aiComposeButtonRippleInactive)
 , _mode(mode)
 , _label(std::move(label)) {
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 	setAccessibleName(_label);
 }
 
@@ -653,8 +654,8 @@ void ComposeAiModeButton::paintEvent(QPaintEvent *e) {
 			st::aiComposeTabButtonBgActive));
 		p.drawRoundedRect(
 			rect(),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	const auto ripple = ComposeAiRippleColor(
 		_selected
@@ -690,8 +691,8 @@ QImage ComposeAiModeButton::prepareRippleMask() const {
 		const auto radius = ComposeAiPillRadius(height());
 		p.drawRoundedRect(
 			rect(),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	});
 }
 
@@ -761,8 +762,8 @@ void ComposeAiModeTabs::paintEvent(QPaintEvent *e) {
 	const auto radius = st::aiComposeTabsRadius;
 	p.drawRoundedRect(
 		rect(),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 }
 
 // ComposeAiPreviewCard
@@ -1124,8 +1125,8 @@ void ComposeAiPreviewCard::paintEvent(QPaintEvent *e) {
 	p.setBrush(st::aiComposeCardBg);
 	p.drawRoundedRect(
 		rect(),
-		st::aiComposeCardRadius,
-		st::aiComposeCardRadius);
+		style::CornerRadius(st::aiComposeCardRadius),
+		style::CornerRadius(st::aiComposeCardRadius));
 	if (_dividerVisible) {
 		p.setBrush(Qt::NoBrush);
 		auto color = st::windowSubTextFg->c;

@@ -43,6 +43,7 @@ base::options::toggle MediaTabsExpandedOption({
 	.name = "Split profile media tab into photos and videos.",
 	.description = "Show separate photo and video tabs in profiles instead "
 		"of a single combined media tab.",
+	.defaultValue = false,
 });
 
 [[nodiscard]] bool MediaTabGrid(SharedMediaType type) {

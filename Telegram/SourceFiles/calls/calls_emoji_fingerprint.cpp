@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "calls/calls_emoji_fingerprint.h"
 
+#include "ui/style/style_radius.h"
 #include "base/random.h"
 #include "calls/calls_call.h"
 #include "calls/calls_signal_bars.h"
@@ -274,16 +275,16 @@ base::unique_qptr<Ui::RpWidget> CreateFingerprintAndSignalBars(
 
 		// Fingerprint part.
 		p.setClipRect(0, 0, fullPrintSize.width() / 2, height);
-		p.drawRoundedRect(fullPrintRect, bigRadius, bigRadius);
+		p.drawRoundedRect(fullPrintRect, style::CornerRadius(bigRadius), style::CornerRadius(bigRadius));
 		p.setClipRect(fullPrintSize.width() / 2, 0, fullSize.width(), height);
-		p.drawRoundedRect(fullPrintRect, smallRadius, smallRadius);
+		p.drawRoundedRect(fullPrintRect, style::CornerRadius(smallRadius), style::CornerRadius(smallRadius));
 
 		// Signal bars part.
 		const auto middle = fullBarsRect.center().x();
 		p.setClipRect(0, 0, middle, height);
-		p.drawRoundedRect(fullBarsRect, smallRadius, smallRadius);
+		p.drawRoundedRect(fullBarsRect, style::CornerRadius(smallRadius), style::CornerRadius(smallRadius));
 		p.setClipRect(middle, 0, fullBarsRect.width(), height);
-		p.drawRoundedRect(fullBarsRect, bigRadius, bigRadius);
+		p.drawRoundedRect(fullBarsRect, style::CornerRadius(bigRadius), style::CornerRadius(bigRadius));
 
 		// Emoji.
 		const auto realSize = Ui::Emoji::GetSizeNormal();
@@ -737,7 +738,7 @@ void SetupFingerprintBadgeWidget(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::groupCallMembersBg);
-		p.drawRoundedRect(outer, radius, radius);
+		p.drawRoundedRect(outer, style::CornerRadius(radius), style::CornerRadius(radius));
 		p.setClipRect(outer);
 
 		const auto withEmoji = outer.marginsRemoved(

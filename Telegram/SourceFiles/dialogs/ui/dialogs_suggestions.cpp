@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/ui/dialogs_suggestions.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_chat_participants.h"
 #include "apiwrap.h"
 #include "base/unixtime.h"
@@ -48,13 +49,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/confirm_box.h"
 #include "ui/controls/swipe_handler.h"
 #include "ui/effects/ripple_animation.h"
+#include "ui/style/style_classic.h"
 #include "ui/toast/toast.h"
 #include "ui/text/custom_emoji_helper.h"
 #include "ui/text/custom_emoji_text_badge.h"
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "ui/widgets/buttons.h"
-#include "ui/widgets/discrete_sliders.h"
 #include "ui/widgets/elastic_scroll.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
@@ -76,6 +77,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_window.h"
+
+#include <QtWidgets/QTabBar>
 
 namespace Dialogs {
 namespace {
@@ -353,7 +356,10 @@ void RecentRow::rightActionPaint(
 			: st::activeButtonBg);
 		const auto radius = size.height() / 2;
 		auto hq = PainterHighQualityEnabler(p);
-		p.drawRoundedRect(QRect(QPoint(x, y), size), radius, radius);
+		p.drawRoundedRect(
+			QRect(QPoint(x, y), size),
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 		if (_actionRipple) {
 			_actionRipple->paint(p, x, y, outerWidth);
 			if (_actionRipple->empty()) {
@@ -1375,7 +1381,7 @@ Suggestions::Suggestions(
 	std::make_unique<Ui::ScrollArea>(this, st::dialogsTabsScroll, true))
 , _tabs(
 	_tabsScroll->setOwnedWidget(
-		object_ptr<Ui::SettingsSlider>(this, st::dialogsSearchTabs)))
+		object_ptr<QTabBar>::fromRaw(Ui::CreateClassicTabBar(this))))
 , _tabKeys(TabKeysFor(controller))
 , _chatsScroll(std::make_unique<Ui::ElasticScroll>(this))
 , _chatsContent(
@@ -1401,6 +1407,10 @@ Suggestions::Suggestions(
 , _recentApps(setupRecentApps())
 , _popularApps(setupPopularApps())
 , _searchQueryTimer([=] { applySearchQuery(); }) {
+	_chatsScroll->setBarAlwaysVisible(true);
+	_channelsScroll->setBarAlwaysVisible(true);
+	_appsScroll->setBarAlwaysVisible(true);
+	_postsScroll->setBarAlwaysVisible(true);
 	setupTabs();
 	setupChats();
 	setupChannels();
@@ -1410,55 +1420,10 @@ Suggestions::Suggestions(
 Suggestions::~Suggestions() = default;
 
 void Suggestions::setupTabs() {
-	_tabsScroll->setCustomWheelProcess([=](not_null<QWheelEvent*> e) {
-		const auto pixelDelta = e->pixelDelta();
-		const auto angleDelta = e->angleDelta();
-		if (std::abs(pixelDelta.x()) + std::abs(angleDelta.x())) {
-			return false;
-		}
-		const auto y = pixelDelta.y() ? pixelDelta.y() : angleDelta.y();
-		_tabsScroll->scrollToX(_tabsScroll->scrollLeft() - y);
-		return true;
-	});
-
-	const auto scrollToIndex = [=](int index, anim::type type) {
-		const auto to = index
-			? (_tabs->centerOfSection(index) - _tabsScroll->width() / 2)
-			: 0;
-		_tabsScrollAnimation.stop();
-		if (type == anim::type::instant) {
-			_tabsScroll->scrollToX(to);
-		} else {
-			_tabsScrollAnimation.start(
-				[=](float64 v) { _tabsScroll->scrollToX(v); },
-				_tabsScroll->scrollLeft(),
-				std::min(to, _tabsScroll->scrollLeftMax()),
-				st::defaultTabsSlider.duration);
-		}
-	};
-	rpl::single(-1) | rpl::then(
-		_tabs->sectionActivated()
-	) | rpl::combine_previous(
-	) | rpl::on_next([=](int was, int index) {
-		if (was != index) {
-			scrollToIndex(index, anim::type::normal);
-		}
-	}, _tabs->lifetime());
-
-	const auto shadow = Ui::CreateChild<Ui::PlainShadow>(this);
-	shadow->lower();
-
-	_tabsScroll->move(0, 0);
-	_tabs->move(0, 0);
-	rpl::combine(
-		widthValue(),
-		_tabs->heightValue()
-	) | rpl::on_next([=](int width, int height) {
-		const auto line = st::lineWidth;
-		shadow->setGeometry(0, height - line, width, line);
-	}, shadow->lifetime());
-
-	shadow->showOn(_tabsScroll->shownValue());
+	_tabs->setAutoFillBackground(true);
+	_tabs->setFont(st::classicSettingsFont->f);
+	_tabs->setUsesScrollButtons(true);
+	_tabs->setElideMode(Qt::ElideNone);
 
 	const auto labels = base::flat_map<Key, QString>{
 		{ Key{ Tab::Chats }, tr::lng_recent_chats(tr::now) },
@@ -1480,18 +1445,16 @@ void Suggestions::setupTabs() {
 		},
 	};
 
-	auto sections = std::vector<TextWithEntities>();
 	for (const auto key : _tabKeys) {
 		const auto i = labels.find(key);
 		Assert(i != end(labels));
-		sections.push_back({ i->second });
+		_tabs->addTab(i->second);
 	}
-	_tabs->setSections(sections);
-	_tabs->sectionActivated(
-	) | rpl::on_next([=](int section) {
-		Assert(section >= 0 && section < _tabKeys.size());
-		switchTab(_tabKeys[section]);
-	}, _tabs->lifetime());
+	QObject::connect(_tabs, &QTabBar::currentChanged, this, [=](int index) {
+		if (index >= 0 && index < _tabKeys.size()) {
+			switchTab(_tabKeys[index]);
+		}
+	});
 }
 
 void Suggestions::setupChats() {
@@ -1648,15 +1611,15 @@ Ui::Controls::SwipeHandlerArgs Suggestions::generateIncompleteSwipeArgs() {
 		if (!_tabs) {
 			return Ui::Controls::SwipeHandlerFinishData();
 		}
-		const auto activeSection = _tabs->activeSection();
+		const auto activeSection = _tabs->currentIndex();
 		const auto isToLeft = data.direction == Qt::RightToLeft;
 		if ((isToLeft && activeSection > 0)
 			|| (!isToLeft && activeSection < _tabKeys.size() - 1)) {
 			return Ui::Controls::DefaultSwipeBackHandlerFinishData([=] {
 				if (_tabs
-					&& _tabs->activeSection() == activeSection) {
+					&& _tabs->currentIndex() == activeSection) {
 					_swipeBackData = {};
-					_tabs->setActiveSection(isToLeft
+					_tabs->setCurrentIndex(isToLeft
 						? activeSection - 1
 						: activeSection + 1);
 				}
@@ -2359,29 +2322,29 @@ void Suggestions::resizeEvent(QResizeEvent *e) {
 }
 
 void Suggestions::updateControlsGeometry() {
-	const auto w = std::max(width(), st::columnMinimalWidthLeft);
-	_tabs->fitWidthToSections();
-
-	const auto tabs = _tabs->height();
+	const auto w = width();
+	const auto tabs = _tabs->sizeHint().height();
+	_tabs->resize(w, tabs);
 	_tabsScroll->setGeometry(0, 0, w, tabs);
 
+	const auto contentWidth = std::max(w - st::classicScrollBarWidth, 0);
 	const auto content = QRect(0, tabs, w, height() - tabs);
 
 	_chatsScroll->setGeometry(content);
-	_chatsContent->resizeToWidth(w);
+	_chatsContent->resizeToWidth(contentWidth);
 
 	_channelsScroll->setGeometry(content);
-	_channelsContent->resizeToWidth(w);
+	_channelsContent->resizeToWidth(contentWidth);
 
 	_appsScroll->setGeometry(content);
-	_appsContent->resizeToWidth(w);
+	_appsContent->resizeToWidth(contentWidth);
 
 	_postsScroll->setGeometry(content);
-	_postsWrap->resizeToWidth(w);
+	_postsWrap->resizeToWidth(contentWidth);
 	if (_postsSearchIntro) {
-		_postsSearchIntro->setGeometry(0, 0, w, height() - tabs);
+		_postsSearchIntro->setGeometry(0, 0, contentWidth, height() - tabs);
 	} else if (_postsContent) {
-		_postsContent->resizeToWidth(w);
+		_postsContent->resizeToWidth(contentWidth);
 		_postsContent->setMinimumHeight(height() - tabs);
 		_postsContent->refresh();
 	}

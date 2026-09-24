@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/gradient_round_button.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "ui/effects/ripple_animation.h"
 #include "ui/image/image_prepare.h"
 #include "ui/painter.h"
@@ -35,8 +38,25 @@ void GradientButton::setFullRadius(bool enabled) {
 	}
 }
 
+void GradientButton::setClassic(bool enabled) {
+	if (_classic != enabled) {
+		_classic = enabled;
+		setProperty("classicButton", enabled);
+		_contentOffset = ClassicButtonContentOffset(this, enabled && isDown());
+		update();
+	}
+}
+
+rpl::producer<QPoint> GradientButton::contentOffsetValue() const {
+	return _contentOffset.value();
+}
+
 void GradientButton::paintEvent(QPaintEvent *e) {
 	QPainter p(this);
+	if (_classic) {
+		PaintClassicButton(p, rect(), this, isDown());
+		return;
+	}
 
 	validateBg();
 	p.drawImage(0, 0, _bg);
@@ -44,6 +64,15 @@ void GradientButton::paintEvent(QPaintEvent *e) {
 
 	const auto ripple = QColor(0, 0, 0, 36);
 	paintRipple(p, 0, 0, &ripple);
+}
+
+void GradientButton::onStateChanged(
+		State was,
+		StateChangeSource source) {
+	RippleButton::onStateChanged(was, source);
+	if (_classic) {
+		_contentOffset = ClassicButtonContentOffset(this, isDown());
+	}
 }
 
 void GradientButton::paintGlare(QPainter &p) {
@@ -95,7 +124,7 @@ void GradientButton::validateBg() {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(gradient);
-		p.drawRoundedRect(rect(), height() / 2., height() / 2.);
+		p.drawRoundedRect(rect(), style::CornerRadius(height() / 2.), style::CornerRadius(height() / 2.));
 	} else {
 		p.fillRect(rect(), gradient);
 	}
@@ -125,7 +154,9 @@ QImage GradientButton::prepareRippleMask() const {
 }
 
 void GradientButton::startGlareAnimation() {
-	validateGlare();
+	if (!_classic) {
+		validateGlare();
+	}
 }
 
 } // namespace Ui

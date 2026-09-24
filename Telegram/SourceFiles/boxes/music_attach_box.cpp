@@ -53,12 +53,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/storage_media_prepare.h"
 #include "ui/chat/attach/attach_prepare.h"
 #include "ui/layers/generic_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/multi_select.h"
 #include "ui/widgets/popup_menu.h"
+#include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/painter.h"
@@ -70,14 +72,17 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_credits.h"
 #include "styles/style_info.h"
+#include "styles/style_info_profile_actions.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_overview.h"
+#include "styles/style_profile.h"
 #include "styles/style_share_box.h"
 #include "styles/style_widgets.h"
 
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
+#include <QtWidgets/QAbstractScrollArea>
 
 #include <algorithm>
 #include <memory>
@@ -90,6 +95,38 @@ namespace {
 
 constexpr auto kSearchRequestDelay = crl::time(400);
 constexpr auto kFirstLimit = 10;
+
+void SetupMusicScrollBackground(not_null<Ui::RpWidget*> content) {
+	for (auto parent = content->parentWidget()
+		; parent
+		; parent = parent->parentWidget()) {
+		const auto scroll = qobject_cast<QAbstractScrollArea*>(parent);
+		if (!scroll) {
+			continue;
+		}
+		const auto viewport = scroll->viewport();
+		viewport->setBackgroundRole(QPalette::Window);
+		viewport->setAutoFillBackground(true);
+		const auto updateBackground = [=] {
+			auto palette = viewport->palette();
+			palette.setColor(QPalette::Window, st::profileBg->c);
+			viewport->setPalette(palette);
+		};
+		updateBackground();
+		style::PaletteChanged() | rpl::on_next(
+			updateBackground,
+			content->lifetime());
+		return;
+	}
+	Unexpected("Music scroll area is not initialized.");
+}
+
+[[nodiscard]] style::FlatLabel MusicSectionTitleStyle() {
+	auto result = st::defaultSubsectionTitle;
+	result.style.font = st::classicActionFont;
+	result.textFg = st::classicMenuText;
+	return result;
+}
 
 class MusicSectionController final : public Info::AbstractController {
 public:
@@ -368,10 +405,12 @@ HistoryMusicSection::HistoryMusicSection(
 , _titleWrap(this)
 , _list(this, _controller.get()) {
 	_titleWrap->show();
+	const auto titleStyle = MusicSectionTitleStyle();
 	Ui::AddSubsectionTitle(
 		_titleWrap.data(),
 		std::move(title),
-		MusicAttachSubsectionTitlePadding(0, titleBottomSkip));
+		MusicAttachSubsectionTitlePadding(0, titleBottomSkip),
+		&titleStyle);
 	_list->show();
 	_list->setGlobalMediaEmbeddedViewport();
 	updatePreloadEnabled();
@@ -535,11 +574,13 @@ GlobalMusicSearchSection::GlobalMusicSearchSection(
 		RectPart::Center)) {
 	setMouseTracking(true);
 	_titleWrap->show();
+	const auto titleStyle = MusicSectionTitleStyle();
 	Ui::AddSubsectionTitle(
 		_titleWrap.data(),
 		std::move(title),
 		MusicAttachSubsectionTitlePadding(
-			st::musicAttachGlobalSearchTopSkip));
+			st::musicAttachGlobalSearchTopSkip),
+		&titleStyle);
 	updateTitleVisibility();
 
 	_titleWrap->heightValue() | rpl::on_next([this] {
@@ -1560,9 +1601,7 @@ void MusicAttachBox(
 	caption->setSubmitSettings(Core::App().settings().sendSubmitWay());
 	const auto captionSideSkip = st::overviewFileLayout.songPadding.left();
 	caption->setAdditionalMargins({
-		captionSideSkip
-			- st::shareCommentPadding.left()
-			- st::shareComment.textMargins.left(),
+		0,
 		0,
 		captionSideSkip
 			- st::shareCommentPadding.right()
@@ -1573,38 +1612,76 @@ void MusicAttachBox(
 	bottom->hide(anim::type::instant);
 
 	const auto content = box->verticalLayout();
+	box->setInitScrollCallback([=] {
+		SetupMusicScrollBackground(content);
+	});
 	const auto browseTop = content->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 			content,
 			object_ptr<Ui::VerticalLayout>(content)));
 	browseTop->setDuration(0);
 	const auto browseTopLayout = browseTop->entity();
-	const auto chooseFromFiles = browseTopLayout->add(
-		object_ptr<Ui::SettingsButton>(
+	const auto chooseFromFilesWrap = browseTopLayout->add(
+		object_ptr<Ui::FixedHeightWidget>(
 			browseTopLayout,
-			tr::lng_music_attach_choose_from_files(),
-			st::musicAttachChooseFromFilesButton),
-		{ 0, st::membersMarginTop, 0, st::membersMarginTop });
-	const auto chooseFromFilesPadding = chooseFromFiles->st().padding;
+			st::infoClassicActionHeight),
+		st::infoClassicActionMargin);
+	auto chooseStyle = st::infoMainButton;
+	chooseStyle.padding.setLeft(0);
+	chooseStyle.padding.setRight(0);
+	chooseStyle.height = st::infoClassicActionHeight
+		- chooseStyle.padding.top()
+		- chooseStyle.padding.bottom();
+	const auto chooseFromFiles = Ui::CreateChild<Ui::SettingsButton>(
+		chooseFromFilesWrap,
+		tr::lng_music_attach_choose_from_files(),
+		chooseStyle);
+	chooseFromFiles->setProperty("classicButtonCentered", true);
+	chooseFromFiles->setProperty("classicButton", true);
+	chooseFromFiles->show();
+	chooseFromFilesWrap->widthValue() | rpl::on_next([=](int width) {
+		chooseFromFiles->resizeToWidth(
+			std::min(width, st::infoClassicActionWidth));
+		chooseFromFiles->moveToLeft(
+			(width - chooseFromFiles->width()) / 2,
+			0,
+			width);
+	}, chooseFromFiles->lifetime());
 	const auto songIconCenter = st::overviewFileLayout.songPadding.left()
 		+ (st::overviewFileLayout.songThumbSize / 2);
 	const auto songTextLeft = st::overviewFileLayout.songPadding.left()
 		+ st::overviewFileLayout.songThumbSize
 		+ st::overviewFileLayout.songPadding.right();
-	chooseFromFiles->setPaddingOverride(style::margins(
-		songTextLeft,
-		chooseFromFilesPadding.top(),
-		chooseFromFilesPadding.right(),
-		chooseFromFilesPadding.bottom()));
-	const auto chooseFromFilesIcon = Ui::CreateChild<Info::Profile::FloatingIcon>(
-		chooseFromFiles,
-		st::musicAttachChooseFromFilesIcon,
-		QPoint());
-	chooseFromFiles->heightValue() | rpl::on_next([=](int height) {
+	const auto chooseFromFilesIcon = Ui::CreateChild<Ui::RpWidget>(chooseFromFiles);
+	chooseFromFilesIcon->setAttribute(Qt::WA_TransparentForMouseEvents);
+	chooseFromFilesIcon->resize(st::infoClassicActionIconSize);
+	const auto positionChooseIcon = [=] {
+		const auto size = chooseFromFiles->size();
+		const auto shift = Ui::ClassicButtonContentOffset(
+			chooseFromFiles,
+			chooseFromFiles->isDown());
 		chooseFromFilesIcon->moveToLeft(
-			songIconCenter - (st::musicAttachChooseFromFilesIcon.width() / 2),
-			(height - st::musicAttachChooseFromFilesIcon.height()) / 2);
+			Ui::ClassicButtonIconLeft(
+				size.height(),
+				chooseFromFilesIcon->size()) + shift.x(),
+			(size.height() - chooseFromFilesIcon->height()) / 2 + shift.y(),
+			size.width());
+	};
+	chooseFromFiles->sizeValue() | rpl::on_next(
+		positionChooseIcon,
+		chooseFromFilesIcon->lifetime());
+	chooseFromFiles->paintRequest() | rpl::on_next(
+		positionChooseIcon,
+		chooseFromFilesIcon->lifetime());
+	chooseFromFilesIcon->paintRequest() | rpl::on_next([=] {
+		const auto &icon = st::musicAttachChooseFromFilesIcon;
+		auto p = QPainter(chooseFromFilesIcon);
+		p.scale(
+			float64(chooseFromFilesIcon->width()) / icon.width(),
+			float64(chooseFromFilesIcon->height()) / icon.height());
+		icon.paint(p, 0, 0, icon.width(), st::classicMenuText->c);
 	}, chooseFromFilesIcon->lifetime());
+	chooseFromFilesIcon->show();
 	const auto addShowAllButton = [&](not_null<Ui::VerticalLayout*> parent) {
 		const auto wrap = parent->add(
 			object_ptr<Ui::SlideWrap<Ui::SettingsButton>>(

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "statistics/view/stack_linear_chart_view.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_statistics_chart.h"
 #include "statistics/chart_lines_filter_controller.h"
 #include "statistics/view/stack_chart_common.h"
@@ -303,7 +304,7 @@ void StackLinearChartView::paintChartOrZoomAnimation(
 		const auto rectF = QRectF(
 			center - QPointF(side, side),
 			center + QPointF(side, side));
-		ovalPath.addRoundedRect(rectF, per, per, Qt::RelativeSize);
+		ovalPath.addRoundedRect(rectF, style::CornerRadius(per), style::CornerRadius(per), Qt::RelativeSize);
 		ovalPath = ovalPath.intersected(rectPath);
 	}
 

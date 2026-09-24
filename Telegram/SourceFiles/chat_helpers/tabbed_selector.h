@@ -18,6 +18,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/sender.h"
 #include "base/object_ptr.h"
 
+class QTabBar;
+
 namespace InlineBots {
 struct ResultSelected;
 } // namespace InlineBots
@@ -30,7 +32,6 @@ namespace Ui {
 class PlainShadow;
 class PopupMenu;
 class ScrollArea;
-class SettingsSlider;
 class FlatLabel;
 class BoxContent;
 class TabbedSearch;
@@ -168,6 +169,7 @@ public:
 	void showStarted();
 	void beforeHiding();
 	void afterShown();
+	void focusSearch();
 
 	[[nodiscard]] int marginTop() const;
 	[[nodiscard]] int marginBottom() const;
@@ -280,9 +282,9 @@ private:
 
 	bool hasSectionIcons() const;
 	void setWidgetToScrollArea();
-	void createTabsSlider();
-	void fillTabsSliderSections();
-	void updateTabsSliderGeometry();
+	void createTabBar();
+	void fillTabBar();
+	void updateTabBarGeometry();
 	void switchTab();
 
 	not_null<Tab*> getTab(int index);
@@ -318,8 +320,7 @@ private:
 	std::unique_ptr<SlideAnimation> _slideAnimation;
 	Ui::Animations::Simple _a_slide;
 
-	object_ptr<Ui::SettingsSlider> _tabsSlider = { nullptr };
-	object_ptr<Ui::PlainShadow> _topShadow;
+	object_ptr<QTabBar> _tabBar = { nullptr };
 	object_ptr<Ui::PlainShadow> _bottomShadow;
 	object_ptr<Ui::ScrollArea> _scroll;
 	object_ptr<Ui::FlatLabel> _restrictedLabel = { nullptr };

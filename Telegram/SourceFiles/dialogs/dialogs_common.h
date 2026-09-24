@@ -151,6 +151,7 @@ struct RowsByLetter {
 
 struct RightButton final {
 	const style::DialogRightButton *st = nullptr;
+	int top = 0;
 	QImage bg;
 	QImage selectedBg;
 	QImage activeBg;

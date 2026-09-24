@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/labeled_emoji_tabs.h"
 
+#include "ui/style/style_radius.h"
 #include "base/object_ptr.h"
 #include "ui/abstract_button.h"
 #include "ui/effects/ripple_animation.h"
@@ -111,7 +112,7 @@ LabeledEmojiTabs::Button::Button(
 		_descriptor.customEmojiData,
 		{ .repaint = [this] { update(); } })
 	: nullptr) {
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 	setAccessibleName(_descriptor.label);
 	setNaturalWidth([&] {
 		const auto padding = st::aiComposeStyleButtonPadding;
@@ -152,7 +153,7 @@ void LabeledEmojiTabs::Button::paintEvent(QPaintEvent *e) {
 	if (_selected) {
 		p.setPen(Qt::NoPen);
 		p.setBrush(ActiveBackgroundColor(st::aiComposeStyleButtonBgActive));
-		p.drawRoundedRect(rect(), radius, radius);
+		p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 	const auto ripple = RippleColor(
 		_selected
@@ -216,7 +217,7 @@ QImage LabeledEmojiTabs::Button::prepareRippleMask() const {
 		p.setPen(Qt::NoPen);
 		p.setBrush(Qt::white);
 		const auto radius = TabsRadius();
-		p.drawRoundedRect(rect(), radius, radius);
+		p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	});
 }
 
@@ -462,7 +463,7 @@ void LabeledEmojiTabs::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::aiComposeStyleTabsBg);
 	const auto radius = TabsRadius();
-	p.drawRoundedRect(rect(), radius, radius);
+	p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 }
 
 LabeledEmojiScrollTabs::LabeledEmojiScrollTabs(
@@ -528,15 +529,14 @@ LabeledEmojiScrollTabs::LabeledEmojiScrollTabs(
 			auto p = QPainter(corner);
 			PainterHighQualityEnabler hq(p);
 			const auto width = corner->width();
-			const auto height = corner->height()
-				+ (_paintBottomOuterCorners ? 0 : width);
+			const auto height = corner->height() + (_paintBottomOuterCorners ? 0 : width);
 			auto mask = QPainterPath();
 			mask.addRect(0, 0, width, corner->height());
 			auto rounded = QPainterPath();
 			if (left) {
-				rounded.addRoundedRect(0, 0, width * 2, height, width, width);
+				rounded.addRoundedRect(0, 0, width * 2, height, style::CornerRadius(width), style::CornerRadius(width));
 			} else {
-				rounded.addRoundedRect(-width, 0, width * 2, height, width, width);
+				rounded.addRoundedRect(-width, 0, width * 2, height, style::CornerRadius(width), style::CornerRadius(width));
 			}
 			p.setPen(Qt::NoPen);
 			p.setBrush(st::boxDividerBg);

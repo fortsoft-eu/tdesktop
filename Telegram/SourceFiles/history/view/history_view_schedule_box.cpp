@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "menu/menu_send.h"
 #include "settings/sections/settings_premium.h"
 #include "styles/style_boxes.h"
+#include "styles/style_choose_date_time.h"
 #include "styles/style_info.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_widgets.h"
@@ -247,6 +248,7 @@ void NotifyToggleButton::toggle() {
 				area.y() - size.height() + st::scheduleNotifyTooltipShift);
 		},
 		.duration = kNotifyTooltipDuration,
+		.labelSt = &st::scheduleNotifyTooltipLabel,
 	});
 }
 

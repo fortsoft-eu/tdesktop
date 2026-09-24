@@ -163,7 +163,7 @@ void EditLinkBox(
 		}
 	}, box->lifetime());
 
-	const auto &fieldSt = fieldStyle ? *fieldStyle : st::defaultInputField;
+	const auto &fieldSt = fieldStyle ? *fieldStyle : st::markdownLinkInput;
 	const auto content = box->verticalLayout();
 
 	const auto text = content->add(
@@ -701,20 +701,26 @@ void InitMessageFieldHandlers(
 	});
 }
 
-void InitMessageFieldGeometry(not_null<Ui::InputField*> field) {
+void InitMessageFieldGeometry(
+		not_null<Ui::InputField*> field,
+		bool compactHeight) {
 	field->setMinHeight(
 		st::historySendSize.height() - 2 * st::historySendPadding);
 	field->setMaxHeight(st::historyComposeFieldMaxHeight);
 
 	// st::messageSendingAnimationTextFromOffset.
-	field->setDocumentMargin(4.);
-	field->setAdditionalMargin(style::ConvertScale(4) - 4);
+	const auto margin = compactHeight
+		? st::historyComposeBarDocumentMargin
+		: st::historyComposeFieldDocumentMargin;
+	field->setDocumentMargin(margin);
+	field->setAdditionalMargins(QMargins(-margin, 0, 0, 0));
 }
 
 std::shared_ptr<Ui::ChatStyle> InitMessageField(
 		std::shared_ptr<ChatHelpers::Show> show,
 		not_null<Ui::InputField*> field,
-		Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji) {
+		Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji,
+		bool compactHeight) {
 	const auto style = InitMessageFieldHandlers({
 		.session = &show->session(),
 		.show = show,
@@ -724,18 +730,20 @@ std::shared_ptr<Ui::ChatStyle> InitMessageField(
 		},
 		.allowPremiumEmoji = std::move(allowPremiumEmoji),
 	});
-	InitMessageFieldGeometry(field);
+	InitMessageFieldGeometry(field, compactHeight);
 	return style;
 }
 
 std::shared_ptr<Ui::ChatStyle> InitMessageField(
 		not_null<Window::SessionController*> controller,
 		not_null<Ui::InputField*> field,
-		Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji) {
+		Fn<bool(not_null<DocumentData*>)> allowPremiumEmoji,
+		bool compactHeight) {
 	return InitMessageField(
 		controller->uiShow(),
 		field,
-		std::move(allowPremiumEmoji));
+		std::move(allowPremiumEmoji),
+		compactHeight);
 }
 
 void InitSpellchecker(
@@ -824,11 +832,14 @@ void InitMessageFieldFade(
 
 	field->sizeValue(
 	) | rpl::on_next_done([=](const QSize &size) {
-		topFade->resizeToWidth(size.width());
-		bottomFade->resizeToWidth(size.width());
+		const auto border = field->st().border;
+		const auto width = std::max(0, size.width() - 2 * border);
+		topFade->resizeToWidth(width);
+		bottomFade->resizeToWidth(width);
+		topFade->move(border, border);
 		bottomFade->move(
-			0,
-			size.height() - st::historyComposeFieldFadeHeight);
+			border,
+			size.height() - border - st::historyComposeFieldFadeHeight);
 	}, [t = base::make_weak(topFade), b = base::make_weak(bottomFade)] {
 		Ui::DestroyChild(t.get());
 		Ui::DestroyChild(b.get());
@@ -1407,7 +1418,7 @@ std::unique_ptr<Ui::AbstractButton> BoostsToLiftWriteRestriction(
 	auto result = std::make_unique<Ui::FlatButton>(
 		parent,
 		tr::lng_restricted_boost_group(tr::now),
-		st::historyComposeButton);
+		st::historyCompactComposeButton);
 	result->setClickedCallback([=] {
 		const auto window = show->resolveWindow();
 		window->resolveBoostState(peer->asChannel(), boosts);
@@ -1421,6 +1432,17 @@ std::unique_ptr<Ui::AbstractButton> FrozenWriteRestriction(
 		FrozenWriteRestrictionType type,
 		FreezeInfoStyleOverride st) {
 	using namespace Ui;
+
+	if (type == FrozenWriteRestrictionType::MessageField) {
+		auto result = std::make_unique<FlatButton>(
+			parent,
+			tr::lng_frozen_restrict_title(tr::now) + u" — "_q + tr::lng_frozen_restrict_text(tr::now),
+			st::historyCompactComposeButton);
+		result->setClickedCallback([=] {
+			show->show(Box(FrozenInfoBox, &show->session(), st));
+		});
+		return result;
+	}
 
 	auto result = std::make_unique<FlatButton>(
 		parent,

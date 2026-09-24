@@ -22,12 +22,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/business/data_business_common.h"
 #include "data/stickers/data_custom_emoji.h"
 #include "data/data_channel.h"
+#include "data/data_changes.h"
 #include "data/data_document.h"
 #include "data/data_emoji_statuses.h"
 #include "data/data_photo.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "history/view/history_view_group_call_bar.h"
+#include "history/view/history_view_service_message.h"
 #include "history/view/media/history_view_media_generic.h"
 #include "history/view/media/history_view_service_box.h"
 #include "history/view/media/history_view_sticker_player_abstract.h"
@@ -83,6 +85,10 @@ public:
 	QSize size() override;
 	TextWithEntities title() override;
 	TextWithEntities subtitle() override;
+	const style::TextStyle &subtitleStyle() const override;
+	bool whiteText() const override {
+		return _type == Type::FreeDirect;
+	}
 	int buttonSkip() override;
 	rpl::producer<QString> button() override;
 	std::optional<Ui::Premium::MiniStarsType> buttonMinistars() override;
@@ -162,6 +168,24 @@ public:
 private:
 	const not_null<Element*> _parent;
 
+};
+
+class ChatIntroTextPart final : public MediaGenericTextPart {
+public:
+	using MediaGenericTextPart::MediaGenericTextPart;
+
+protected:
+	void setupPen(
+		Painter &p,
+		not_null<const MediaGeneric*>,
+		const PaintContext &) const override {
+		p.setPen(Qt::white);
+	}
+	const style::TextPalette &textPalette(
+		not_null<const MediaGeneric*>,
+		const PaintContext &) const override {
+		return ServiceMessagePainter::WhiteTextPalette();
+	}
 };
 
 UserpicsList::UserpicsList(
@@ -263,10 +287,10 @@ auto GenerateChatIntro(
 			if (text.empty()) {
 				return;
 			}
-			push(std::make_unique<MediaGenericTextPart>(
+			push(std::make_unique<ChatIntroTextPart>(
 				std::move(text),
 				margins,
-				st::defaultTextStyle,
+				st::chatIntroTextStyle,
 				links));
 		};
 		const auto title = data.customPhrases()
@@ -326,10 +350,10 @@ auto GenerateNewBotThread(
 			if (text.empty()) {
 				return;
 			}
-			push(std::make_unique<MediaGenericTextPart>(
+			push(std::make_unique<ChatIntroTextPart>(
 				std::move(text),
 				margins,
-				st::defaultTextStyle,
+				st::chatIntroTextStyle,
 				links));
 		};
 		const auto title = tr::lng_bot_new_thread_title(tr::now);
@@ -394,13 +418,8 @@ auto GenerateNewPeerInfo(
 	return [=](
 			not_null<MediaGeneric*> media,
 			Fn<void(std::unique_ptr<MediaGenericPart>)> push) {
-		const auto normalFg = [](const PaintContext &context) {
-			return context.st->msgServiceFg()->c;
-		};
-		const auto fadedFg = [](const PaintContext &context) {
-			auto result = context.st->msgServiceFg()->c;
-			result.setAlphaF(result.alphaF() * kLabelOpacity);
-			return result;
+		const auto normalFg = [](const PaintContext &) {
+			return QColor(Qt::white);
 		};
 		push(std::make_unique<MediaGenericTextPart>(
 			tr::bold(user->name()),
@@ -408,7 +427,8 @@ auto GenerateNewPeerInfo(
 		push(std::make_unique<TextPartColored>(
 			tr::lng_new_contact_not_contact(tr::now, tr::marked),
 			st::newPeerSubtitleMargin,
-			fadedFg));
+			normalFg,
+			st::chatIntroTextStyle));
 
 		auto entries = std::vector<AttributeTable::Entry>();
 		const auto country = user->phoneCountryCode();
@@ -493,9 +513,10 @@ auto GenerateNewPeerInfo(
 		push(std::make_unique<AttributeTable>(
 			std::move(entries),
 			st::newPeerSubtitleMargin,
-			fadedFg,
 			normalFg,
-			copy));
+			normalFg,
+			copy,
+			&st::chatIntroTextStyle));
 
 		const auto details = user->botVerifyDetails();
 		const auto text = details
@@ -508,8 +529,8 @@ auto GenerateNewPeerInfo(
 		push(std::make_unique<TextPartColored>(
 			text,
 			st::newPeerSubtitleMargin,
-			fadedFg,
-			st::defaultTextStyle,
+			normalFg,
+			st::chatIntroTextStyle,
 			base::flat_map<uint16, ClickHandlerPtr>(),
 			context));
 	};
@@ -555,6 +576,12 @@ rpl::producer<QString> EmptyChatLockedBox::button() {
 auto EmptyChatLockedBox::buttonMinistars()
 -> std::optional<Ui::Premium::MiniStarsType> {
 	return Ui::Premium::MiniStarsType::SlowStars;
+}
+
+const style::TextStyle &EmptyChatLockedBox::subtitleStyle() const {
+	return (_type == Type::FreeDirect)
+		? st::chatIntroTextStyle
+		: ServiceBoxContent::subtitleStyle();
 }
 
 TextWithEntities EmptyChatLockedBox::subtitle() {
@@ -829,6 +856,19 @@ bool AboutView::refresh() {
 
 void AboutView::makeIntro(not_null<UserData*> user) {
 	make(user->businessDetails().intro);
+	if (user->businessDetails().intro.sticker) {
+		return;
+	}
+	const auto self = _history->session().user();
+	const auto sticker = self->businessDetails().intro.sticker;
+	_history->session().changes().peerUpdates(
+		self,
+		Data::PeerUpdate::Flag::BusinessDetails
+	) | rpl::filter([=] {
+		return self->businessDetails().intro.sticker != sticker;
+	}) | rpl::on_next([=] {
+		_destroyRequests.fire({});
+	}, _introLifetime);
 }
 
 void AboutView::make(Data::ChatIntro data, bool preview) {
@@ -846,6 +886,9 @@ void AboutView::make(Data::ChatIntro data, bool preview) {
 		.from = _history->peer->id,
 	}, PreparedServiceText{ { text } });
 
+	if (!preview && !data.sticker) {
+		data.sticker = _history->session().user()->businessDetails().intro.sticker;
+	}
 	if (data.sticker) {
 		_helloChosen = nullptr;
 	} else if (_helloChosen) {
@@ -1001,6 +1044,7 @@ void AboutView::setHelloChosen(not_null<DocumentData*> sticker) {
 }
 
 void AboutView::setItem(AdminLog::OwnedItem item, DocumentData *sticker) {
+	_introLifetime.destroy();
 	toggleStickerRegistered(false);
 	_item = std::move(item);
 	_sticker = sticker;

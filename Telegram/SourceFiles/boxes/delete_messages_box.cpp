@@ -240,6 +240,7 @@ void DeleteMessagesBox::prepare() {
 			}
 		}
 	}
+	details = Ui::BoldConfirmationQuestion(std::move(details));
 	_text.create(this, rpl::single(std::move(details)), st::boxLabel);
 	_text->resizeToWidth(st::boxWidth - rect::m::sum::h(st::boxPadding));
 
@@ -568,7 +569,7 @@ void DeleteMessagesBox::deleteAndClear() {
 
 		if (justClear) {
 			session->api().clearHistory(peer, revoke);
-		} else {
+		} else if (revoke || !session->api().leaveConversation(peer)) {
 			Core::App().closeChatFromWindows(peer);
 			// Don't delete old history by default,
 			// because Android app doesn't.

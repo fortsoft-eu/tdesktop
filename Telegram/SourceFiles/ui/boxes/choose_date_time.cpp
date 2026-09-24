@@ -8,17 +8,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/choose_date_time.h"
 
 #include "base/unixtime.h"
-#include "base/event_filter.h"
 #include "ui/boxes/calendar_box.h"
-#include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/shadow.h"
-#include "ui/widgets/time_input.h"
 #include "ui/ui_utility.h"
 #include "lang/lang_keys.h"
 #include "styles/style_choose_date_time.h"
@@ -51,11 +49,64 @@ QString DayString(const QDate &date) {
 
 QString TimeString(QTime time) {
 	return QString("%1:%2"
-	).arg(time.hour()
+	).arg(time.hour(), 2, 10, QLatin1Char('0')
 	).arg(time.minute(), 2, 10, QLatin1Char('0'));
 }
 
-class RepeatButton final : public Ui::RippleButton {
+[[nodiscard]] std::optional<QTime> ParseTime(QStringView text) {
+	text = text.trimmed();
+	if (text.isEmpty() || text.front() == '+' || text.front() == '-') {
+		return std::nullopt;
+	}
+	auto groups = std::vector<QString>();
+	auto current = QString();
+	for (const auto character : text) {
+		if (character >= '0' && character <= '9') {
+			current.append(character);
+		} else if (character.isLetter() || character == '_') {
+			return std::nullopt;
+		} else if (!current.isEmpty()) {
+			groups.push_back(base::take(current));
+			if (groups.size() > 2) {
+				return std::nullopt;
+			}
+		}
+	}
+	if (!current.isEmpty()) {
+		groups.push_back(std::move(current));
+	}
+	if (groups.empty() || groups.size() > 2) {
+		return std::nullopt;
+	}
+	if (groups.size() == 1) {
+		const auto size = groups.front().size();
+		if (size < 1 || size > 4) {
+			return std::nullopt;
+		}
+		if (size > 2) {
+			const auto compact = std::move(groups.front());
+			groups = {
+				compact.left(size - 2),
+				compact.right(2),
+			};
+		}
+	}
+	auto ok = false;
+	const auto hour = groups[0].toInt(&ok);
+	if (!ok) {
+		return std::nullopt;
+	}
+	const auto minute = (groups.size() == 2)
+		? groups[1].toInt(&ok)
+		: 0;
+	if (!ok) {
+		return std::nullopt;
+	}
+	const auto result = QTime(hour, minute);
+	return result.isValid() ? std::optional(result) : std::nullopt;
+}
+
+class RepeatButton final : public Ui::AbstractButton {
 public:
 	explicit RepeatButton(not_null<QWidget*> parent);
 
@@ -63,19 +114,20 @@ public:
 
 protected:
 	void paintEvent(QPaintEvent *e) override;
-
-	QImage prepareRippleMask() const override;
+	void onStateChanged(State, StateChangeSource) override;
 
 private:
+	void updateLabelPosition();
+
 	const not_null<Ui::FlatLabel*> _label;
 
 };
 
 RepeatButton::RepeatButton(not_null<QWidget*> parent)
-: RippleButton(parent, st::defaultRippleAnimation)
+: AbstractButton(parent)
 , _label(Ui::CreateChild<Ui::FlatLabel>(this, st::scheduleRepeatLabel)) {
 	_label->setAttribute(Qt::WA_TransparentForMouseEvents);
-	setPointerCursor(true);
+	setPointerCursor(false);
 
 	_label->naturalWidthValue() | rpl::on_next([=](int natural) {
 		_label->resizeToWidth(natural);
@@ -85,7 +137,7 @@ RepeatButton::RepeatButton(not_null<QWidget*> parent)
 		const auto padding = st::scheduleRepeatTextPadding;
 		const auto height = st::scheduleRepeatHeight;
 		resize(size.width() + 2 * padding, height);
-		_label->moveToLeft(padding, (height - size.height()) / 2);
+		updateLabelPosition();
 	}, lifetime());
 }
 
@@ -95,26 +147,26 @@ void RepeatButton::setMarkedText(TextWithEntities text) {
 
 void RepeatButton::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-	const auto radius = st::scheduleRepeatRadius;
-	{
-		auto hq = PainterHighQualityEnabler(p);
-		p.setPen(Qt::NoPen);
-		p.setBrush(st::windowBgOver);
-		p.drawRoundedRect(rect(), radius, radius);
-	}
-	paintRipple(p, QPoint());
+	Ui::PaintClassicButton(p, rect(), this, isDown());
 }
 
-QImage RepeatButton::prepareRippleMask() const {
-	return Ui::RippleAnimation::RoundRectMask(
-		size(),
-		st::scheduleRepeatRadius);
+void RepeatButton::onStateChanged(State, StateChangeSource) {
+	updateLabelPosition();
+	update();
+}
+
+void RepeatButton::updateLabelPosition() {
+	const auto offset = Ui::ClassicButtonContentOffset(this, isDown());
+	const auto padding = st::scheduleRepeatTextPadding;
+	_label->moveToLeft(
+		padding + offset.x(),
+		(st::scheduleRepeatHeight - _label->height()) / 2 + offset.y());
 }
 
 } // namespace
 
 ChooseDateTimeStyleArgs::ChooseDateTimeStyleArgs()
-: labelStyle(&st::boxLabel)
+: labelStyle(&st::scheduleDescriptionLabel)
 , dateFieldStyle(&st::scheduleDateField)
 , timeFieldStyle(&st::scheduleTimeField)
 , separatorStyle(&st::scheduleTimeSeparator)
@@ -128,8 +180,8 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 	struct State {
 		rpl::variable<QDate> date;
 		rpl::variable<int> width;
-		not_null<InputField*> day;
-		not_null<TimeInput*> time;
+		not_null<LinkButton*> day;
+		not_null<InputField*> time;
 		not_null<FlatLabel*> at;
 	};
 	box->setTitle(std::move(args.title));
@@ -155,31 +207,34 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 		std::clamp(args.time, min(), max()));
 	const auto state = box->lifetime().make_state<State>(State{
 		.date = parsed.date(),
-		.day = CreateChild<InputField>(
+		.day = CreateChild<LinkButton>(
 			content,
-			*args.style.dateFieldStyle),
-		.time = CreateChild<TimeInput>(
+			DayString(parsed.date()),
+			st::scheduleDateLink),
+		.time = CreateChild<InputField>(
 			content,
-			TimeString(parsed.time()),
 			*args.style.timeFieldStyle,
-			*args.style.dateFieldStyle,
-			*args.style.separatorStyle,
-			st::scheduleTimeSeparatorPadding),
+			InputField::Mode::SingleLine,
+			rpl::single(QString()),
+			TimeString(parsed.time())),
 		.at = CreateChild<FlatLabel>(
 			content,
 			tr::lng_schedule_at(),
 			*args.style.atStyle),
 	});
 
-	const auto dayEdit = state->day->rawTextEdit().get();
-	const auto dayAlign = args.style.dateFieldStyle->textAlign;
-
 	state->date.value(
 	) | rpl::on_next([=](QDate date) {
 		state->day->setText(DayString(date));
-		dayEdit->setAlignment(dayAlign);
-		state->time->setFocusFast();
 	}, state->day->lifetime());
+	state->time->focusedChanges(
+	) | rpl::filter([](bool focused) {
+		return !focused;
+	}) | rpl::on_next([=] {
+		if (const auto parsed = ParseTime(state->time->getLastText())) {
+			state->time->setText(TimeString(*parsed));
+		}
+	}, state->time->lifetime());
 
 	const auto minDate = [=] {
 		return base::unixtime::parse(min()).date();
@@ -187,21 +242,6 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 	const auto maxDate = [=] {
 		return base::unixtime::parse(max()).date();
 	};
-
-	const auto &dayViewport = state->day->rawTextEdit()->viewport();
-	base::install_event_filter(dayViewport, [=](not_null<QEvent*> event) {
-		if (event->type() == QEvent::Wheel) {
-			const auto e = static_cast<QWheelEvent*>(event.get());
-			const auto direction = Ui::WheelDirection(e);
-			if (!direction) {
-				return base::EventFilterResult::Continue;
-			}
-			const auto d = state->date.current().addDays(direction);
-			state->date = std::clamp(d, minDate(), maxDate());
-			return base::EventFilterResult::Cancel;
-		}
-		return base::EventFilterResult::Continue;
-	});
 
 	state->at->widthValue() | rpl::on_next([=](int width) {
 		const auto full = st::scheduleDateWidth
@@ -213,6 +253,7 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 		state->width = full;
 	}, state->at->lifetime());
 
+	const auto atFont = state->at->st().style.font;
 	content->widthValue(
 	) | rpl::on_next([=](int width) {
 		const auto paddings = width
@@ -221,11 +262,16 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 			- st::scheduleDateWidth
 			- st::scheduleTimeWidth;
 		const auto left = paddings / 2;
-		state->day->resizeToWidth(st::scheduleDateWidth);
-		state->day->moveToLeft(left, st::scheduleDateTop, width);
+		const auto baseline = st::scheduleDateTop
+			+ state->time->st().textMargins.top()
+			+ state->time->st().style.font->ascent;
+		state->day->moveToLeft(
+			left + (st::scheduleDateWidth - state->day->width()) / 2,
+			baseline - st::scheduleDateLink.font->ascent,
+			width);
 		state->at->moveToLeft(
 			left + st::scheduleDateWidth + st::scheduleAtSkip,
-			st::scheduleAtTop,
+			baseline - atFont->ascent,
 			width);
 		state->time->resizeToWidth(st::scheduleTimeWidth);
 		state->time->moveToLeft(
@@ -238,9 +284,8 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 		= content->lifetime().make_state<base::weak_qptr<CalendarBox>>();
 	const auto calendarStyle = args.style.calendarStyle;
 	const auto dynamicImageForDate = std::move(args.dynamicImageForDate);
-	state->day->focusedChanges(
-	) | rpl::on_next([=](bool focused) {
-		if (*calendar || !focused) {
+	state->day->setClickedCallback([=] {
+		if (*calendar) {
 			return;
 		}
 		*calendar = box->getDelegate()->show(
@@ -262,19 +307,15 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 		) | rpl::on_next(crl::guard(state->time, [=] {
 			state->time->setFocusFast();
 		}), (*calendar)->lifetime());
-	}, state->day->lifetime());
+	});
 
 	const auto collect = [=] {
-		const auto timeValue = state->time->valueCurrent().split(':');
-		if (timeValue.size() != 2) {
-			return 0;
-		}
-		const auto time = QTime(timeValue[0].toInt(), timeValue[1].toInt());
-		if (!time.isValid()) {
+		const auto time = ParseTime(state->time->getLastText());
+		if (!time) {
 			return 0;
 		}
 		const auto result = base::unixtime::serialize(
-			QDateTime(state->date.current(), time));
+			QDateTime(state->date.current(), *time));
 		if (result < min() || result > max()) {
 			return 0;
 		}
@@ -287,7 +328,7 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 			state->time->showError();
 		}
 	};
-	state->time->submitRequests(
+	state->time->submits(
 	) | rpl::on_next(save, state->time->lifetime());
 
 	auto result = ChooseDateTimeBoxDescriptor();
@@ -301,10 +342,10 @@ ChooseDateTimeBoxDescriptor ChooseDateTimeBox(
 		state->time->showError();
 		return 0;
 	};
-	result.values = rpl::combine(
-		state->date.value(),
-		state->time->value()
-	) | rpl::map(collect);
+	result.values = rpl::single(rpl::empty) | rpl::then(rpl::merge(
+		state->date.changes() | rpl::to_empty,
+		state->time->changes()
+	)) | rpl::map([=] { return collect(); });
 	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
 
 	return result;

@@ -110,7 +110,7 @@ Widget::Widget(
 	if (!classic && flexible) {
 		setupFlexibleRegularScroll(_inner, _pinnedToTop.get());
 	} else if (_pinnedToTop) {
-		_inner->widthValue(
+		widthValue(
 		) | rpl::on_next([=](int w) {
 			_pinnedToTop->resizeToWidth(w);
 			setScrollTopSkip(_pinnedToTop->height());

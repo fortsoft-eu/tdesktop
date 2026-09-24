@@ -18,6 +18,10 @@ class ColoredMiniStars;
 enum class MiniStarsType;
 } // namespace Ui::Premium
 
+namespace style {
+struct TextStyle;
+} // namespace style
+
 namespace HistoryView {
 
 class ServiceBoxContent {
@@ -36,6 +40,15 @@ public:
 		return top();
 	}
 	[[nodiscard]] virtual rpl::producer<QString> button() = 0;
+	[[nodiscard]] virtual const style::TextStyle &titleStyle() const;
+	[[nodiscard]] virtual const style::TextStyle &subtitleStyle() const;
+	[[nodiscard]] virtual const style::TextStyle &buttonStyle() const;
+	[[nodiscard]] virtual bool whiteText() const {
+		return false;
+	}
+	[[nodiscard]] virtual bool classicButton() const {
+		return true;
+	}
 
 	// For now only subtitle() changes are observed.
 	[[nodiscard]] virtual rpl::producer<> changes() {

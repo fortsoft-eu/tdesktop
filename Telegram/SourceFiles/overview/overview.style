@@ -121,6 +121,12 @@ overviewFileLayout: OverviewFileLayout {
 	fileDateTop: 49px;
 }
 
+overviewVoiceDetailsPalette: TextPalette(defaultTextPalette) {
+	linkFg: classicMenuText;
+	selectFg: classicMenuText;
+	selectLinkFg: classicMenuText;
+}
+
 linksMaxWidth: 520px;
 linksLetterFg: windowFgActive;
 linksLetterFont: font(24px);

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/credits_graphics.h"
 
+#include "ui/style/style_radius.h"
 #include <QtCore/QDateTime>
 
 #include "data/data_credits.h"
@@ -72,12 +73,12 @@ PaintRoundImageCallback MultiThumbnail(
 		q.setBrush(Qt::NoBrush);
 		const auto radius = st::roundRadiusLarge;
 		auto hq = PainterHighQualityEnabler(q);
-		q.drawRoundedRect(QRect(0, shift, smaller, smaller), radius, radius);
+		q.drawRoundedRect(QRect(0, shift, smaller, smaller), style::CornerRadius(radius), style::CornerRadius(radius));
 		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
 		first(q, 0, shift, outerWidth, smaller);
 		q.setPen(Qt::NoPen);
 		q.setBrush(st::shadowFg);
-		q.drawRoundedRect(QRect(0, shift, smaller, smaller), radius, radius);
+		q.drawRoundedRect(QRect(0, shift, smaller, smaller), style::CornerRadius(radius), style::CornerRadius(radius));
 		q.setPen(st::toastFg);
 		q.setFont(style::font(smaller / 2, style::FontFlag::Bold, 0));
 		q.drawText(

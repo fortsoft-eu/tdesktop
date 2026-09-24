@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/channel_statistics/boosts/create_giveaway_box.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_credits.h"
 #include "api/api_premium.h"
 #include "base/call_delayed.h"
@@ -162,7 +163,7 @@ void AddPremiumTopBarWithDefaultTitleBar(
 				p.setClipPath(path);
 				p.setPen(Qt::NoPen);
 				p.setBrush(st::boxDividerBg);
-				p.drawRoundedRect(resultRect, radius, radius);
+				p.drawRoundedRect(resultRect, style::CornerRadius(radius), style::CornerRadius(radius));
 			}
 			if (progress > 0.) {
 				p.setOpacity(progress);
@@ -170,7 +171,7 @@ void AddPremiumTopBarWithDefaultTitleBar(
 				p.setClipping(false);
 				p.setPen(Qt::NoPen);
 				p.setBrush(st::boxBg);
-				p.drawRoundedRect(resultRect, radius, radius);
+				p.drawRoundedRect(resultRect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 				p.setPen(st::startGiveawayBox.title.textFg);
 				p.setBrush(Qt::NoBrush);

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/send_files_box.h"
 
+#include "ui/style/style_classic.h"
 #include "lang/lang_keys.h"
 #include "storage/localimageloader.h"
 #include "storage/localstorage.h"
@@ -83,6 +84,18 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QMimeData>
 
 namespace {
+
+style::ComposeControls ClassicSendFilesStyle(style::ComposeControls result) {
+	result.files.caption.placeholderFont = st::classicSettingsFont;
+	result.files.caption.placeholderFg = st::placeholderFg;
+	result.files.caption.placeholderFgActive = st::placeholderFgActive;
+	result.files.checkbox.style.font = st::classicSettingsFont;
+	result.files.checkbox.textFg = st::classicMenuText;
+	result.files.checkbox.textFgActive = st::classicMenuText;
+	result.files.nameFg = st::classicMenuText;
+	result.files.statusFg = st::classicMenuText;
+	return result;
+}
 
 constexpr auto kMaxMessageLength = 4096;
 constexpr auto kMaxDisplayNameLength = 64;
@@ -684,9 +697,10 @@ SendFilesBox::SendFilesBox(
 
 SendFilesBox::SendFilesBox(QWidget*, SendFilesBoxDescriptor &&descriptor)
 : _show(std::move(descriptor.show))
-, _st(descriptor.stOverride
-	? *descriptor.stOverride
-	: st::defaultComposeControls)
+, _st(*lifetime().make_state<style::ComposeControls>(ClassicSendFilesStyle(
+	descriptor.stOverride
+		? *descriptor.stOverride
+		: st::defaultComposeControls)))
 , _sendType(descriptor.sendType)
 , _titleHeight(st::boxTitleHeight)
 , _list(std::move(descriptor.list))
@@ -730,8 +744,6 @@ void SendFilesBox::setReplyTo(FullReplyTo replyTo) {
 		this,
 		_show,
 		std::move(replyTo));
-	_replyHeader->setRoundedShapeBelow(
-		!_blocks.empty() && !_blocks.front().isSingleFile());
 	_replyHeader->show();
 	_replyHeader->desiredHeight(
 	) | rpl::on_next([=](int height) {
@@ -912,7 +924,17 @@ void SendFilesBox::setupDragArea() {
 		CanAddFiles,
 		[=](bool f) { _caption->setAcceptDrops(f); },
 		[=] { updateControlsGeometry(); },
-		std::move(computeState));
+		std::move(computeState),
+		false,
+		[=] {
+			return QRect(
+				st::boxPhotoPadding.left(),
+				_scroll->y(),
+				st::sendMediaPreviewSize,
+				_scroll->height());
+		});
+	areas.document->setWorkspaceBackground(true);
+	areas.photo->setWorkspaceBackground(true);
 
 	const auto droppedCallback = [=](bool compress) {
 		return [=](const QMimeData *data) {
@@ -1365,10 +1387,6 @@ void SendFilesBox::generatePreviewFrom(int fromBlock) {
 	if (albumStart >= 0) {
 		pushBlock(albumStart, _list.files.size());
 	}
-	if (_replyHeader) {
-		_replyHeader->setRoundedShapeBelow(
-			!_blocks.empty() && !_blocks.front().isSingleFile());
-	}
 }
 
 void SendFilesBox::pushBlock(int from, int till) {
@@ -1773,7 +1791,8 @@ void SendFilesBox::pushBlock(int from, int till) {
 				submenu->st().menu,
 				st::historyHasCustomEmoji,
 				st::historyHasCustomEmojiPosition,
-				TextWithEntities{ tr::lng_ttl_period_hint(tr::now) }));
+				tr::lng_ttl_period_hint(tr::now, tr::marked)
+			))->setEnabled(false);
 			state->menu->addAction(
 				tr::lng_ttl_period_menu(tr::now),
 				std::move(submenu),
@@ -1964,7 +1983,7 @@ void SendFilesBox::setupSendWayControls() {
 	_hintLabel.create(
 		this,
 		tr::lng_edit_photo_editor_hint(tr::now),
-		st::editMediaHintLabel);
+		Ui::ClassicSettingsStyle(st::editMediaHintLabel));
 }
 
 bool SendFilesBox::checkWithWay(Ui::SendFilesWay way, bool silent) const {
@@ -2188,6 +2207,8 @@ void SendFilesBox::setupEmojiPanel() {
 						.openStickerSets = false,
 					},
 				}),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
 		});
 	_emojiPanel->setDesiredHeightValues(
 		1.,
@@ -2221,6 +2242,7 @@ void SendFilesBox::setupEmojiPanel() {
 	_emojiFilter.reset(base::install_event_filter(container, filterCallback));
 
 	_emojiToggle.create(this, _st.files.emoji);
+	_caption->setFrameRightMargin(_emojiToggle->width());
 	_emojiToggle->setVisible(!_caption->isHidden());
 	_emojiToggle->installEventFilter(_emojiPanel);
 	_emojiToggle->addClickHandler([=] {
@@ -2420,7 +2442,7 @@ void SendFilesBox::paintEvent(QPaintEvent *e) {
 	if (!_titleText.isEmpty()) {
 		Painter p(this);
 
-		p.setFont(st::boxTitleFont);
+		p.setFont(st::classicActionFont);
 		p.setPen(getDelegate()->style().title.textFg);
 		p.drawTextLeft(
 			st::boxPhotoTitlePosition.x(),
@@ -2449,7 +2471,8 @@ void SendFilesBox::updateControlsGeometry() {
 				(st::boxPhotoPadding.left()
 					+ st::sendMediaPreviewSize
 					- _emojiToggle->width()),
-				_caption->y() + st::boxAttachEmojiTop);
+				_caption->y() + _caption->textFrameRect().y()
+					+ (_caption->textFrameRect().height() - _emojiToggle->height()) / 2);
 			_emojiToggle->update();
 		}
 		if (_aiButton) {

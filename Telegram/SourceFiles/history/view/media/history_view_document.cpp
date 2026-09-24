@@ -342,7 +342,7 @@ void PaintWaveform(
 	using namespace Ui;
 	auto result = 0;
 	const auto add = [&](const QString &text) {
-		accumulate_max(result, st::normalFont->width(text));
+		accumulate_max(result, st::classicSettingsFont->width(text));
 	};
 	add(FormatDownloadText(document->size, document->size));
 	const auto duration = document->duration() / 1000;
@@ -662,7 +662,7 @@ QSize Document::countCurrentSize(int newWidth) {
 			const auto thumbedWidth = thumbedLinkMaxWidth();
 			const auto statusWidth = thumbedWidth
 				? 0
-				: st::normalFont->width(_statusText);
+				: st::classicSettingsFont->width(_statusText);
 			if (thumbedWidth || statusWidth) {
 				const auto needed = st.padding.left()
 					+ (thumbedWidth
@@ -808,7 +808,9 @@ void Document::draw(
 				? thumbed->linkopenwithl
 				: thumbed->linksavel;
 			bool over = ClickHandler::showAsActive(lnk);
-			p.setFont(over ? st::semiboldFont->underline() : st::semiboldFont);
+			p.setFont(over
+				? st::classicSettingsFont->underline()
+				: st::classicSettingsFont);
 			p.setPen(stm->msgFileThumbLinkFg);
 			p.drawTextLeft(nameleft, linktop, width, thumbed->link, thumbed->linkw);
 		}
@@ -1056,12 +1058,12 @@ void Document::draw(
 	}
 
 	auto statusText = voiceStatusOverride.isEmpty() ? _statusText : voiceStatusOverride;
-	p.setFont(st::normalFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(stm->mediaFg);
 	p.drawTextLeft(nameleft, statustop, width, statusText);
 
 	if (_realParent->isUnreadMedia()) {
-		auto w = st::normalFont->width(statusText);
+		auto w = st::classicSettingsFont->width(statusText);
 		if (w + st::mediaUnreadSkip + st::mediaUnreadSize <= statuswidth) {
 			p.setPen(Qt::NoPen);
 			p.setBrush(stm->msgFileBg);
@@ -1344,7 +1346,7 @@ TextState Document::textState(
 		}
 
 		if (_data->status != FileUploadFailed) {
-			if (style::rtlrect(nameleft, linktop, thumbed->linkw, st::semiboldFont->height, width).contains(point)) {
+			if (style::rtlrect(nameleft, linktop, thumbed->linkw, st::classicSettingsFont->height, width).contains(point)) {
 				result.link = (_data->loading() || _data->uploading())
 					? thumbed->linkcancell
 					: dataLoaded()
@@ -1604,7 +1606,7 @@ bool Document::uploading() const {
 [[nodiscard]] int Document::thumbedLinkMaxWidth() const {
 	if (Has<HistoryDocumentThumbed>()) {
 		const auto w = [](const QString &text) {
-			return st::semiboldFont->width(text.toUpper());
+			return st::classicSettingsFont->width(text.toUpper());
 		};
 		return std::max({
 			w(tr::lng_media_download(tr::now)),
@@ -1638,7 +1640,7 @@ void Document::setStatusSize(int64 newSize, TimeId realDuration) const {
 		} else {
 			thumbed->link = tr::lng_media_open_with(tr::now).toUpper();
 		}
-		thumbed->linkw = st::semiboldFont->width(thumbed->link);
+		thumbed->linkw = st::classicSettingsFont->width(thumbed->link);
 	}
 }
 

@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/image/image_prepare.h"
 #include "ui/chat/chat_style.h"
 #include "ui/chat/torn_edge.h"
+#include "ui/style/style_radius.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_style.h"
 
@@ -80,10 +81,23 @@ void PaintBubbleGeneric(
 		PaintTail &&paintTail) {
 	using namespace Images;
 
+	if (!style::CornerRadius(st::roundRadiusSmall)) {
+		const auto rect = args.geometry;
+		fillBg(rect);
+		if (args.shadowed && args.rounding.bottomRight != Corner::None) {
+			fillSh({ rect.x(), rect.y() + rect.height(), rect.width(), st::msgShadow });
+		}
+		return;
+	}
+
 	const auto topLeft = args.rounding.topLeft;
 	const auto topRight = args.rounding.topRight;
-	const auto bottomWithTailLeft = args.rounding.bottomLeft;
-	const auto bottomWithTailRight = args.rounding.bottomRight;
+	const auto bottomWithTailLeft = (args.rounding.bottomLeft == Corner::Tail)
+		? Corner::None
+		: args.rounding.bottomLeft;
+	const auto bottomWithTailRight = (args.rounding.bottomRight == Corner::Tail)
+		? Corner::None
+		: args.rounding.bottomRight;
 	if (topLeft == Corner::None
 		&& topRight == Corner::None
 		&& bottomWithTailLeft == Corner::None

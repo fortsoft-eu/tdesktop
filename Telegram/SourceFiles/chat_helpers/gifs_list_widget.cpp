@@ -345,12 +345,12 @@ void GifsListWidget::paintEvent(QPaintEvent *e) {
 
 void GifsListWidget::paintInlineItems(Painter &p, QRect clip) {
 	if (_mosaic.empty()) {
-		p.setFont(st::normalFont);
+		p.setFont(st::classicSettingsFont);
 		p.setPen(st::noContactsColor);
 		auto text = _inlineQuery.isEmpty()
 			? tr::lng_gifs_no_saved(tr::now)
 			: tr::lng_inline_bot_no_results(tr::now);
-		p.drawText(QRect(0, 0, width(), (height() / 3) * 2 + st::normalFont->height), text, style::al_center);
+		p.drawText(QRect(0, 0, width(), (height() / 3) * 2 + st::classicSettingsFont->height), text, style::al_center);
 		return;
 	}
 	const auto gifPaused = paused();
@@ -855,6 +855,12 @@ void GifsListWidget::setupSearch() {
 		refreshIcons();
 		searchForGifs(accumulated);
 	}, session, TabbedSearchType::Emoji);
+}
+
+void GifsListWidget::focusSearch() {
+	if (_search) {
+		_search->stealFocus();
+	}
 }
 
 int32 GifsListWidget::showInlineRows(bool newResults) {

@@ -60,6 +60,7 @@ base::options::toggle OptionDisableAutoplayNext({
 	.name = "Disable auto-play of the next track",
 	.description = "Disable auto-play of the next "
 		"Audio file / Voice Message / Video message.",
+	.defaultValue = true,
 });
 
 [[nodiscard]] float64 LookupPlaybackSpeed(const AudioMsgId &audioId) {

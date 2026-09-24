@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_element.h"
 
+#include "ui/style/style_classic.h"
 #include "apiwrap.h"
 #include "api/api_transcribes.h"
 #include "history/view/history_view_service_message.h"
@@ -114,6 +115,8 @@ public:
 		RectParts sides) const override;
 
 	const style::TextStyle &textStyle() const override;
+	bool buttonUsesDefaultCursor() const override;
+	QPoint buttonContentOffset(bool pressed, bool messageViewport) const override;
 	void repaint(not_null<const HistoryItem*> item) const override;
 
 protected:
@@ -123,7 +126,8 @@ protected:
 		const QRect &rect,
 		HistoryMessageMarkupButton::Color color,
 		Ui::BubbleRounding rounding,
-		float64 howMuchOver) const override;
+		float64 howMuchOver,
+		bool pressed) const override;
 	void paintButtonStart(
 		QPainter &p,
 		const Ui::ChatStyle *st,
@@ -133,7 +137,8 @@ protected:
 		const Ui::ChatStyle *st,
 		const QRect &rect,
 		int outerWidth,
-		HistoryMessageMarkupButton::Type type) const override;
+		HistoryMessageMarkupButton::Type type,
+		QPoint contentOffset) const override;
 	void paintButtonLoading(
 		QPainter &p,
 		const Ui::ChatStyle *st,
@@ -174,15 +179,22 @@ KeyboardStyle::KeyboardStyle(
 void KeyboardStyle::paintButtonStart(
 		QPainter &p,
 		const Ui::ChatStyle *st,
-		HistoryMessageMarkupButton::Color color) const {
-	using Color = HistoryMessageMarkupButton::Color;
+		HistoryMessageMarkupButton::Color) const {
 	Expects(st != nullptr);
 
-	p.setPen((color == Color::Normal) ? st->msgServiceFg() : st::white);
+	p.setPen(st::classicMenuText);
 }
 
 const style::TextStyle &KeyboardStyle::textStyle() const {
-	return st::serviceTextStyle;
+	return st::historyInlineBotButtonTextStyle;
+}
+
+bool KeyboardStyle::buttonUsesDefaultCursor() const {
+	return true;
+}
+
+QPoint KeyboardStyle::buttonContentOffset(bool pressed, bool messageViewport) const {
+	return Ui::ClassicMessageButtonContentOffset(pressed, messageViewport);
 }
 
 void KeyboardStyle::repaint(not_null<const HistoryItem*> item) const {
@@ -216,7 +228,8 @@ void KeyboardStyle::paintButtonBg(
 		const QRect &rect,
 		HistoryMessageMarkupButton::Color color,
 		Ui::BubbleRounding rounding,
-		float64 howMuchOver) const {
+		float64 howMuchOver,
+		bool pressed) const {
 	Expects(st != nullptr);
 
 	using Corner = Ui::BubbleCornerRounding;
@@ -283,19 +296,7 @@ void KeyboardStyle::paintButtonBg(
 				corners);
 		}
 	}
-	p.drawImage(rect.topLeft(), cachedBg.image);
-	if (howMuchOver > 0) {
-		auto o = p.opacity();
-		p.setOpacity(o * howMuchOver);
-		const auto &small = st->msgBotKbOverBgAddCornersSmall();
-		const auto &large = st->msgBotKbOverBgAddCornersLarge();
-		auto over = Ui::CornersPixmaps();
-		for (auto i = 0; i != 4; ++i) {
-			over.p[i] = (rounding[i] == Corner::Large ? large : small).p[i];
-		}
-		Ui::FillRoundRect(p, rect, st->msgBotKbOverBgAdd(), over);
-		p.setOpacity(o);
-	}
+	Ui::PaintClassicButton(p, rect, nullptr, pressed);
 }
 
 void KeyboardStyle::paintButtonIcon(
@@ -303,7 +304,8 @@ void KeyboardStyle::paintButtonIcon(
 		const Ui::ChatStyle *st,
 		const QRect &rect,
 		int outerWidth,
-		HistoryMessageMarkupButton::Type type) const {
+		HistoryMessageMarkupButton::Type type,
+		QPoint contentOffset) const {
 	Expects(st != nullptr);
 
 	using TypeIcon = HistoryMessageMarkupButton::TypeIcon;
@@ -319,7 +321,15 @@ void KeyboardStyle::paintButtonIcon(
 		Unexpected("TypeIcon in KeyboardStyle::paintButtonIcon.");
 	}();
 	if (icon) {
-		icon->paint(p, rect.x() + rect.width() - icon->width() - st::msgBotKbIconPadding, rect.y() + st::msgBotKbIconPadding, outerWidth);
+		p.save();
+		p.translate(contentOffset);
+		icon->paint(
+			p,
+			rect.x() + Ui::ClassicButtonIconLeft(rect.height(), icon->size()),
+			rect.y() + st::msgBotKbIconPadding,
+			outerWidth,
+			st::classicMenuText->c);
+		p.restore();
 	}
 }
 
@@ -338,7 +348,8 @@ void KeyboardStyle::paintButtonLoading(
 			p,
 			rect::right(rect) - icon.width() - st::msgBotKbIconPadding,
 			rect::bottom(rect) - icon.height() - st::msgBotKbIconPadding,
-			rect.x() * 2 + rect.width());
+			rect.x() * 2 + rect.width(),
+			st::classicMenuText->c);
 		return;
 	}
 
@@ -365,7 +376,7 @@ void KeyboardStyle::paintButtonLoading(
 
 				constexpr auto kBgOutlineAlpha = 0.5;
 				constexpr auto kFgOutlineAlpha = 0.8;
-				const auto &c = st::premiumButtonFg->c;
+				const auto &c = st::classicMenuText->c;
 				painter.setPen(Qt::NoPen);
 				painter.setBrush(c);
 				painter.setOpacity(kBgOutlineAlpha);
@@ -396,7 +407,7 @@ void KeyboardStyle::paintButtonLoading(
 
 			constexpr auto kTimeout = crl::time(0);
 			constexpr auto kDuration = crl::time(1100);
-			const auto color = st::premiumButtonFg->c;
+			const auto color = st::classicMenuText->c;
 			_glare->validate(color, _repaint, kTimeout, kDuration);
 		}
 	}
@@ -754,7 +765,7 @@ QString DateTooltipText(not_null<Element*> view) {
 
 void UnreadBar::init(const QString &string) {
 	text = string;
-	width = st::semiboldFont->width(text);
+	width = st::historyUnreadBarFont->width(text);
 }
 
 int UnreadBar::height() {
@@ -762,7 +773,7 @@ int UnreadBar::height() {
 }
 
 int UnreadBar::marginTop() {
-	return st::lineWidth + st::historyUnreadBarMargin;
+	return st::historyUnreadBarMargin;
 }
 
 void UnreadBar::paint(
@@ -776,22 +787,14 @@ void UnreadBar::paint(
 		p.translate(-previousTranslation, 0);
 	}
 	const auto st = context.st;
-	const auto bottom = y + height();
 	y += marginTop();
 	p.fillRect(
 		0,
 		y,
 		w,
-		height() - marginTop() - st::lineWidth,
-		st->historyUnreadBarBg());
-	p.fillRect(
-		0,
-		bottom - st::lineWidth,
-		w,
-		st::lineWidth,
-		st->historyUnreadBarBorder());
+		st::historyUnreadBarHeight,
+		st->msgServiceBg());
 	p.setFont(st::historyUnreadBarFont);
-	p.setPen(st->historyUnreadBarFg());
 
 	int maxwidth = w;
 	if (mode == ElementChatMode::Wide) {
@@ -804,12 +807,12 @@ void UnreadBar::paint(
 	w = maxwidth;
 
 	const auto skip = st::historyUnreadBarHeight
-		- 2 * st::lineWidth
 		- st::historyUnreadBarFont->height;
-	p.drawText(
-		(w - width) / 2,
-		y + (skip / 2) + st::historyUnreadBarFont->ascent,
-		text);
+	Ui::PaintClassicText(
+		p,
+		QPointF((w - width) / 2, y + (skip / 2) + st::historyUnreadBarFont->ascent),
+		text,
+		QColor(Qt::white));
 	if (previousTranslation != 0) {
 		p.translate(previousTranslation, 0);
 	}
@@ -817,7 +820,7 @@ void UnreadBar::paint(
 
 void DateBadge::init(const QString &date) {
 	text = date;
-	width = st::msgServiceFont->width(text);
+	width = st::classicSettingsFont->width(text);
 }
 
 int DateBadge::height() const {
@@ -1132,14 +1135,11 @@ void ServicePreMessage::paint(
 			text,
 			trect);
 
-		p.setBrush(Qt::NoBrush);
-		p.setPen(context.st->msgServiceFg());
 		p.setFont(st::msgServiceFont);
-		text.draw(p, {
+		ServiceMessagePainter::PaintWhiteText(p, text, {
 			.position = trect.topLeft(),
 			.availableWidth = trect.width(),
 			.align = style::al_top,
-			.palette = &context.st->serviceTextPalette(),
 			.now = context.now,
 			.fullWidthSelection = false,
 			//.selection = context.selection,

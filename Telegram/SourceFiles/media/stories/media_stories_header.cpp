@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/stories/media_stories_header.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/unixtime.h"
 #include "chat_helpers/compose/compose_show.h"
 #include "core/ui_integration.h"
@@ -38,12 +41,11 @@ namespace Media::Stories {
 namespace {
 
 constexpr auto kNameOpacity = 1.;
-constexpr auto kDateOpacity = 0.8;
+constexpr auto kDateOpacity = 1.;
 constexpr auto kControlOpacity = 0.65;
 constexpr auto kControlOpacityOver = 1.;
 constexpr auto kControlOpacityDisabled = 0.45;
-constexpr auto kVolumeHideTimeoutShort = crl::time(20);
-constexpr auto kVolumeHideTimeoutLong = crl::time(200);
+constexpr auto kVolumeHideTimeout = crl::time(10'000);
 
 struct Timestamp {
 	QString text;
@@ -182,7 +184,7 @@ void UserpicBadge::updateGeometry() {
 }
 
 struct MadePrivacyBadge {
-	std::unique_ptr<Ui::RpWidget> widget;
+	base::unique_qptr<Ui::RpWidget> widget;
 	QRect geometry;
 };
 
@@ -193,7 +195,7 @@ struct MadePrivacyBadge {
 	if (!badge.icon) {
 		return {};
 	}
-	auto widget = std::make_unique<UserpicBadge>(userpic, badge);
+	auto widget = base::make_unique_q<UserpicBadge>(userpic, badge);
 	const auto geometry = widget->badgeGeometry();
 	return {
 		.widget = std::move(widget),
@@ -336,15 +338,15 @@ void Header::show(HeaderData data, rpl::producer<int> videoStreamViewers) {
 		_playPause = nullptr;
 		_volumeToggle = nullptr;
 		const auto parent = _controller->wrap();
-		auto widget = std::make_unique<Ui::RpWidget>(parent);
+		auto widget = base::make_unique_q<Ui::RpWidget>(parent);
 		const auto raw = widget.get();
 
-		_info = std::make_unique<Ui::AbstractButton>(raw);
+		_info = base::make_unique_q<Ui::AbstractButton>(raw);
 		_info->setClickedCallback([=] {
 			_controller->uiShow()->show(PrepareShortInfoBox(_data->peer));
 		});
 
-		_userpic = std::make_unique<Ui::UserpicButton>(
+		_userpic = base::make_unique_q<Ui::UserpicButton>(
 			raw,
 			data.peer,
 			st::storiesHeaderPhoto);
@@ -354,7 +356,7 @@ void Header::show(HeaderData data, rpl::producer<int> videoStreamViewers) {
 			st::storiesHeaderMargin.left(),
 			st::storiesHeaderMargin.top());
 
-		_name = std::make_unique<Ui::FlatLabel>(
+		_name = base::make_unique_q<Ui::FlatLabel>(
 			raw,
 			rpl::single(data.peer->isSelf()
 				? tr::lng_stories_my_name(tr::now)
@@ -381,10 +383,10 @@ void Header::show(HeaderData data, rpl::producer<int> videoStreamViewers) {
 		}, raw->lifetime());
 	}
 	auto timestamp = ComposeDetails(data, base::unixtime::now());
-	_date = std::make_unique<Ui::FlatLabel>(
+	_date = base::make_unique_q<Ui::FlatLabel>(
 		_widget.get(),
 		std::move(timestamp.text),
-		st::storiesHeaderDate);
+		st::storiesHeaderTimestamp);
 	_date->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_date->show();
 	_date->move(st::storiesHeaderDatePosition);
@@ -396,7 +398,7 @@ void Header::show(HeaderData data, rpl::producer<int> videoStreamViewers) {
 	if (!data.fromPeer && data.repostFrom.isEmpty()) {
 		_repost = nullptr;
 	} else {
-		_repost = std::make_unique<Ui::FlatLabel>(
+		_repost = base::make_unique_q<Ui::FlatLabel>(
 			_widget.get(),
 			st::storiesHeaderDate);
 		const auto prefixName = data.fromPeer
@@ -422,7 +424,7 @@ void Header::show(HeaderData data, rpl::producer<int> videoStreamViewers) {
 
 	auto counter = ComposeCounter(data);
 	if (!counter.isEmpty()) {
-		_counter = std::make_unique<Ui::FlatLabel>(
+		_counter = base::make_unique_q<Ui::FlatLabel>(
 			_widget.get(),
 			std::move(counter),
 			st::storiesHeaderDate);
@@ -530,7 +532,12 @@ void Header::show(HeaderData data, rpl::producer<int> videoStreamViewers) {
 			}
 			_repost->move(dateLeft, dateTop);
 			const auto space = st::normalFont->spacew;
-			_date->move(dateLeft + _repost->width() + space, dateTop);
+			const auto timestampTop = dateTop
+				+ _repost->st().margin.top()
+				+ _repost->st().style.font->ascent
+				- _date->st().margin.top()
+				- _date->st().style.font->ascent;
+			_date->move(dateLeft + _repost->width() + space, timestampTop);
 		} else {
 			_date->move(dateLeft, dateTop);
 		}
@@ -578,7 +585,7 @@ void Header::createPlayPause() {
 		bool over = false;
 		bool down = false;
 	};
-	_playPause = std::make_unique<Ui::RpWidget>(_widget.get());
+	_playPause = base::make_unique_q<Ui::RpWidget>(_widget.get());
 	auto &lifetime = _playPause->lifetime();
 	const auto state = lifetime.make_state<PlayPauseState>();
 
@@ -628,20 +635,22 @@ void Header::createPlayPause() {
 		st::storiesPlayButton.width,
 		st::storiesPlayButton.height);
 	_playPause->show();
-	_playPause->setCursor(style::cur_pointer);
+	_playPause->setCursor(style::cur_default);
 }
 
 void Header::createVolumeToggle() {
 	Expects(_data.has_value());
 
 	struct VolumeState {
+		Ui::Animations::Simple overAnimation;
 		base::Timer hideTimer;
 		bool over = false;
+		bool down = false;
 		bool silent = false;
 		bool dropdownOver = false;
 	};
-	_volumeToggle = std::make_unique<Ui::RpWidget>(_widget.get());
-	_volume = std::make_unique<Ui::FadeWrap<Ui::RpWidget>>(
+	_volumeToggle = base::make_unique_q<Ui::RpWidget>(_widget.get());
+	_volume = base::make_unique_q<Ui::FadeWrap<Ui::RpWidget>>(
 		_widget->parentWidget(),
 		object_ptr<Ui::RpWidget>(_widget->parentWidget()));
 
@@ -659,13 +668,28 @@ void Header::createVolumeToggle() {
 			const auto over = (e->type() == QEvent::Enter);
 			if (state->over != over) {
 				state->over = over;
+				state->overAnimation.start(
+					[=] { _volumeToggle->update(); },
+					over ? 0. : 1.,
+					over ? 1. : 0.,
+					st::mediaviewFadeDuration);
 				if (state->silent) {
 					toggleTooltip(Tooltip::SilentVideo, over);
-				} else if (over) {
+				} else if (!over && !state->dropdownOver) {
+					state->hideTimer.callOnce(kVolumeHideTimeout);
+				}
+			}
+		} else if (type == QEvent::MouseButtonPress && state->over) {
+			state->down = true;
+		} else if (type == QEvent::MouseButtonRelease) {
+			const auto down = base::take(state->down);
+			if (down && state->over && !state->silent) {
+				const auto show = !_volume->toggled();
+				_volume->toggle(show, anim::type::normal);
+				if (show) {
+					state->hideTimer.callOnce(kVolumeHideTimeout);
+				} else {
 					state->hideTimer.cancel();
-					_volume->toggle(true, anim::type::normal);
-				} else if (!state->dropdownOver) {
-					state->hideTimer.callOnce(kVolumeHideTimeoutShort);
 				}
 			}
 		}
@@ -673,13 +697,17 @@ void Header::createVolumeToggle() {
 
 	_volumeToggle->paintRequest() | rpl::on_next([=] {
 		auto p = QPainter(_volumeToggle.get());
+		const auto over = state->overAnimation.value(
+			state->over ? 1. : 0.);
 		p.setOpacity(state->silent
 			? kControlOpacityDisabled
-			: kControlOpacity);
+			: over * kControlOpacityOver
+				+ (1. - over) * kControlOpacity);
 		_volumeIcon.current()->paint(
 			p,
 			st::storiesVolumeButton.iconPosition,
-			_volumeToggle->width());
+			_volumeToggle->width(),
+			Qt::white);
 	}, lifetime);
 	updateVolumeIcon();
 
@@ -695,7 +723,7 @@ void Header::createVolumeToggle() {
 					state->hideTimer.cancel();
 					_volume->toggle(true, anim::type::normal);
 				} else if (!state->over) {
-					state->hideTimer.callOnce(kVolumeHideTimeoutLong);
+					state->hideTimer.callOnce(kVolumeHideTimeout);
 				}
 			}
 		}
@@ -715,7 +743,7 @@ void Header::createVolumeToggle() {
 		st::storiesVolumeButton.height);
 	_volumeToggle->show();
 	if (!state->silent) {
-		_volumeToggle->setCursor(style::cur_pointer);
+		_volumeToggle->setCursor(style::cur_default);
 	}
 }
 
@@ -775,7 +803,7 @@ void Header::toggleTooltip(Tooltip type, bool show) {
 		return;
 	}
 	_tooltipType = type;
-	_tooltip = std::make_unique<Ui::ImportantTooltip>(
+	_tooltip = base::make_unique_q<Ui::ImportantTooltip>(
 		_widget->parentWidget(),
 		Ui::MakeNiceTooltipLabel(
 			_widget.get(),
@@ -908,11 +936,7 @@ void Header::rebuildVolumeControls(
 	dropdown->paintRequest(
 	) | rpl::on_next([=] {
 		auto p = QPainter(dropdown);
-		auto hq = PainterHighQualityEnabler(p);
-		const auto radius = button->width() / 2.;
-		p.setPen(Qt::NoPen);
-		p.setBrush(st::mediaviewSaveMsgBg);
-		p.drawRoundedRect(dropdown->rect(), radius, radius);
+		Ui::PaintClassicButton(p, dropdown->rect(), dropdown, false);
 	}, button->lifetime());
 }
 

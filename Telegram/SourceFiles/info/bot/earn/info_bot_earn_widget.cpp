@@ -11,7 +11,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_controller.h"
 #include "info/info_memento.h"
 #include "lang/lang_keys.h"
+#include "ui/style/style_classic.h"
 #include "ui/ui_utility.h"
+#include "styles/style_widgets.h"
+
+#include <QtWidgets/QScrollBar>
 
 namespace Info::BotEarn {
 
@@ -51,6 +55,14 @@ Widget::Widget(
 	not_null<Controller*> controller)
 : ContentWidget(parent, controller)
 , _inner(setInnerWidget(object_ptr<InnerWidget>(this, controller))) {
+	const auto inactiveScrollBar = Ui::CreateClassicScrollBar(this, Qt::Vertical);
+	inactiveScrollBar->setDisabled(true);
+	inactiveScrollBar->setRange(0, 0);
+	sizeValue() | rpl::on_next([=](QSize size) {
+		inactiveScrollBar->setGeometry(size.width() - st::classicScrollBarWidth, 0, st::classicScrollBarWidth, size.height());
+		inactiveScrollBar->raise();
+		inactiveScrollBar->show();
+	}, lifetime());
 	_inner->showRequests(
 	) | rpl::on_next([=](InnerWidget::ShowRequest request) {
 	}, _inner->lifetime());

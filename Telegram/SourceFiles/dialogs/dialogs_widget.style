@@ -48,8 +48,8 @@ dialogsLoadMoreButton: FlatButton(dialogsUpdateButton) {
 		color: lightButtonBgRipple;
 	}
 
-	height: 36px;
-	textTop: 9px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	font: semiboldFont;
 	overFont: semiboldFont;
 }

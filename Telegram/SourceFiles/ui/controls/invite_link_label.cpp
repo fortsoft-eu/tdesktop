@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/invite_link_label.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "ui/rp_widget.h"
 #include "ui/widgets/labels.h"
@@ -66,8 +67,8 @@ InviteLinkLabel::InviteLinkLabel(
 			PainterHighQualityEnabler hq(p);
 			p.drawRoundedRect(
 				_outer->rect(),
-				st::inviteLinkFieldRadius,
-				st::inviteLinkFieldRadius);
+				style::CornerRadius(st::inviteLinkFieldRadius),
+				style::CornerRadius(st::inviteLinkFieldRadius));
 		}
 	}, _outer->lifetime());
 

@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/edit_privacy_box.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
 #include "api/api_global_privacy.h"
 #include "apiwrap.h"
 #include "boxes/filters/edit_filter_chats_list.h"
@@ -75,7 +77,7 @@ enum class SpecialRowType {
 			p.drawEllipse(x, y, size, size);
 		} else {
 			const auto radius = size * Ui::ForumUserpicRadiusMultiplier();
-			p.drawRoundedRect(x, y, size, size, radius, radius);
+			p.drawRoundedRect(x, y, size, size, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 		st::settingsPrivacyPremium.paintInCenter(p, QRect(x, y, size, size));
 	};
@@ -97,7 +99,7 @@ enum class SpecialRowType {
 			p.drawEllipse(x, y, size, size);
 		} else {
 			const auto radius = size * Ui::ForumUserpicRadiusMultiplier();
-			p.drawRoundedRect(x, y, size, size, radius, radius);
+			p.drawRoundedRect(x, y, size, size, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 		st::windowFilterTypeBots.paintInCenter(p, QRect(x, y, size, size));
 	};
@@ -489,8 +491,8 @@ auto PrivacyExceptionsBoxController::createRow(not_null<History*> history)
 		raw,
 		Lang::FormatCountDecimal(value),
 		*labelStyle);
-	min->setTextColorOverride(st::windowSubTextFg->c);
-	max->setTextColorOverride(st::windowSubTextFg->c);
+	min->setTextColorOverride(Ui::ClassicTextColor(raw, st::windowSubTextFg)->c);
+	max->setTextColorOverride(Ui::ClassicTextColor(raw, st::windowSubTextFg)->c);
 	const auto slider = raw->add(object_ptr<Ui::MediaSliderWheelless>(
 		raw,
 		*sliderStyle));
@@ -545,8 +547,8 @@ auto PrivacyExceptionsBoxController::createRow(not_null<History*> history)
 		valueFinished(value);
 	};
 	style::PaletteChanged() | rpl::on_next([=] {
-		min->setTextColorOverride(st::windowSubTextFg->c);
-		max->setTextColorOverride(st::windowSubTextFg->c);
+		min->setTextColorOverride(Ui::ClassicTextColor(raw, st::windowSubTextFg)->c);
+		max->setTextColorOverride(Ui::ClassicTextColor(raw, st::windowSubTextFg)->c);
 	}, raw->lifetime());
 	updateByValue(value);
 	state->indexMin = 0;
@@ -639,6 +641,7 @@ EditPrivacyBox::EditPrivacyBox(
 }
 
 void EditPrivacyBox::prepare() {
+	Ui::SetClassicSettingsStyle(this);
 	_controller->setView(this);
 
 	setupContent();
@@ -658,6 +661,7 @@ void EditPrivacyBox::editExceptions(
 			: std::optional<SpecialRowType>()));
 	auto initBox = [=, controller = controller.get()](
 			not_null<PeerListBox*> box) {
+		Ui::SetClassicSettingsStyle(box);
 		box->addButton(tr::lng_settings_save(), crl::guard(this, [=] {
 			auto &setTo = exceptions(exception);
 			setTo.peers = box->collectSelectedRows();

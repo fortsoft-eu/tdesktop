@@ -10,8 +10,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "editor/controllers/controllers.h"
 #include "lang/lang_keys.h"
 #include "ui/effects/round_checkbox.h"
-#include "ui/image/image_prepare.h"
 #include "ui/qt_object_factory.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/labels.h"
@@ -291,118 +291,59 @@ void RoundCheckAction::paintEvent(QPaintEvent *e) {
 
 } // namespace
 
-class EdgeButton final : public Ui::RippleButton {
+class EdgeButton final : public Ui::AbstractButton {
 public:
 	EdgeButton(
 		not_null<Ui::RpWidget*> parent,
 		const QString &text,
-		int height,
-		const style::color &bg,
-		const style::color &fg,
-		const style::RippleAnimation &st);
-
-protected:
-	QImage prepareRippleMask() const override;
-	QPoint prepareRippleStartPosition() const override;
+		int height);
 
 private:
-	void init();
-
-	const style::color &_fg;
-	Ui::Text::String _text;
+	const QString _text;
 	const int _width;
-	const QRect _rippleRect;
-	const QColor _bg;
-
-	QImage rounded(std::optional<QColor> color) const;
+	const QRect _buttonRect;
 
 };
 
 EdgeButton::EdgeButton(
 	not_null<Ui::RpWidget*> parent,
 	const QString &text,
-	int height,
-	const style::color &bg,
-	const style::color &fg,
-	const style::RippleAnimation &st)
-: Ui::RippleButton(parent, st)
-, _fg(fg)
-, _text(st::photoEditorButtonStyle, text)
-, _width(_text.maxWidth()
+	int height)
+: Ui::AbstractButton(parent)
+, _text(text)
+, _width(st::photoEditorButtonStyle.font->width(_text)
 	+ st::photoEditorTextButtonPadding.left()
 	+ st::photoEditorTextButtonPadding.right())
-, _rippleRect(QRect(
+, _buttonRect(QRect(
 	rect::m::pos::tl(st::photoEditorEdgeButtonMargins),
 	QSize(
 		_width,
-		height - rect::m::sum::v(st::photoEditorEdgeButtonMargins))))
-, _bg(bg->c) {
+		height - rect::m::sum::v(st::photoEditorEdgeButtonMargins)))) {
 	resize(
 		_width + rect::m::sum::h(st::photoEditorEdgeButtonMargins),
 		height);
-	init();
-}
-
-void EdgeButton::init() {
-	const auto bg = rounded(_bg);
 
 	paintRequest(
 	) | rpl::on_next([=] {
-		Painter p(this);
-
-		if (isOver()) {
-			p.drawImage(_rippleRect.topLeft(), bg);
-		}
-
-		paintRipple(p, _rippleRect.x(), _rippleRect.y());
-
-		p.setPen(_fg);
-		const auto textTop = _rippleRect.y()
-			+ (_rippleRect.height() - _text.minHeight()) / 2;
-		_text.draw(
-			p,
-			_rippleRect.x(),
-			textTop,
-			_rippleRect.width(),
-			style::al_center);
+		auto p = QPainter(this);
+		Ui::PaintClassicButton(p, _buttonRect, this, isDown());
+		const auto offset = Ui::ClassicButtonContentOffset(this, isDown());
+		const auto font = st::photoEditorButtonStyle.font;
+		p.setFont(font);
+		const auto baseline = QPoint(
+			_buttonRect.x() + (_buttonRect.width() - font->width(_text)) / 2,
+			_buttonRect.y() + (_buttonRect.height() - font->height) / 2 + font->ascent) + offset;
+		Ui::PaintClassicText(p, baseline, _text, st::classicMenuText->c);
 	}, lifetime());
-}
-
-QImage EdgeButton::rounded(std::optional<QColor> color) const {
-	auto result = QImage(
-		_rippleRect.size() * style::DevicePixelRatio(),
-		QImage::Format_ARGB32_Premultiplied);
-	result.setDevicePixelRatio(style::DevicePixelRatio());
-	result.fill(color.value_or(Qt::white));
-
-	const auto radius = std::min(_rippleRect.width(), _rippleRect.height())
-		/ 2;
-	const auto mask = Images::CornersMask(radius);
-	return Images::Round(std::move(result), mask);
-}
-
-QImage EdgeButton::prepareRippleMask() const {
-	return rounded(std::nullopt);
-}
-
-QPoint EdgeButton::prepareRippleStartPosition() const {
-	return mapFromGlobal(QCursor::pos()) - _rippleRect.topLeft();
 }
 
 class ButtonBar final : public Ui::RpWidget {
 public:
-	ButtonBar(
-		not_null<Ui::RpWidget*> parent,
-		const style::color &bg);
-
-private:
-	QImage _roundedBg;
+	explicit ButtonBar(not_null<Ui::RpWidget*> parent);
 
 };
 
-ButtonBar::ButtonBar(
-	not_null<Ui::RpWidget*> parent,
-	const style::color &bg)
+ButtonBar::ButtonBar(not_null<Ui::RpWidget*> parent)
 : RpWidget(parent) {
 	sizeValue(
 	) | rpl::on_next([=](const QSize &size) {
@@ -451,22 +392,12 @@ ButtonBar::ButtonBar(
 		if (!layout(true)) {
 			layout(false);
 		}
-
-		auto result = QImage(
-			size * style::DevicePixelRatio(),
-			QImage::Format_ARGB32_Premultiplied);
-		result.setDevicePixelRatio(style::DevicePixelRatio());
-		result.fill(bg->c);
-
-		const auto radius = std::min(size.width(), size.height()) / 2;
-		const auto mask = Images::CornersMask(radius);
-		_roundedBg = Images::Round(std::move(result), mask);
 	}, lifetime());
 
 	paintRequest(
 	) | rpl::on_next([=] {
 		auto p = QPainter(this);
-		p.drawImage(QPoint(), _roundedBg);
+		Ui::PaintClassicMenuFrame(p, rect());
 	}, lifetime());
 }
 
@@ -512,11 +443,10 @@ PhotoEditorControls::PhotoEditorControls(
 : RpWidget(parent)
 , _imageSize(imageSize)
 , _originalRatio(data.originalRatio)
-, _bg(st::roundedBg)
 , _buttonHeight(st::photoEditorButtonBarHeight)
-, _transformButtons(base::make_unique_q<ButtonBar>(this, _bg))
-, _paintTopButtons(base::make_unique_q<ButtonBar>(this, _bg))
-, _paintBottomButtons(base::make_unique_q<ButtonBar>(this, _bg))
+, _transformButtons(base::make_unique_q<ButtonBar>(this))
+, _paintTopButtons(base::make_unique_q<ButtonBar>(this))
+, _paintBottomButtons(base::make_unique_q<ButtonBar>(this))
 , _about(data.about.empty()
 	? nullptr
 	: base::make_unique_q<Ui::FadeWrap<Ui::FlatLabel>>(
@@ -528,10 +458,7 @@ PhotoEditorControls::PhotoEditorControls(
 , _transformCancel(base::make_unique_q<EdgeButton>(
 	_transformButtons,
 	tr::lng_cancel(tr::now),
-	_buttonHeight,
-	st::photoEditorEdgeButtonBg,
-	st::mediaviewCaptionFg,
-	st::photoEditorRotateButton.ripple))
+	_buttonHeight))
 , _flipButton(base::make_unique_q<Ui::IconButton>(
 	_transformButtons,
 	st::photoEditorFlipButton))
@@ -555,17 +482,11 @@ PhotoEditorControls::PhotoEditorControls(
 , _transformDone(base::make_unique_q<EdgeButton>(
 	_transformButtons,
 	(data.confirm.isEmpty() ? tr::lng_box_done(tr::now) : data.confirm),
-	_buttonHeight,
-	st::photoEditorEdgeButtonBg,
-	st::mediaviewTextLinkFg,
-	st::photoEditorRotateButton.ripple))
+	_buttonHeight))
 , _paintCancel(base::make_unique_q<EdgeButton>(
 	_paintBottomButtons,
 	tr::lng_cancel(tr::now),
-	_buttonHeight,
-	st::photoEditorEdgeButtonBg,
-	st::mediaviewCaptionFg,
-	st::photoEditorRotateButton.ripple))
+	_buttonHeight))
 , _undoButton(base::make_unique_q<Ui::IconButton>(
 	_paintTopButtons,
 	st::photoEditorUndoButton))
@@ -587,10 +508,7 @@ PhotoEditorControls::PhotoEditorControls(
 , _paintDone(base::make_unique_q<EdgeButton>(
 	_paintBottomButtons,
 	tr::lng_box_done(tr::now),
-	_buttonHeight,
-	st::photoEditorEdgeButtonBg,
-	st::mediaviewTextLinkFg,
-	st::photoEditorRotateButton.ripple)) {
+	_buttonHeight)) {
 
 	_shapesFilled = shapesFilled;
 	_shapesButton->setClickedCallback([=] {

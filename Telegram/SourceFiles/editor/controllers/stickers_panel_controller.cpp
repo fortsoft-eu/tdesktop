@@ -36,6 +36,7 @@ StickersPanelController::StickersPanelController(
 						.openStickerSets = false,
 					},
 				}),
+			.separateWindow = true,
 		})) {
 	_stickersPanel->setDesiredHeightValues(
 		1.,

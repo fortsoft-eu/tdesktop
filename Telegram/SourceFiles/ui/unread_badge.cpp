@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/unread_badge.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_emoji_statuses.h"
 #include "data/data_peer.h"
 #include "data/data_user.h"
@@ -193,7 +194,10 @@ void DrawTextBadge(
 	pen.setWidth(st::lineWidth);
 	p.setPen(pen);
 	p.setBrush(Qt::NoBrush);
-	p.drawRoundedRect(rect, st::dialogsScamRadius, st::dialogsScamRadius);
+	p.drawRoundedRect(
+		rect,
+		style::CornerRadius(st::dialogsScamRadius),
+		style::CornerRadius(st::dialogsScamRadius));
 	p.setFont(st::dialogsScamFont);
 	if (style::DevicePixelRatio() > 1) {
 		p.drawText(

@@ -136,7 +136,7 @@ void EditTimeBox(
 		box,
 		st::settingsWorkingHoursPicker));
 
-	const auto font = st::boxTextFont;
+	const auto font = st::classicSettingsFont;
 	const auto itemHeight = st::settingsWorkingHoursPickerItemHeight;
 	const auto picker = [=](
 			int count,
@@ -168,7 +168,7 @@ void EditTimeBox(
 
 	// hours->value() is valid only after size is set.
 	const auto separator = u":"_q;
-	const auto separatorWidth = st::boxTextFont->width(separator);
+	const auto separatorWidth = st::classicSettingsFont->width(separator);
 	rpl::combine(
 		content->sizeValue(),
 		minutes->value()
@@ -618,13 +618,14 @@ void WorkingHours::setupContent(
 	});
 
 	Ui::AddSkip(content);
-	const auto enabled = content->add(object_ptr<Ui::SettingsButton>(
+	const auto enabled = content->add(object_ptr<Ui::Checkbox>(
 		content,
 		tr::lng_hours_show(),
-		st::settingsButtonNoIcon
-	))->toggleOn(rpl::single(bool(_hours.current())));
+		bool(_hours.current()),
+		st::settingsCheckbox),
+		st::settingsCheckboxPadding);
 
-	_enabled = enabled->toggledValue();
+	_enabled = enabled->checkedValue();
 
 	const auto wrap = content->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -704,9 +705,10 @@ void WorkingHours::setupContent(
 		}, inner->lifetime());
 	}
 
-	wrap->toggleOn(enabled->toggledValue());
+	wrap->toggleOn(enabled->checkedValue());
 	wrap->finishAnimating();
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 

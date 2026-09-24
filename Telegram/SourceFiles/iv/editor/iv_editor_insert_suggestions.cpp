@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/editor/iv_editor_insert_suggestions.h"
 
+#include "ui/style/style_radius.h"
 #include "lang/lang_keys.h"
 #include "ui/effects/premium_graphics.h"
 #include "ui/painter.h"
@@ -846,7 +847,7 @@ void InsertSuggestionsController::paintQuery(QPainter &p) {
 	const auto radius = st::ivEditorSuggestionsQueryRadius;
 	p.setPen(Qt::NoPen);
 	p.setBrush(color);
-	p.drawRoundedRect(_query, radius, radius);
+	p.drawRoundedRect(_query, style::CornerRadius(radius), style::CornerRadius(radius));
 }
 
 } // namespace Iv::Editor

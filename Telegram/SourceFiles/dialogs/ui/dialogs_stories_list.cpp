@@ -378,6 +378,9 @@ List::Layout List::computeLayout(float64 expanded) const {
 }
 
 void List::paintEvent(QPaintEvent *e) {
+	if (_collapsedHidden && _state == State::Small) {
+		return;
+	}
 	const auto hidden = _hiddenAnimation.value(toggledHidden() ? 1. : 0.);
 	if (hidden >= 1.) {
 		return;
@@ -1040,11 +1043,12 @@ void List::setShowTooltip(
 			_tooltipText.value() | rpl::filter(notEmpty),
 			st::dialogsStoriesTooltipMaxWidth,
 			st::dialogsStoriesTooltipLabel,
-			st::importantTooltipHide,
+			st::dialogsStoriesTooltipHide,
 			st::defaultImportantTooltip.padding,
 			_tooltipHide),
 		st::dialogsStoriesTooltip);
 	const auto tooltip = _tooltip.get();
+	tooltip->setProperty("classicFormFrame", true);
 	const auto weak = QPointer<QWidget>(tooltip);
 	tooltip->toggleFast(false);
 	updateTooltipGeometry();
@@ -1090,7 +1094,7 @@ void List::raiseTooltip() {
 }
 
 void List::toggleTooltip(bool fast) {
-	const auto shown = !_expanded
+	const auto shown = !_collapsedHidden && !_expanded
 		&& !_expandedAnimation.animating()
 		&& !isHidden()
 		&& _tooltipNotHidden.current()
@@ -1135,6 +1139,9 @@ void List::updateTooltipGeometry() {
 }
 
 List::CollapsedGeometry List::collapsedGeometryCurrent() const {
+	if (_collapsedHidden) {
+		return { QRect(), 1., 0. };
+	}
 	const auto expanded = _expandedAnimation.value(_expanded ? 2. : 0.);
 	if (expanded >= 1.) {
 		const auto single = 2 * _st.full.photoLeft + _st.full.photo;
@@ -1208,11 +1215,20 @@ QRect List::countSmallGeometry() const {
 		st.photoTop + st.photo + st.photoTop);
 }
 
+void List::setCollapsedHidden(bool hidden) {
+	_collapsedHidden = hidden;
+	setAttribute(Qt::WA_TransparentForMouseEvents, hidden && _state == State::Small);
+	_collapsedGeometryChanged.fire({});
+	toggleTooltip(true);
+	update();
+}
+
 void List::setState(State state) {
 	if (_state == state) {
 		return;
 	}
 	_state = state;
+	setAttribute(Qt::WA_TransparentForMouseEvents, _collapsedHidden && state == State::Small);
 	updateGeometry();
 }
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/settings_credits_graphics.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_chat_invite.h"
 #include "api/api_credits.h"
 #include "api/api_earn.h"
@@ -543,7 +544,9 @@ void FillCreditOptions(
 				content,
 				std::move(subtitle),
 				{},
-				dark ? &st::groupCallSubsectionTitle : nullptr);
+				dark
+					? &st::groupCallSubsectionTitle
+					: &st::creditsTopupSubsectionTitle);
 		}
 		const auto &st = dark
 			? st::videoStreamTopupButton
@@ -591,21 +594,32 @@ void FillCreditOptions(
 				content,
 				std::move(subtitle),
 				{},
-				dark ? &st::groupCallSubsectionTitle : nullptr);
+				dark
+					? &st::groupCallSubsectionTitle
+					: &st::creditsTopupSubsectionTitle);
 		}
 
-		const auto buttons = content->add(
+		const auto packages = content->add(
 			object_ptr<Ui::VerticalLayout>(content));
+		if (!dark) {
+			packages->setProperty("classicSettingsStyle", false);
+			packages->paintRequest() | rpl::on_next([=](QRect clip) {
+				auto p = QPainter(packages);
+				p.fillRect(clip, st::windowBg);
+			}, packages->lifetime());
+		}
+		const auto buttons = packages->add(
+			object_ptr<Ui::VerticalLayout>(packages));
 
-		const auto showMoreWrap = content->add(
+		const auto showMoreWrap = packages->add(
 			object_ptr<Ui::SlideWrap<Ui::SettingsButton>>(
-				content,
+				packages,
 				object_ptr<Ui::SettingsButton>(
-					content,
+					packages,
 					tr::lng_credits_more_options(),
 					(dark
 						? st::videoStreamShowMoreButton
-						: st::statisticsShowMoreButton))));
+						: st::creditsTopupMoreButton))));
 		const auto showMore = showMoreWrap->entity();
 		showMore->setClickedCallback([=] {
 			showMoreWrap->toggle(false, anim::type::instant);
@@ -732,7 +746,7 @@ void FillCreditOptions(
 				content,
 				std::move(text),
 				st::defaultBoxDividerLabelPadding,
-				dark ? st::groupCallDividerLabel : st::defaultDividerLabel);
+				dark ? st::groupCallDividerLabel : st::classicDividerLabel);
 		}
 
 		content->resizeToWidth(container->width());
@@ -770,7 +784,8 @@ void FillCreditOptions(
 }
 
 [[nodiscard]] object_ptr<Ui::FlatLabel> CreateCreditsTermsLabel(
-		not_null<Ui::GenericBox*> box) {
+		not_null<Ui::GenericBox*> box,
+		const style::FlatLabel &labelStyle) {
 	return object_ptr<Ui::FlatLabel>(
 		box,
 		tr::lng_credits_box_out_about(
@@ -778,7 +793,7 @@ void FillCreditOptions(
 			tr::lng_payments_terms_link(
 				tr::url(tr::lng_credits_box_out_about_link(tr::now))),
 			tr::marked),
-		st::creditsBoxAboutDivider);
+		labelStyle);
 }
 
 not_null<Ui::RpWidget*> AddBalanceWidget(
@@ -788,6 +803,17 @@ not_null<Ui::RpWidget*> AddBalanceWidget(
 		bool rightAlign,
 		rpl::producer<float64> opacityValue,
 		bool dark) {
+	return AddBalanceWidget(parent, session, std::move(balanceValue), rightAlign, std::move(opacityValue), dark, nullptr);
+}
+
+not_null<Ui::RpWidget*> AddBalanceWidget(
+		not_null<Ui::RpWidget*> parent,
+		not_null<Main::Session*> session,
+		rpl::producer<CreditsAmount> balanceValue,
+		bool rightAlign,
+		rpl::producer<float64> opacityValue,
+		bool dark,
+		const style::TextStyle *labelStyle) {
 	struct State final {
 		float64 opacity = 1.0;
 		Ui::Text::String label;
@@ -796,10 +822,10 @@ not_null<Ui::RpWidget*> AddBalanceWidget(
 	const auto balance = Ui::CreateChild<Balance>(parent);
 	const auto state = balance->lifetime().make_state<State>();
 	state->label = Ui::Text::String(
-		st::defaultTextStyle,
+		labelStyle ? *labelStyle : st::defaultTextStyle,
 		tr::lng_credits_summary_balance(tr::now));
 	state->count = Ui::Text::String(
-		st::semiboldTextStyle,
+		labelStyle ? st::creditsBalanceTextStyle : st::semiboldTextStyle,
 		tr::lng_contacts_loading(tr::now));
 	if (opacityValue) {
 		std::move(opacityValue) | rpl::on_next([=](float64 value) {
@@ -828,7 +854,7 @@ not_null<Ui::RpWidget*> AddBalanceWidget(
 				Lang::FormatCreditsAmountToShort(value).string);
 		}
 		state->count.setMarkedText(
-			st::semiboldTextStyle,
+			labelStyle ? st::creditsBalanceTextStyle : st::semiboldTextStyle,
 			text,
 			kMarkupTextOptions,
 			helper.context([=] { balance->update(); }));
@@ -862,7 +888,7 @@ void BoostCreditsBox(
 		not_null<Ui::GenericBox*> box,
 		not_null<Window::SessionController*> controller,
 		const Data::Boost &b) {
-	box->setStyle(st::giveawayGiftCodeBox);
+	box->setStyle(st::creditsEntryOkBox);
 	box->setNoContentMargin(true);
 
 	const auto content = box->verticalLayout();
@@ -946,7 +972,9 @@ void BoostCreditsBox(
 	AddCreditsBoostTable(controller->uiShow(), content, {}, b);
 	Ui::AddSkip(content);
 
-	box->addRow(CreateCreditsTermsLabel(box), style::al_top);
+	box->addRow(
+		CreateCreditsTermsLabel(box, st::creditsBoxAboutDivider),
+		style::al_top);
 	Ui::AddSkip(content);
 
 	box->addButton(tr::lng_box_ok(), [=] {
@@ -1697,6 +1725,7 @@ void GenericCreditsEntryBody(
 		Ui::AddSkip(content);
 		Ui::AddSkip(content);
 
+		const auto classicGiftDetails = isStarGift && !uniqueGift;
 		box->addRow(
 			object_ptr<Ui::FlatLabel>(
 				box,
@@ -1747,7 +1776,9 @@ void GenericCreditsEntryBody(
 					: (peer && !e.reaction)
 					? peer->name()
 					: Ui::GenerateEntryName(e).text),
-				st::creditsBoxAboutTitle),
+				classicGiftDetails
+					? st::creditsGiftDetailsTitle
+					: st::creditsBoxAboutTitle),
 			style::al_top);
 
 		Ui::AddSkip(content);
@@ -1794,7 +1825,7 @@ void GenericCreditsEntryBody(
 			Ui::Earn::IconCreditsEmoji());
 		if (e.soldOutInfo) {
 			text->setText(
-				st::defaultTextStyle,
+				st::creditsGiftStatusStyle,
 				tr::lng_credits_box_history_entry_gift_sold_out(tr::now));
 		} else if (s) {
 			text->setMarkedText(
@@ -1903,8 +1934,8 @@ void GenericCreditsEntryBody(
 						(amount->height() - roundedFont->height) / 2,
 						roundedWidth - roundedSkip,
 						roundedFont->height,
-						roundedFont->height / 2,
-						roundedFont->height / 2);
+						style::CornerRadius(roundedFont->height / 2),
+						style::CornerRadius(roundedFont->height / 2));
 				}
 				p.setPen(pen);
 				rounded->draw(p, Ui::Text::PaintContext{
@@ -2226,7 +2257,9 @@ void GenericCreditsEntryBody(
 
 	const auto showNextToUpgrade = e.nextToUpgradeShow;
 	if (!isStarGift && e.credits.stars() && e.credits.value()) {
-		box->addRow(CreateCreditsTermsLabel(box), style::al_top);
+		box->addRow(
+			CreateCreditsTermsLabel(box, st::creditsBoxAboutDivider),
+			style::al_top);
 	} else if (starGiftCanManage) {
 		const auto hiddenPhrase = giftToChannelCanManage
 			? tr::lng_gift_hidden_hint_channel
@@ -2286,7 +2319,9 @@ void GenericCreditsEntryBody(
 			return false;
 		});
 	} else if (e.credits.stars() && e.credits.value()) {
-		box->addRow(CreateCreditsTermsLabel(box), style::al_top);
+		box->addRow(
+			CreateCreditsTermsLabel(box, st::creditsGiftDetailsTerms),
+			style::al_top);
 	} else {
 		addGiftLinkTON();
 	}
@@ -2413,6 +2448,18 @@ void GenericCreditsEntryBody(
 	};
 
 	const auto willBusy = toRejoin || (peer && toRenew);
+	const auto plainOk = !toRenew
+		&& !toRejoin
+		&& !e.craftAnotherCallback
+		&& !canUpgradeFree
+		&& !canUpgrade
+		&& !canGiftUpgrade
+		&& !(canToggle && !e.savedToProfile)
+		&& !canBuyResold
+		&& !showNextToUpgrade;
+	if (plainOk && !st.box) {
+		box->setStyle(st::creditsEntryOkBox);
+	}
 	if (willBusy) {
 		const auto close = Ui::CreateChild<Ui::IconButton>(
 			content,
@@ -2459,7 +2506,9 @@ void GenericCreditsEntryBody(
 			} else {
 				box->closeBox();
 			}
-		}, showNextToUpgrade
+		}, plainOk
+			? st::defaultBoxButton
+			: showNextToUpgrade
 			? st::giveawayGiftCodeBoxUpgradeNext
 			: st::giveawayGiftCodeBox.button);
 		if (canBuyResold) {
@@ -2538,7 +2587,7 @@ void UniqueGiftValueBox(
 		std::shared_ptr<ChatHelpers::Show> show,
 		const Data::CreditsHistoryEntry &e,
 		CreditsEntryBoxStyleOverrides st) {
-	box->setStyle(st.box ? *st.box : st::giveawayGiftCodeBox);
+	box->setStyle(st.box ? *st.box : st::creditsEntryOkBox);
 	box->setWidth(st::boxWideWidth);
 	box->setNoContentMargin(true);
 
@@ -2633,7 +2682,7 @@ void UniqueGiftValueBox(
 		p.setPen(Qt::NoPen);
 		const auto rect = bubble->rect();
 		const auto radius = std::min(rect.width(), rect.height()) / 2.;
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}, bubble->lifetime());
 
 	Ui::AddSkip(content);
@@ -3285,7 +3334,8 @@ void SmallBalanceBox(
 			show->session().credits().balanceValue(),
 			true,
 			nullptr,
-			dark);
+			dark,
+			dark ? nullptr : &st::creditsBalanceTitleTextStyle);
 		show->session().credits().load(true);
 
 		rpl::combine(

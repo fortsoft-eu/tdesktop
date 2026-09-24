@@ -106,6 +106,29 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace {
 
+std::optional<float64> DefaultDialogsWidthRatio(int bodyWidth) {
+	const auto width = st::columnMaximalWidthThird;
+	if (bodyWidth < width + st::columnMinimalWidthMain) {
+		return std::nullopt;
+	}
+	return width / float64(bodyWidth);
+}
+
+bool ApplyFirstLoginColumnWidths(int bodyWidth) {
+	constexpr auto kAppliedKey = "personal-first-login-column-widths-v1";
+	auto &settings = Core::App().settings();
+	const auto ratio = DefaultDialogsWidthRatio(bodyWidth);
+	if (settings.readPref<bool>(kAppliedKey)
+		|| !ratio) {
+		return false;
+	}
+	settings.setThirdColumnWidth(st::columnMaximalWidthThird);
+	settings.updateDialogsWidthRatio(*ratio, false);
+	settings.writePref<bool>(kAppliedKey, true);
+	Core::App().saveSettingsDelayed();
+	return true;
+}
+
 void ClearBotStartToken(PeerData *peer) {
 	if (peer && peer->isUser() && peer->asUser()->isBot()) {
 		peer->asUser()->botInfo->startToken = QString();
@@ -116,6 +139,7 @@ base::options::toggle ForceComposeSearchOneColumn({
 	.id = kForceComposeSearchOneColumn,
 	.name = "Force embedded search in chats",
 	.description = "Force in one-column mode the embedded search in chats.",
+	.defaultValue = false,
 });
 
 base::options::toggle OptionUseNewChatView({
@@ -3156,10 +3180,25 @@ void MainWidget::handleHistoryBack() {
 	}
 }
 
+void MainWidget::restoreDefaultDialogsWidth() {
+	if (!windowId().hasChatsList()) {
+		return;
+	}
+	const auto layout = _controller->computeColumnLayout();
+	if (const auto ratio = DefaultDialogsWidthRatio(layout.bodyWidth)) {
+		Core::App().settings().updateDialogsWidthRatio(*ratio, false);
+		Core::App().saveSettingsDelayed();
+	}
+}
+
 void MainWidget::updateWindowAdaptiveLayout() {
 	const auto nochat = !_controller->mainSectionShown();
 
 	auto layout = _controller->computeColumnLayout();
+	if (windowId().hasChatsList()
+		&& ApplyFirstLoginColumnWidths(layout.bodyWidth)) {
+		layout = _controller->computeColumnLayout();
+	}
 	auto dialogsWidthRatio = Core::App().settings().dialogsWidthRatio(nochat);
 
 	// Check if we are in a single-column layout in a wide enough window

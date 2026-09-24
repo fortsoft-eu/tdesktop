@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/star_gift_craft_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "base/event_filter.h"
 #include "base/random.h"
@@ -259,7 +260,7 @@ AbstractButton *MakeCornerButton(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(gradient);
-		p.drawRoundedRect(result->rect(), radius, radius);
+		p.drawRoundedRect(result->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	});
 
 	return result;
@@ -317,8 +318,6 @@ AbstractButton *MakeRemoveButton(
 		not_null<Main::Session*> session,
 		rpl::producer<std::vector<GiftForCraft>> chosen,
 		rpl::producer<QColor> edgeColor) {
-	const auto width = st::boxWideWidth;
-
 	const auto buttonPadding = st::craftPreviewPadding;
 	const auto buttonSize = st::giftBoxGiftTiny;
 	const auto height = 2
@@ -351,20 +350,23 @@ AbstractButton *MakeRemoveButton(
 	const auto state = parent->lifetime().make_state<State>(session);
 	state->edgeColor = std::move(edgeColor);
 
-	state->refreshButton = [=](int index) {
-		Expects(index >= 0 && index < state->entries.size());
-
-		auto &entry = state->entries[index];
+	const auto geometryFor = [=](int index) {
 		const auto single = state->delegate.buttonSize();
-		const auto geometry = QRect(
+		return QRect(
 			((index % 2)
-				? (width - buttonPadding.left() - single.width())
+				? (raw->width() - buttonPadding.left() - single.width())
 				: buttonPadding.left()),
 			((index < 2)
 				? buttonPadding.top()
 				: (height - buttonPadding.top() - single.height())),
 			single.width(),
 			single.height());
+	};
+	state->refreshButton = [=](int index) {
+		Expects(index >= 0 && index < state->entries.size());
+
+		auto &entry = state->entries[index];
+		const auto geometry = geometryFor(index);
 		delete base::take(entry.add);
 		delete base::take(entry.button);
 		delete base::take(entry.percent);
@@ -402,7 +404,7 @@ AbstractButton *MakeRemoveButton(
 				p.setBrush(ForgeBgOverlay());
 
 				const auto rect = QRect(QPoint(), geometry.size());
-				p.drawRoundedRect(rect, radius, radius);
+				p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 				const auto &icon = st::craftAddIcon;
 				icon.paintInCenter(p, rect, st::white->c);
@@ -466,16 +468,16 @@ AbstractButton *MakeRemoveButton(
 		state->chancePermille = chance;
 	}, raw->lifetime());
 
-	const auto center = [&] {
+	const auto center = [=] {
 		const auto buttonPadding = st::craftPreviewPadding;
 		const auto buttonSize = st::giftBoxGiftTiny;
 		const auto left = buttonPadding.left()
 			+ buttonSize
 			+ buttonPadding.right();
-		const auto center = (width - 2 * left);
+		const auto center = std::max(raw->width() - 2 * left, 0);
 		const auto top = (height - center) / 2;
 		return QRect(left, top, center, center);
-	}();
+	};
 	raw->paintOn([=](QPainter &p) {
 		auto hq = PainterHighQualityEnabler(p);
 
@@ -484,24 +486,36 @@ AbstractButton *MakeRemoveButton(
 		p.setPen(Qt::NoPen);
 		p.setBrush(ForgeBgOverlay());
 
-		p.drawRoundedRect(center, radius, radius);
+		p.drawRoundedRect(center(), style::CornerRadius(radius), style::CornerRadius(radius));
 
-		st::craftForge.paintInCenter(p, center, st::white->c);
+		st::craftForge.paintInCenter(p, center(), st::white->c);
 	});
 
 	state->forgeRadial = MakeRadialPercent(
 		raw,
 		st::craftForgePercent,
 		state->chancePermille.value());
-	state->forgeRadial->setGeometry(center.marginsRemoved({
-		st::craftForgePadding,
-		st::craftForgePadding,
-		st::craftForgePadding,
-		st::craftForgePadding,
-	}));
+	raw->widthValue() | rpl::on_next([=] {
+		for (auto i = 0; i != state->entries.size(); ++i) {
+			const auto &entry = state->entries[i];
+			if (entry.button) {
+				entry.button->setGeometry(
+					geometryFor(i),
+					state->delegate.buttonExtend());
+			} else if (entry.add) {
+				entry.add->setGeometry(geometryFor(i));
+			}
+		}
+		state->forgeRadial->setGeometry(center().marginsRemoved({
+			st::craftForgePadding,
+			st::craftForgePadding,
+			st::craftForgePadding,
+			st::craftForgePadding,
+		}));
+	}, raw->lifetime());
 
 	auto grabForAnimation = [=](std::shared_ptr<CraftState> craftState) {
-		craftState->forgeRect = center;
+		craftState->forgeRect = center();
 		craftState->forgePercent = GrabWidgetToImage(state->forgeRadial);
 
 		auto giftsTotal = 0;
@@ -862,8 +876,8 @@ void ShowSelectGiftBox(
 						inner.height() + sub - font->height,
 						tw,
 						font->height,
-						font->height / 2.,
-						font->height / 2.);
+						style::CornerRadius(font->height / 2.),
+						style::CornerRadius(font->height / 2.));
 				}
 				p.drawImage(inner.topLeft(), a.nowFrame);
 				p.setOpacity(1.);
@@ -1275,7 +1289,7 @@ void AddPreviewNewModels(
 		const auto radius = rect.height() / 2.;
 		p.setPen(Qt::NoPen);
 		p.setBrush(ForgeBgOverlay());
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	});
 
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);

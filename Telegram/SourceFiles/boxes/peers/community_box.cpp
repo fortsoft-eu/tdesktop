@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/layers/generic_box.h"
+#include "ui/painter.h"
 #include "ui/text/text_utilities.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
@@ -224,11 +225,19 @@ void SetupCommunityContent(
 		return;
 	}
 
-	Ui::AddSkip(container);
+	const auto controls = container->add(object_ptr<Ui::VerticalLayout>(container));
+	controls->paintOn([=](QPainter &p) {
+		p.fillRect(controls->rect(), st::classicControlBg);
+	});
+	Ui::AddSkip(controls);
+	const auto toggleStyle = controls->lifetime().make_state<style::SettingsButton>(st::communityShowAsOneButton);
+	toggleStyle->toggleSkip = toggleStyle->padding.left();
+	toggleStyle->padding.setLeft(toggleStyle->toggleSkip + st::classicCheckSize + st::settingsExperimentalButton.padding.right());
 	const auto toggle = Settings::AddButtonWithIcon(
-		container,
+		controls,
 		tr::lng_community_show_as_one(),
-		st::settingsButtonNoIcon);
+		*toggleStyle);
+	toggle->setProperty("classicCheckOnLeft", true);
 	toggle->toggleOn(Data::PeerFlagValue(
 		community.get(),
 		ChannelDataFlag::CommunityCollapsed));
@@ -242,8 +251,8 @@ void SetupCommunityContent(
 			community,
 			toggled);
 	}, toggle->lifetime());
-	Ui::AddSkip(container);
-	Ui::AddDividerText(container, tr::lng_community_show_as_one_about());
+	Ui::AddSkip(controls);
+	Ui::AddDividerText(controls, tr::lng_community_show_as_one_about(), st::defaultBoxDividerLabelPadding, st::communityShowAsOneAbout);
 
 	if (community->canManageLinkedPeers()) {
 		const auto wrap = container->add(
@@ -251,6 +260,9 @@ void SetupCommunityContent(
 				container,
 				object_ptr<Ui::VerticalLayout>(container)));
 		const auto inner = wrap->entity();
+		inner->paintOn([=](QPainter &p) {
+			p.fillRect(inner->rect(), st::classicControlBg);
+		});
 		Ui::AddSkip(inner);
 		auto count = Info::Profile::PendingRequestsCountValue(
 			community
@@ -289,8 +301,11 @@ void SetupCommunityContent(
 				container,
 				object_ptr<Ui::VerticalLayout>(container)));
 		const auto inner = wrap->entity();
+		inner->paintOn([=](QPainter &p) {
+			p.fillRect(inner->rect(), st::classicControlBg);
+		});
 		Ui::AddSkip(inner);
-		Ui::AddSubsectionTitle(inner, std::move(title));
+		Ui::AddSubsectionTitle(inner, std::move(title), {}, &st::communityChatsSectionTitle);
 		const auto list = inner->add(object_ptr<Dialogs::CommunityChatsList>(
 			inner,
 			controller,
@@ -337,7 +352,7 @@ void SetupCommunityContent(
 				object_ptr<Ui::VerticalLayout>(container)));
 		const auto inner = wrap->entity();
 		Ui::AddSkip(inner);
-		Ui::AddSubsectionTitle(inner, std::move(title));
+		Ui::AddSubsectionTitle(inner, std::move(title), {}, &st::communityChatsSectionTitle);
 
 		class Delegate final : public PeerListContentDelegateSimple {
 		public:

@@ -782,6 +782,7 @@ void InnerWidget::refreshAlbumsTabs() {
 		tabs.push_back({
 			.id = u"add"_q,
 			.text = { '+' + tr::lng_stories_album_add(tr::now) },
+			.action = true,
 		});
 	}
 	if (!_albumsTabs) {

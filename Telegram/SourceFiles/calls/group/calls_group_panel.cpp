@@ -1883,7 +1883,9 @@ QRect Panel::computeTitleRect() const {
 				: 0)
 			+ pin));
 	const auto width = widget()->width();
-#ifdef Q_OS_MAC
+#ifdef Q_OS_WIN
+	return QRect(0, 0, std::max(width - remove, 0), st::windowTitleHeight);
+#elif defined Q_OS_MAC
 	return QRect(70, 0, width - remove - 70, 28);
 #else // Q_OS_MAC
 	const auto controls = _window->controlsGeometry();

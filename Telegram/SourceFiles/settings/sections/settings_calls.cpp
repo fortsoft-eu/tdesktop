@@ -408,20 +408,23 @@ void BuildOtherSection(SectionBuilder &builder) {
 		}, acceptCalls->lifetime());
 	}
 
-	builder.addButton({
+	builder.addControl({
+		.factory = [controller](not_null<Ui::VerticalLayout*> parent) {
+			auto result = object_ptr<Ui::LinkButton>(parent, tr::lng_settings_call_open_system_prefs(tr::now), st::settingsLink);
+			result->addClickHandler([controller] {
+				using namespace ::Platform;
+				const auto opened = OpenSystemSettings(SystemSettingsType::Audio);
+				if (!opened) {
+					controller->show(Ui::MakeInformBox(tr::lng_linux_no_audio_prefs()));
+				}
+			});
+			return result;
+		},
 		.id = u"calls/system-prefs"_q,
 		.title = tr::lng_settings_call_open_system_prefs(),
-		.st = &st::settingsButtonNoIcon,
-		.onClick = [controller] {
-			using namespace ::Platform;
-			const auto opened = OpenSystemSettings(SystemSettingsType::Audio);
-			if (!opened) {
-				controller->show(
-					Ui::MakeInformBox(tr::lng_linux_no_audio_prefs()));
-			}
-		},
-		.keywords = { u"system"_q, u"preferences"_q, u"audio"_q },
+		.margin = st::settingsSystemPreferencesLinkMargin,
 		.highlight = { .rippleShape = true },
+		.keywords = { u"system"_q, u"preferences"_q, u"audio"_q },
 	});
 
 	builder.addSkip();

@@ -7,8 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/reactions/history_view_reactions_tabs.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_message_reaction_id.h"
 #include "lang/lang_tag.h"
+#include "ui/style/style_classic.h"
 #include "ui/abstract_button.h"
 #include "ui/controls/who_reacted_context_action.h"
 #include "ui/painter.h"
@@ -37,7 +39,7 @@ not_null<Ui::AbstractButton*> CreateTab(
 	};
 	const auto stm = &st.item;
 	const auto text = Lang::FormatCountDecimal(count);
-	const auto font = st::semiboldFont;
+	const auto font = stm->style.font;
 	const auto textWidth = font->width(text);
 	const auto result = Ui::CreateChild<Ui::AbstractButton>(parent.get());
 	const auto width = stm->height
@@ -80,7 +82,7 @@ not_null<Ui::AbstractButton*> CreateTab(
 			p.setBrush(state->selected ? stm->textActiveBg : stm->textBg);
 			{
 				PainterHighQualityEnabler hq(p);
-				p.drawRoundedRect(result->rect(), radius, radius);
+				p.drawRoundedRect(result->rect(), style::CornerRadius(radius),	style::CornerRadius(radius));
 			}
 			const auto skip = st::reactionsTabIconSkip;
 			const auto icon = QRect(skip, 0, height, height);
@@ -101,9 +103,12 @@ not_null<Ui::AbstractButton*> CreateTab(
 			}
 
 			const auto textLeft = height + stm->padding.left();
-			p.setPen(state->selected ? stm->textActiveFg : stm->textFg);
 			p.setFont(font);
-			p.drawText(textLeft, stm->padding.top() + font->ascent, text);
+			Ui::PaintClassicText(
+				p,
+				QPoint(textLeft, (height - font->height) / 2 + font->ascent),
+				text,
+				(state->selected ? stm->textActiveFg : stm->textFg)->c);
 		}
 		auto p = QPainter(result);
 		p.drawImage(0, 0, state->cache);

@@ -37,7 +37,6 @@ namespace Media::Stories {
 namespace {
 
 constexpr auto kAlreadyToastDuration = 4 * crl::time(1000);
-constexpr auto kCooldownButtonLabelOpacity = 0.5;
 
 struct State {
 	Data::StealthMode mode;
@@ -237,54 +236,25 @@ struct State {
 		}) | rpl::type_erased;
 	}) | rpl::flatten_latest();
 
+	auto buttonStyle = st.box.button;
+	buttonStyle.style.font = st::classicActionFont;
+	buttonStyle.textFg = buttonStyle.textFgOver = st::classicMenuText;
+	buttonStyle.icon = buttonStyle.iconOver = st.lockIcon;
+	buttonStyle.iconPosition = QPoint(st::classicButtonIconLeft, (st::classicActionFont->height - st.lockIcon.height()) / 2);
+
 	auto result = object_ptr<Ui::RoundButton>(
 		parent,
-		rpl::single(QString()),
-		st.box.button);
-	const auto raw = result.data();
-	raw->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
-
-	const auto label = Ui::CreateChild<Ui::FlatLabel>(
-		raw,
 		std::move(text),
-		st.buttonLabel);
-	label->setAttribute(Qt::WA_TransparentForMouseEvents);
-	label->show();
+		buttonStyle);
+	const auto raw = result.data();
+	auto palette = raw->palette();
+	palette.setColor(QPalette::ButtonText, st::classicMenuText->c);
+	raw->setPalette(palette);
 
-	const auto lock = Ui::CreateChild<Ui::RpWidget>(raw);
-	lock->setAttribute(Qt::WA_TransparentForMouseEvents);
-	lock->resize(st.lockIcon.size());
-	lock->paintRequest(
-	) | rpl::on_next([=, &st] {
-		auto p = QPainter(lock);
-		st.lockIcon.paintInCenter(p, lock->rect());
-	}, lock->lifetime());
-
-	const auto lockLeft = -st.buttonLabel.style.font->height;
-	const auto updateLabelLockGeometry = [=, &st] {
-		const auto outer = raw->width();
-		const auto added = -st.box.button.width;
-		const auto skip = lock->isHidden() ? 0 : (lockLeft + lock->width());
-		const auto width = outer - added - skip;
-		const auto top = st.box.button.textTop;
-		label->resizeToWidth(width);
-		label->move(added / 2, top);
-		const auto inner = std::min(label->textMaxWidth(), width);
-		const auto right = (added / 2) + (outer - inner) / 2 + inner;
-		const auto lockTop = (label->height() - lock->height()) / 2;
-		lock->move(right + lockLeft, top + lockTop);
-	};
-
+	const auto noIcon = raw->lifetime().make_state<style::icon>(std::in_place);
 	std::move(state) | rpl::on_next([=](const State &state) {
-		const auto cooldown = state.premium
-			&& (state.mode.cooldownTill > state.now);
-		label->setOpacity(cooldown ? kCooldownButtonLabelOpacity : 1.);
-		lock->setVisible(!state.premium);
-		updateLabelLockGeometry();
-	}, label->lifetime());
-
-	raw->widthValue(
-	) | rpl::on_next(updateLabelLockGeometry, label->lifetime());
+		raw->setIconOverride(state.premium ? noIcon : nullptr);
+	}, raw->lifetime());
 
 	return result;
 }
@@ -324,9 +294,13 @@ struct State {
 		});
 		const auto button = box->addButton(
 			MakeButton(box, data->state.value(), st));
-		button->resizeToWidth(st::boxWideWidth
-			- st.box.buttonPadding.left()
-			- st.box.buttonPadding.right());
+		button->geometryValue(
+		) | rpl::on_next([=](QRect geometry) {
+			const auto left = (box->width() - geometry.width()) / 2;
+			if (geometry.x() != left) {
+				button->move(left, geometry.y());
+			}
+		}, button->lifetime());
 		button->setClickedCallback([=] {
 			const auto now = data->state.current();
 			if (now.mode.enabledTill > now.now) {

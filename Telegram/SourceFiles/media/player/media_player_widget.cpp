@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/ripple_animation.h"
 #include "ui/text/format_values.h"
 #include "ui/text/format_song_document_name.h"
+#include "ui/text/text_utilities.h"
 #include "lang/lang_keys.h"
 #include "media/audio/media_audio.h"
 #include "media/view/media_view_playback_progress.h"
@@ -49,6 +50,7 @@ Widget::Widget(
 , _controller(controller)
 , _orderMenuParent(dropdownsParent)
 , _nameLabel(this, st::mediaPlayerName)
+, _voiceDateLabel(this, st::mediaPlayerVoiceDate)
 , _rightControls(this, object_ptr<Ui::RpWidget>(this))
 , _timeLabel(rightControls(), st::mediaPlayerTime)
 , _playPause(this, st::mediaPlayerPlayButton)
@@ -98,6 +100,8 @@ Widget::Widget(
 	_close->setAccessibleName(tr::lng_sr_player_close(tr::now));
 
 	_nameLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_voiceDateLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_voiceDateLabel->hide();
 	_timeLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 
 	_playbackProgress->setInLoadingStateChangedCallback([=](bool loading) {
@@ -125,14 +129,24 @@ Widget::Widget(
 	});
 
 	updateVolumeToggleIcon();
-	_volumeToggle->setClickedCallback([=] {
+	const auto toggleMuted = [=] {
 		const auto volume = (Core::App().settings().songVolume() > 0)
 			? 0.
 			: Core::App().settings().rememberedSongVolume();
 		Core::App().settings().setSongVolume(volume);
 		Core::App().saveSettingsDelayed();
 		mixer()->setSongVolume(volume);
+	};
+	_volumeToggle->setClickedCallback([=] {
+		_volumeToggle->setFocus(Qt::MouseFocusReason);
+		_volume->showFromClick();
 	});
+	_volumeToggle->setFocusPolicy(Qt::ClickFocus);
+	_volumeToggle->events() | rpl::filter([=](not_null<QEvent*> event) {
+		return event->type() == QEvent::MouseButtonDblClick;
+	}) | rpl::on_next([=] {
+		toggleMuted();
+	}, _volumeToggle->lifetime());
 	Core::App().settings().songVolumeChanges(
 	) | rpl::on_next([=] {
 		updateVolumeToggleIcon();
@@ -210,8 +224,16 @@ Widget::Widget(
 			markOver(true);
 		} else if (e->type() == QEvent::Leave) {
 			markOver(false);
+		} else if (e->type() == QEvent::Show || e->type() == QEvent::Hide) {
+			updateControlsWrapVisibility();
 		}
 	}, _volume->lifetime());
+	rpl::combine(
+		_orderController->menuToggledValue(),
+		_speedController->menuToggledValue()
+	) | rpl::on_next([=](bool, bool) {
+		updateControlsWrapVisibility();
+	}, lifetime());
 
 	hidePlaylistOn(_playPause);
 	hidePlaylistOn(_close);
@@ -399,8 +421,12 @@ void Widget::updateControlsWrapGeometry() {
 }
 
 void Widget::updateControlsWrapVisibility() {
+	const auto menuShown = [](const auto &controller) {
+		const auto menu = controller->menu();
+		return menu && !menu->isHidden();
+	};
 	_rightControls->toggle(
-		_over || !_narrow,
+		_over || !_narrow || !_volume->isHidden() || menuShown(_speedController) || menuShown(_orderController),
 		isHidden() ? anim::type::instant : anim::type::normal);
 }
 
@@ -558,8 +584,16 @@ void Widget::updateLabelsGeometry() {
 	const auto widthForName = width()
 		- left
 		- getNameRight();
-	_nameLabel->resizeToNaturalWidth(widthForName);
+	const auto dateWidth = _voiceDateLabel->isHidden()
+		? 0
+		: std::min(_voiceDateLabel->textMaxWidth(), widthForName / 2) + st::mediaPlayerVoiceDateSkip;
+	_nameLabel->resizeToNaturalWidth(std::max(0, widthForName - dateWidth));
 	_nameLabel->moveToLeft(left, st::mediaPlayerNameTop - st::mediaPlayerName.style.font->ascent);
+	if (!_voiceDateLabel->isHidden()) {
+		const auto dateLeft = left + _nameLabel->width() + st::mediaPlayerVoiceDateSkip;
+		_voiceDateLabel->resizeToNaturalWidth(std::max(0, widthForName - _nameLabel->width() - st::mediaPlayerVoiceDateSkip));
+		_voiceDateLabel->moveToLeft(dateLeft, st::mediaPlayerNameTop - st::classicSettingsFont->ascent);
+	}
 
 	const auto right = getTimeRight();
 	_timeLabel->moveToRight(right, st::mediaPlayerNameTop - st::mediaPlayerTime.font->ascent);
@@ -719,10 +753,14 @@ void Widget::handleSongChange() {
 	_speedController->reloadFromLookup();
 
 	auto textWithEntities = TextWithEntities();
+	_voiceDateLabel->hide();
 	if (document->isVoiceMessage() || document->isVideoMessage()) {
-		textWithEntities = Ui::Text::FormatVoiceName(
+		const auto parts = Ui::Text::FormatVoiceName(
 			document,
-			current.contextId()).textWithEntities(true);
+			current.contextId()).composedName();
+		textWithEntities = Ui::Text::Bold(parts.performer);
+		_voiceDateLabel->setText(parts.title);
+		_voiceDateLabel->show();
 	} else {
 		textWithEntities = Ui::Text::FormatSongNameFor(document)
 			.textWithEntities(true);

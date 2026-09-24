@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "poll/poll_media_upload.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_sending.h"
 #include "apiwrap.h"
 #include "base/event_filter.h"
@@ -73,8 +74,8 @@ QImage GenerateDocumentFilePreview(
 	p.setBrush(color);
 	p.drawRoundedRect(
 		QRect(0, 0, size, size),
-		st::pollAttachRadius,
-		st::pollAttachRadius);
+		style::CornerRadius(st::pollAttachRadius),
+		style::CornerRadius(st::pollAttachRadius));
 
 	if (!ext.isEmpty()) {
 		const auto refSize = st::overviewFileLayout.fileThumbSize;
@@ -217,8 +218,8 @@ void PollMediaButton::paintEvent(QPaintEvent *e) {
 			auto path = QPainterPath();
 			path.addRoundedRect(
 				target,
-				st::pollAttachRadius,
-				st::pollAttachRadius);
+				style::CornerRadius(st::pollAttachRadius),
+				style::CornerRadius(st::pollAttachRadius));
 			p.setClipPath(path);
 			p.fillRect(target, st::songCoverOverlayFg);
 			const auto center = QPointF(rect::center(target));
@@ -255,8 +256,8 @@ void PollMediaButton::paintEvent(QPaintEvent *e) {
 			auto path = QPainterPath();
 			path.addRoundedRect(
 				rippleRect(),
-				st::pollAttachRadius,
-				st::pollAttachRadius);
+				style::CornerRadius(st::pollAttachRadius),
+				style::CornerRadius(st::pollAttachRadius));
 			p.setClipPath(path);
 			p.fillRect(rippleRect(), st::songCoverOverlayFg);
 			st::pollAttachView.paintInCenter(p, rippleRect());
@@ -272,8 +273,8 @@ void PollMediaButton::paintEvent(QPaintEvent *e) {
 			auto path = QPainterPath();
 			path.addRoundedRect(
 				rippleRect(),
-				st::pollAttachRadius,
-				st::pollAttachRadius);
+				style::CornerRadius(st::pollAttachRadius),
+				style::CornerRadius(st::pollAttachRadius));
 			p.setClipPath(path);
 			p.fillRect(rippleRect(), st::songCoverOverlayFg);
 			p.restore();
@@ -363,8 +364,8 @@ void PollMediaButton::paintCover(
 		auto path = QPainterPath();
 		path.addRoundedRect(
 			target,
-			st::pollAttachRadius,
-			st::pollAttachRadius);
+			style::CornerRadius(st::pollAttachRadius),
+			style::CornerRadius(st::pollAttachRadius));
 		p.setClipPath(path);
 	}
 	p.drawImage(geometry, image, source);

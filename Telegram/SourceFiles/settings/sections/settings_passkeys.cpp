@@ -290,7 +290,7 @@ void Passkeys::setupContent() {
 							? tr::lng_settings_passkey_unknown(tr::now)
 							: passkey.name);
 				const auto dateText = button->lifetime().make_state<
-					Ui::Text::String>(st::defaultTextStyle, date);
+					Ui::Text::String>(st::settingsExperimentalTextStyle, date);
 				button->paintOn([=](QPainter &p) {
 					const auto iconTop = (st.height - iconSize) / 2;
 					if (emojiPtr) {
@@ -467,7 +467,7 @@ void PasskeysNoneBox(
 	Ui::AddSkip(content);
 	Ui::AddSkip(content);
 	{
-		const auto &st = st::premiumPreviewDoubledLimitsBox;
+		const auto &st = st::settingsPasskeysNoneBox;
 		const auto canRegister = session->passkeys().canRegister();
 		box->setStyle(st);
 		auto button = object_ptr<Ui::RoundButton>(
@@ -475,11 +475,8 @@ void PasskeysNoneBox(
 			canRegister
 				? tr::lng_settings_passkeys_none_button()
 				: tr::lng_settings_passkeys_none_button_unsupported(),
-			st::defaultActiveButton);
+			st::changePhoneButton);
 		const auto createButton = button.data();
-		button->resizeToWidth(box->width()
-			- st.buttonPadding.left()
-			- st.buttonPadding.left());
 		const auto show = box->uiShow();
 		button->setClickedCallback([=] {
 			session->passkeys().initRegistration(crl::guard(box, [=](

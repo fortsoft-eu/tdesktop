@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/mtp_instance.h"
 #include "storage/localstorage.h"
 #include "core/application.h"
+#include "core/core_settings.h"
 #include "main/main_account.h"
 #include "main/main_domain.h"
 #include "ui/boxes/confirm_box.h"
@@ -26,6 +27,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Lang {
 namespace {
+
+constexpr auto kPersonalDefaultApplied = "personal-honesttelegram-language-v1";
 
 class ConfirmSwitchBox : public Ui::BoxContent {
 public:
@@ -214,6 +217,7 @@ mtpRequestId CloudManager::packRequestId(Pack pack) const {
 
 void CloudManager::requestLangPackDifference(Pack pack) {
 	if (!_api) {
+		packRequestId(pack) = -1;
 		return;
 	}
 	_api->request(base::take(packRequestId(pack))).cancel();
@@ -293,6 +297,14 @@ void CloudManager::applyLangPackDifference(
 	const auto pack = packTypeFromId(langpackId);
 	if (pack != Pack::None) {
 		applyLangPackData(pack, langpack);
+		if (_applyingPersonalDefault
+			&& _langpack.id() == u"honesttelegram"_q
+			&& _langpack.version(Pack::Current) > 0
+			&& (_langpack.baseId().isEmpty() || _langpack.version(Pack::Base) > 0)) {
+			_applyingPersonalDefault = false;
+			Core::App().settings().writePref<bool>(kPersonalDefaultApplied, true);
+			Local::writeSettings();
+		}
 		if (_restartAfterSwitch) {
 			restartAfterSwitch();
 		}
@@ -402,11 +414,36 @@ bool CloudManager::canApplyWithoutRestart(const QString &id) const {
 	return Core::App().canApplyLangPackWithoutRestart();
 }
 
+void CloudManager::applyPersonalDefault() {
+	if (Core::App().settings().readPref<bool>(kPersonalDefaultApplied)) {
+		return;
+	}
+	const auto id = u"honesttelegram"_q;
+	if (_langpack.id() == id
+		&& _langpack.version(Pack::Current) > 0
+		&& (_langpack.baseId().isEmpty() || _langpack.version(Pack::Base) > 0)) {
+		Core::App().settings().writePref<bool>(kPersonalDefaultApplied, true);
+		Local::writeSettings();
+	} else if (_langpack.id() == id) {
+		_applyingPersonalDefault = true;
+		requestLangPackDifference(Pack::Current);
+		requestLangPackDifference(Pack::Base);
+	} else {
+		requestLanguageAndSwitch(id, false);
+		_applyingPersonalDefault = true;
+	}
+}
+
 void CloudManager::resetToDefault() {
+	_applyingPersonalDefault = false;
+	Core::App().settings().writePref<bool>(kPersonalDefaultApplied, true);
+	Local::writeSettings();
 	performSwitch(DefaultLanguage());
 }
 
 void CloudManager::switchToLanguage(const QString &id) {
+	Core::App().settings().writePref<bool>(kPersonalDefaultApplied, true);
+	Local::writeSettings();
 	requestLanguageAndSwitch(id, false);
 }
 
@@ -419,6 +456,7 @@ void CloudManager::requestLanguageAndSwitch(
 		bool warning) {
 	Expects(!id.isEmpty());
 
+	_applyingPersonalDefault = false;
 	if (LanguageIdOrDefault(_langpack.id()) == id) {
 		Ui::show(Ui::MakeInformBox(tr::lng_language_already()));
 		return;
@@ -471,6 +509,9 @@ void CloudManager::sendSwitchingToLanguageRequest() {
 }
 
 void CloudManager::switchToLanguage(const Language &data) {
+	_applyingPersonalDefault = false;
+	Core::App().settings().writePref<bool>(kPersonalDefaultApplied, true);
+	Local::writeSettings();
 	if (_langpack.id() == data.id && data.id != u"#custom"_q) {
 		return;
 	} else if (!_api) {
@@ -582,6 +623,10 @@ void CloudManager::performSwitch(const Language &data) {
 }
 
 void CloudManager::performSwitchAndAddToRecent(const Language &data) {
+	if (!_applyingPersonalDefault) {
+		Core::App().settings().writePref<bool>(kPersonalDefaultApplied, true);
+		Local::writeSettings();
+	}
 	Local::pushRecentLanguage(data);
 	performSwitch(data);
 }

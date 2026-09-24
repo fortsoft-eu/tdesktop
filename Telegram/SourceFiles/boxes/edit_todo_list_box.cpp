@@ -44,16 +44,24 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/ui_utility.h"
+#include "window/window_controller.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat_helpers.h" // defaultComposeFiles.
 #include "styles/style_layers.h"
 #include "styles/style_polls.h"
+#include "styles/style_settings.h"
 
 namespace {
 
 constexpr auto kWarnTitleLimit = 12;
 constexpr auto kWarnTaskLimit = 24;
 constexpr auto kErrorLimit = 99;
+
+[[nodiscard]] style::InputField TodoTaskFieldStyle(int controlsWidth) {
+	auto result = st::settingsBio;
+	result.textMargins.setRight(result.textMargins.right() + controlsWidth);
+	return result;
+}
 
 class Tasks {
 public:
@@ -62,6 +70,7 @@ public:
 		not_null<Ui::VerticalLayout*> container,
 		not_null<Window::SessionController*> controller,
 		ChatHelpers::TabbedPanel *emojiPanel,
+		not_null<QPointer<Ui::InputField>*> emojiField,
 		std::vector<TodoListItem> existing = {},
 		bool existingLocked = false);
 
@@ -95,10 +104,6 @@ private:
 		void show(anim::type animated);
 		void destroy(FnMut<void()> done);
 
-		[[nodiscard]] bool hasShadow() const;
-		void createShadow();
-		void destroyShadow();
-
 		[[nodiscard]] int id() const;
 		[[nodiscard]] bool locked() const;
 		[[nodiscard]] bool isEmpty() const;
@@ -125,8 +130,9 @@ private:
 		int _id = 0;
 		base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _wrap;
 		not_null<Ui::RpWidget*> _content;
+		const int _fieldLeft = 0;
+		const int _fieldFrameRight = 0;
 		Ui::InputField *_field = nullptr;
-		base::unique_qptr<Ui::PlainShadow> _shadow;
 		base::unique_qptr<Ui::CrossButton> _remove;
 		rpl::variable<bool> *_removeAlways = nullptr;
 		int _limit = 0;
@@ -134,8 +140,6 @@ private:
 	};
 
 	[[nodiscard]] bool full() const;
-	[[nodiscard]] bool correctShadows() const;
-	void fixShadows();
 	void removeEmptyTail();
 	void addEmptyTask();
 	void addTask(
@@ -164,6 +168,7 @@ private:
 	const int _existingCount = 0;
 	const bool _existingLocked = false;
 	ChatHelpers::TabbedPanel * const _emojiPanel;
+	const not_null<QPointer<Ui::InputField>*> _emojiField;
 	int _position = 0;
 	int _tasksLimit = 0;
 	std::vector<std::unique_ptr<Task>> _list;
@@ -224,7 +229,7 @@ not_null<Ui::FlatLabel*> CreateWarningLabel(
 	const auto result = Ui::CreateChild<Ui::FlatLabel>(
 		parent.get(),
 		QString(),
-		st::createPollWarning);
+		st::createTodoWarning);
 	result->setAttribute(Qt::WA_TransparentForMouseEvents);
 	field->changes(
 	) | rpl::on_next([=] {
@@ -232,7 +237,7 @@ not_null<Ui::FlatLabel*> CreateWarningLabel(
 			const auto length = field->getLastText().size();
 			const auto value = valueLimit - length;
 			const auto shown = (value < warnLimit)
-				&& (field->height() > st::createPollOptionField.heightMin);
+				&& (field->height() > st::settingsBio.heightMin);
 			if (value >= 0) {
 				result->setText(QString::number(value));
 			} else {
@@ -253,16 +258,21 @@ void FocusAtEnd(not_null<Ui::InputField*> field) {
 }
 
 [[nodiscard]] base::unique_qptr<ChatHelpers::TabbedPanel> MakeEmojiPanel(
-		not_null<QWidget*> outer,
 		not_null<Window::SessionController*> controller) {
+	using Selector = ChatHelpers::TabbedSelector;
+	auto selector = object_ptr<Selector>(
+		nullptr,
+		controller->uiShow(),
+		Window::GifPauseReason::Layer,
+		Selector::Mode::EmojiOnly);
 	auto result = base::make_unique_q<ChatHelpers::TabbedPanel>(
-		outer,
-		controller,
-		object_ptr<ChatHelpers::TabbedSelector>(
-			nullptr,
-			controller->uiShow(),
-			Window::GifPauseReason::Layer,
-			ChatHelpers::TabbedSelector::Mode::EmojiOnly));
+		controller->window().widget()->bodyWidget(),
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = controller,
+			.ownedSelector = std::move(selector),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
+		});
 	result->setDesiredHeightValues(
 		1.,
 		st::emojiPanMinHeight / 2,
@@ -286,16 +296,25 @@ Tasks::Task::Task(
 		container,
 		object_ptr<Ui::RpWidget>(container))))
 , _content(_wrap->entity())
+, _fieldLeft(st::createPollFieldPadding.left())
+, _fieldFrameRight(locked
+	? st::createPollFieldPadding.right()
+	: (st::createTodoOptionRemovePosition.x()
+		+ st::createTodoOptionRemove.width
+		+ st::createTodoOptionControlsSkip
+		+ (session->user()->isPremium()
+			? (st::defaultComposeFiles.emoji.inner.width
+				+ st::createTodoOptionControlsSkip)
+			: 0)))
 , _field(
 	Ui::CreateChild<Ui::InputField>(
 		_content.get(),
-		session->user()->isPremium()
-			? st::createTodoOptionField
-			: st::createPollOptionField,
+		TodoTaskFieldStyle(_fieldFrameRight),
 		Ui::InputField::Mode::MultiLine,
 		tr::lng_todo_create_list_add()))
 , _limit(session->appConfig().todoListItemTextLimit()) {
 	InitField(outer, _field, session);
+	_field->setFrameRightMargin(_fieldFrameRight);
 
 	// Don't limit max length, because user can paste long list of items.
 	//_field->setMaxLength(_limit + kErrorLimit);
@@ -317,39 +336,11 @@ Tasks::Task::Task(
 		_content->resize(_content->width(), height);
 	}, _field->lifetime());
 
-	createShadow();
 	if (!locked) {
 		createRemove();
 		createWarning();
 	}
 	updateFieldGeometry();
-}
-
-bool Tasks::Task::hasShadow() const {
-	return (_shadow != nullptr);
-}
-
-void Tasks::Task::createShadow() {
-	Expects(_content != nullptr);
-
-	if (_shadow) {
-		return;
-	}
-	_shadow.reset(Ui::CreateChild<Ui::PlainShadow>(field().get()));
-	_shadow->show();
-	field()->sizeValue(
-	) | rpl::on_next([=](QSize size) {
-		const auto left = st::createPollFieldPadding.left();
-		_shadow->setGeometry(
-			left,
-			size.height() - st::lineWidth,
-			size.width() - left,
-			st::lineWidth);
-	}, _shadow->lifetime());
-}
-
-void Tasks::Task::destroyShadow() {
-	_shadow = nullptr;
 }
 
 void Tasks::Task::createRemove() {
@@ -360,7 +351,8 @@ void Tasks::Task::createRemove() {
 
 	const auto remove = Ui::CreateChild<Ui::CrossButton>(
 		field.get(),
-		st::createPollOptionRemove);
+		st::createTodoOptionRemove);
+	remove->setCursor(style::cur_default);
 	remove->show(anim::type::instant);
 
 	const auto toggle = lifetime.make_state<rpl::variable<bool>>(false);
@@ -381,12 +373,13 @@ void Tasks::Task::createRemove() {
 	}, remove->lifetime());
 #endif
 
-	field->widthValue(
-	) | rpl::on_next([=](int width) {
+	field->sizeValue(
+	) | rpl::on_next([=](QSize size) {
+		const auto frame = field->textFrameRect();
 		remove->moveToRight(
-			st::createPollOptionRemovePosition.x(),
-			st::createPollOptionRemovePosition.y(),
-			width);
+			st::createTodoOptionRemovePosition.x(),
+			frame.y() + (frame.height() - remove->height()) / 2,
+			size.width());
 	}, remove->lifetime());
 
 	_remove.reset(remove);
@@ -455,8 +448,8 @@ void Tasks::Task::toggleRemoveAlways(bool toggled) {
 }
 
 void Tasks::Task::updateFieldGeometry() {
-	_field->resizeToWidth(_content->width());
-	_field->moveToLeft(0, 0);
+	_field->resizeToWidth(_content->width() - _fieldLeft);
+	_field->moveToLeft(_fieldLeft, 0, _content->width());
 }
 
 not_null<Ui::InputField*> Tasks::Task::field() const {
@@ -497,6 +490,7 @@ Tasks::Tasks(
 	not_null<Ui::VerticalLayout*> container,
 	not_null<Window::SessionController*> controller,
 	ChatHelpers::TabbedPanel *emojiPanel,
+	not_null<QPointer<Ui::InputField>*> emojiField,
 	std::vector<TodoListItem> existing,
 	bool existingLocked)
 : _box(box)
@@ -505,6 +499,7 @@ Tasks::Tasks(
 , _existingCount(existing.size())
 , _existingLocked(existingLocked)
 , _emojiPanel(emojiPanel)
+, _emojiField(emojiField)
 , _position(_container->count())
 , _tasksLimit(controller->session().appConfig().todoListItemsLimit()) {
 	for (const auto &task : existing) {
@@ -586,25 +581,6 @@ void Tasks::focusLast() {
 	_list.back()->setFocus();
 }
 
-bool Tasks::correctShadows() const {
-	// Last one should be without shadow.
-	const auto noShadow = ranges::find(
-		_list,
-		true,
-		ranges::not_fn(&Task::hasShadow));
-	return (noShadow == end(_list) - 1);
-}
-
-void Tasks::fixShadows() {
-	if (correctShadows()) {
-		return;
-	}
-	for (auto &option : _list) {
-		option->createShadow();
-	}
-	_list.back()->destroyShadow();
-}
-
 void Tasks::removeEmptyTail() {
 	// Only one option at the end of options list can be empty.
 	// Remove all other trailing empty options.
@@ -647,7 +623,6 @@ void Tasks::fixAfterErase() {
 		(*(last - 1))->setPlaceholder();
 		(*(last - 1))->toggleRemoveAlways(false);
 	}
-	fixShadows();
 }
 
 void Tasks::addEmptyTask() {
@@ -707,34 +682,39 @@ void Tasks::insertTask(
 	}
 	field->finishAnimating();
 	i->get()->show(animated);
-	fixShadows();
 }
 
 void Tasks::initTaskField(not_null<Task*> task, TextWithEntities text) {
 	const auto field = task->field();
 	if (const auto emojiPanel = _emojiPanel) {
+		const auto emojiRightSkip = st::createTodoOptionRemovePosition.x()
+			+ st::createTodoOptionRemove.width
+			+ st::createTodoOptionControlsSkip;
 		const auto emojiToggle = Ui::AddEmojiToggleToField(
 			field,
 			_box,
 			_controller,
 			emojiPanel,
 			QPoint(
-				-st::createTodoOptionField.textMargins.right(),
-				st::createPollOptionEmojiPositionSkip));
-		emojiToggle->shownValue() | rpl::on_next([=](bool shown) {
-			if (!shown) {
-				return;
-			}
+				-(emojiRightSkip
+					+ st::defaultComposeFiles.emoji.inner.width),
+				st::createTodoOptionFieldEmojiPosition.y()));
+		field->setFrameRightMargin(
+			emojiRightSkip
+				+ st::defaultComposeFiles.emoji.inner.width
+				+ st::createTodoOptionControlsSkip);
+		emojiToggle->clicks() | rpl::on_next([=] {
+			*_emojiField = field;
 			_emojiPanelLifetime.destroy();
 			emojiPanel->selector()->emojiChosen(
 			) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
-				if (field->hasFocus()) {
+				if (_emojiField->data() == field) {
 					Ui::InsertEmojiAtCursor(field->textCursor(), data.emoji);
 				}
 			}, _emojiPanelLifetime);
 			emojiPanel->selector()->customEmojiChosen(
 			) | rpl::on_next([=](ChatHelpers::FileChosen data) {
-				if (field->hasFocus()) {
+				if (_emojiField->data() == field) {
 					Data::InsertCustomEmoji(field, data.document);
 				}
 			}, _emojiPanelLifetime);
@@ -935,7 +915,7 @@ not_null<Ui::InputField*> EditTodoListBox::setupTitle(
 	const auto title = container->add(
 		object_ptr<Ui::InputField>(
 			container,
-			st::createPollField,
+			st::settingsBio,
 			Ui::InputField::Mode::MultiLine,
 			tr::lng_todo_create_title_placeholder()),
 		st::createPollFieldPadding
@@ -947,24 +927,25 @@ not_null<Ui::InputField*> EditTodoListBox::setupTitle(
 	title->setSubmitSettings(Ui::InputField::SubmitSettings::Both);
 
 	if (isPremium) {
-		_emojiPanel = MakeEmojiPanel(
-			getDelegate()->outerContainer(),
-			_controller);
+		_emojiPanel = MakeEmojiPanel(_controller);
 		const auto emojiToggle = Ui::AddEmojiToggleToField(
 			title,
 			this,
 			_controller,
 			_emojiPanel.get(),
 			st::createTodoOptionFieldEmojiPosition);
+		emojiToggle->clicks() | rpl::on_next([=] {
+			_emojiField = title;
+		}, emojiToggle->lifetime());
 		_emojiPanel->selector()->emojiChosen(
 		) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
-			if (title->hasFocus()) {
+			if (_emojiField == title) {
 				Ui::InsertEmojiAtCursor(title->textCursor(), data.emoji);
 			}
 		}, emojiToggle->lifetime());
 		_emojiPanel->selector()->customEmojiChosen(
 		) | rpl::on_next([=](ChatHelpers::FileChosen data) {
-			if (title->hasFocus()) {
+			if (_emojiField == title) {
 				Data::InsertCustomEmoji(title, data.document);
 			}
 		}, emojiToggle->lifetime());
@@ -995,9 +976,9 @@ not_null<Ui::InputField*> EditTodoListBox::setupTitle(
 			(geometry.y()
 				- st::createPollFieldPadding.top()
 				- st::defaultSubsectionTitlePadding.bottom()
-				- st::defaultSubsectionTitle.style.font->height
-				+ st::defaultSubsectionTitle.style.font->ascent
-				- st::createPollWarning.style.font->ascent),
+				- st::createTodoSubsectionTitle.style.font->height
+				+ st::createTodoSubsectionTitle.style.font->ascent
+				- st::createTodoWarning.style.font->ascent),
 			geometry.width());
 	}, warning->lifetime());
 
@@ -1023,7 +1004,7 @@ object_ptr<Ui::RpWidget> EditTodoListBox::setupContent() {
 		object_ptr<Ui::FlatLabel>(
 			container,
 			tr::lng_todo_create_list(),
-			st::defaultSubsectionTitle),
+			st::createTodoSubsectionTitle),
 		st::createPollFieldTitlePadding);
 	const auto media = _editingItem ? _editingItem->media() : nullptr;
 	const auto todolist = media ? media->todolist() : nullptr;
@@ -1032,6 +1013,7 @@ object_ptr<Ui::RpWidget> EditTodoListBox::setupContent() {
 		container,
 		_controller,
 		_emojiPanel ? _emojiPanel.get() : nullptr,
+		&_emojiField,
 		todolist ? todolist->items : std::vector<TodoListItem>());
 	auto limit = tasks->addedCount() | rpl::after_next([=](int count) {
 		setCloseByEscape(!count);
@@ -1045,14 +1027,18 @@ object_ptr<Ui::RpWidget> EditTodoListBox::setupContent() {
 	}) | rpl::after_next([=] {
 		container->resizeToWidth(container->widthNoMargins());
 	});
+	const auto dividerStyle = lifetime().make_state<style::DividerBar>(
+		st::defaultDividerBar);
+	dividerStyle->bg = st::classicControlBg;
 	container->add(
 		object_ptr<Ui::DividerLabel>(
 			container,
 			object_ptr<Ui::FlatLabel>(
 				container,
 				std::move(limit),
-				st::boxDividerLabel),
-			st::createPollLimitPadding));
+				st::createTodoDividerLabel),
+			st::createPollLimitPadding,
+			*dividerStyle));
 
 	title->tabbed(
 	) | rpl::on_next([=](not_null<Ui::InputField::TabbedRequest*> request) {
@@ -1065,22 +1051,26 @@ object_ptr<Ui::RpWidget> EditTodoListBox::setupContent() {
 	}, title->lifetime());
 
 	Ui::AddSkip(container);
-	Ui::AddSubsectionTitle(container, tr::lng_todo_create_settings());
+	Ui::AddSubsectionTitle(
+		container,
+		tr::lng_todo_create_settings(),
+		{},
+		&st::createTodoSubsectionTitle);
 
 	const auto allowAdd = container->add(
 		object_ptr<Ui::Checkbox>(
 			container,
 			tr::lng_todo_create_allow_add(tr::now),
 			!todolist || todolist->othersCanAppend(),
-			st::defaultCheckbox),
-		st::createPollCheckboxMargin);
+			st::createTodoCheckbox),
+		st::createTodoCheckboxMargin);
 	const auto allowMark = container->add(
 		object_ptr<Ui::Checkbox>(
 			container,
 			tr::lng_todo_create_allow_mark(tr::now),
 			!todolist || todolist->othersCanComplete(),
-			st::defaultCheckbox),
-		st::createPollCheckboxMargin);
+			st::createTodoCheckbox),
+		st::createTodoCheckboxMargin);
 
 	tasks->tabbed(
 	) | rpl::on_next([=] {
@@ -1239,9 +1229,7 @@ object_ptr<Ui::RpWidget> AddTodoListTasksBox::setupContent() {
 	const auto container = result.data();
 
 	if (_controller->session().premium()) {
-		_emojiPanel = MakeEmojiPanel(
-			getDelegate()->outerContainer(),
-			_controller);
+		_emojiPanel = MakeEmojiPanel(_controller);
 	}
 
 	const auto media = _item->media();
@@ -1252,6 +1240,7 @@ object_ptr<Ui::RpWidget> AddTodoListTasksBox::setupContent() {
 		container,
 		_controller,
 		_emojiPanel ? _emojiPanel.get() : nullptr,
+		&_emojiField,
 		todolist->items,
 		true);
 	const auto already = int(todolist->items.size());
@@ -1268,14 +1257,18 @@ object_ptr<Ui::RpWidget> AddTodoListTasksBox::setupContent() {
 	}) | rpl::after_next([=] {
 		container->resizeToWidth(container->widthNoMargins());
 	});
+	const auto dividerStyle = lifetime().make_state<style::DividerBar>(
+		st::defaultDividerBar);
+	dividerStyle->bg = st::classicControlBg;
 	container->add(
 		object_ptr<Ui::DividerLabel>(
 			container,
 			object_ptr<Ui::FlatLabel>(
 				container,
 				std::move(limit),
-				st::boxDividerLabel),
-			st::createPollLimitPadding));
+				st::createTodoDividerLabel),
+			st::createPollLimitPadding,
+			*dividerStyle));
 
 	_setInnerFocus = [=] {
 		tasks->focusFirst();

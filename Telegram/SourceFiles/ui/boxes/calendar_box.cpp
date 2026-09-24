@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/boxes/calendar_box.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/widgets/vertical_drum_picker.h"
@@ -48,11 +51,12 @@ void FillMonthYearPicker(
 		QDate maxDate,
 		const style::CalendarSizes &st,
 		Fn<void(QDate)> done) {
+	box->setProperty("classicFormFrame", true);
 	box->setWidth(st::boxWideWidth);
 	const auto content = box->addRow(
 		object_ptr<FixedHeightWidget>(box, st::settingsWorkingHoursPicker));
 
-	const auto font = st::boxTextFont;
+	const auto font = st::classicSettingsFont;
 	const auto itemHeight = st::settingsWorkingHoursPickerItemHeight;
 	const auto picker = [=](
 			int count,
@@ -60,10 +64,11 @@ void FillMonthYearPicker(
 			Fn<void(QPainter&, QRectF, int)> paint) {
 		const auto result = CreateChild<VerticalDrumPicker>(
 			content,
-			VerticalDrumPicker::DefaultPaintCallback(
-				font,
-				itemHeight,
-				paint),
+			[=](QPainter &p, int index, float y, float64, int outerWidth) {
+				p.setFont(font);
+				p.setPen(st::classicMenuText);
+				paint(p, QRectF(0, y, outerWidth, itemHeight), index);
+			},
 			count,
 			itemHeight,
 			startIndex);
@@ -621,8 +626,8 @@ CalendarBox::FloatingDate::FloatingDate(
 	_context->monthValue(
 	) | rpl::on_next([=](QDate month) {
 		_text = langMonthOfYearFull(month.month(), month.year());
-		const auto width = st::msgServiceFont->width(_text);
-		const auto rect = QRect(0, 0, width, st::msgServiceFont->height);
+		const auto width = st::calendarTitleFont->width(_text);
+		const auto rect = QRect(0, 0, width, st::calendarTitleFont->height);
 		_widget.resize(rect.marginsAdded(st::msgServicePadding).size());
 		_widget.update();
 	}, _widget.lifetime());
@@ -653,11 +658,11 @@ void CalendarBox::FloatingDate::paint() {
 
 	FillRoundRect(p, _widget.rect(), st::roundedBg, _corners);
 
-	p.setFont(st::msgServiceFont);
+	p.setFont(st::calendarTitleFont);
 	p.setPen(st::roundedFg);
 	p.drawText(
 		st::msgServicePadding.left(),
-		st::msgServicePadding.top() + st::msgServiceFont->ascent,
+		st::msgServicePadding.top() + st::calendarTitleFont->ascent,
 		_text);
 }
 
@@ -761,6 +766,7 @@ void CalendarBox::Inner::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
 
 	auto clip = e->rect();
+	p.fillRect(clip, st::windowBg);
 
 	paintRows(p, clip);
 }
@@ -774,7 +780,7 @@ int CalendarBox::Inner::rowsTop() const {
 }
 
 void CalendarBox::Inner::paintRows(QPainter &p, QRect clip) {
-	p.setFont(st::calendarDaysFont);
+	p.setFont(st::calendarDateFont);
 	auto y = rowsTop();
 	auto index = -_context->daysShift();
 	const auto selectionMode = _context->selectionMode();
@@ -816,8 +822,8 @@ void CalendarBox::Inner::paintRows(QPainter &p, QRect clip) {
 					+ 2 * st::lineWidth
 					+ _st.cellInner),
 				_st.cellInner + 2 * st::lineWidth,
-				(_st.cellInner / 2.) + st::lineWidth,
-				(_st.cellInner / 2.) + st::lineWidth);
+				style::CornerRadius((_st.cellInner / 2.) + st::lineWidth),
+				style::CornerRadius((_st.cellInner / 2.) + st::lineWidth));
 			p.setBrush(Qt::NoBrush);
 		}
 		for (auto col = 0; col != kDaysInWeek; ++col, ++index, x += _st.cellSize.width()) {
@@ -907,24 +913,18 @@ void CalendarBox::Inner::paintRows(QPainter &p, QRect clip) {
 				: st::windowSubTextFg);
 			if (dynamicImageProgress != -1) {
 				const auto label = _context->labelFromIndex(index);
-				p.setFont(st::calendarDaysFontOver);
-				p.drawText(rect, label, style::al_center);
-				const auto side = _st.cellInner * dynamicImageProgress;
-				if (side > 0.) {
-					const auto center = QRectF(myrtlrect(
-						innerLeft,
-						innerTop,
-						_st.cellInner,
-						_st.cellInner)).center();
-					auto path = QPainterPath();
-					path.addEllipse(center, side / 2., side / 2.);
-					p.save();
-					p.setClipPath(path);
-					p.setPen(st::activeButtonFg);
-					p.drawText(rect, label, style::al_center);
-					p.restore();
-				}
-				p.setFont(st::calendarDaysFont);
+				p.setFont(st::calendarDateContentFont);
+				Ui::PaintClassicText(
+					p,
+					QPointF(
+						rect.x() + (rect.width()
+							- st::calendarDateContentFont->width(label)) / 2,
+						rect.y() + (rect.height()
+							- st::calendarDateContentFont->height) / 2
+							+ st::calendarDateContentFont->ascent),
+					label,
+					QColor(255, 255, 255));
+				p.setFont(st::calendarDateFont);
 			} else {
 				p.drawText(
 					rect,
@@ -1234,6 +1234,7 @@ CalendarBox::CalendarBox(QWidget*, CalendarBoxArgs &&args)
 , _finalize(std::move(args.finalize))
 , _jumpTimer([=] { jump(_jumpButton); })
 , _selectionChanged(std::move(args.selectionChanged)) {
+	setProperty("classicFormFrame", true);
 	_inner->setRequireImage(args.requireImage);
 	_context->setAllowsSelection(args.allowsSelection);
 	_context->setMinDate(args.minDate);

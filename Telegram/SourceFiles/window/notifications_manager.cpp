@@ -76,6 +76,7 @@ base::options::toggle OptionCustomNotification({
 	.name = "Force non-native notifications availability",
 	.description = "Allow to disable native notifications"
 		" even if custom notifications are broken on this platform",
+	.defaultValue = false,
 	.scope = [] {
 		return Platform::Notifications::Enforced();
 	},
@@ -86,6 +87,7 @@ base::options::toggle OptionGNotification({
 	.name = "GNotification",
 	.description = "Force enable GLib's GNotification."
 		" When disabled, autodetect is used.",
+	.defaultValue = false,
 	.scope = [] {
 #if __has_include(<gio/gio.hpp>)
 		using namespace gi::repository;
@@ -102,6 +104,7 @@ base::options::toggle OptionMacModernNotifications({
 	.description = "Use UserNotifications framework"
 		" for native notifications (macOS 10.14+)."
 		" System asks for notifications permission on first launch.",
+	.defaultValue = false,
 	.scope = base::options::macos,
 	.restartRequired = true,
 });
@@ -110,6 +113,7 @@ base::options::toggle HideReplyButtonOption({
 	.id = kOptionHideReplyButton,
 	.name = "Hide reply button",
 	.description = "Hide reply button in notifications.",
+	.defaultValue = false,
 });
 
 [[nodiscard]] QString PlaceholderReactionText() {

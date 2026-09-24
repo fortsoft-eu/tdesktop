@@ -54,12 +54,14 @@ rightsHeaderLabel: FlatLabel(boxLabel) {
 	textFg: windowActiveTextFg;
 }
 sendGifWithCaptionEmojiPosition: point(-30px, 23px);
-notesFieldWithEmoji: InputField(defaultInputField) {
-	textMargins: margins(0px, 28px, 30px, 4px);
+addContactNotesEmojiPosition: point(-30px, 12px);
+notesFieldWithEmoji: InputField(addContactNamedInput) {
+	textMargins: margins(0px, 15px, 30px, 0px);
+	heightMax: 42px;
 //	border: 0px;
 //	borderActive: 0px;
 }
-addContactFieldMargin: margins(19px, 0px, 19px, 10px);
+addContactFieldMargin: margins(19px, -1px, 19px, 9px);
 addContactWarningMargin: margins(19px, 10px, 19px, 5px);
 editContactSuggestBirthday: icon{{ "settings/birthday_add-22x22", lightButtonFg }};
 slowmodeLabelsMargin: margins(0px, 5px, 0px, 0px);

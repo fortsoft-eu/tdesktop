@@ -68,8 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Media::Stories {
 namespace {
 
-constexpr auto kPhotoProgressInterval = crl::time(100);
-constexpr auto kPhotoDuration = 5 * crl::time(1000);
+constexpr auto kPhotoReadDelay = crl::time(250);
 constexpr auto kFullContentFade = 0.6;
 constexpr auto kSiblingMultiplierDefault = 0.448;
 constexpr auto kSiblingMultiplierMax = 0.72;
@@ -162,8 +161,8 @@ private:
 	const not_null<Controller*> _controller;
 
 	base::Timer _timer;
-	crl::time _started = 0;
-	crl::time _paused = 0;
+	bool _paused = true;
+	bool _read = false;
 
 };
 
@@ -184,53 +183,28 @@ private:
 
 Controller::PhotoPlayback::PhotoPlayback(not_null<Controller*> controller)
 : _controller(controller)
-, _timer([=] { callback(); })
-, _started(crl::now())
-, _paused(_started) {
+, _timer([=] { callback(); }) {
 }
 
 bool Controller::PhotoPlayback::paused() const {
-	return _paused != 0;
+	return _paused;
 }
 
 void Controller::PhotoPlayback::togglePaused(bool paused) {
-	if (!_paused == !paused) {
+	if (_paused == paused) {
 		return;
-	} else if (paused) {
-		const auto now = crl::now();
-		if (now - _started >= kPhotoDuration) {
-			return;
-		}
-		_paused = now;
-		_timer.cancel();
-	} else {
-		_started += crl::now() - _paused;
-		_paused = 0;
-		_timer.callEach(kPhotoProgressInterval);
 	}
-	callback();
+	_paused = paused;
+	if (paused) {
+		_timer.cancel();
+	} else if (!_read) {
+		_timer.callOnce(kPhotoReadDelay);
+	}
 }
 
 void Controller::PhotoPlayback::callback() {
-	const auto now = crl::now();
-	const auto elapsed = now - _started;
-	const auto finished = (now - _started >= kPhotoDuration);
-	if (finished) {
-		_timer.cancel();
-	}
-	using State = Player::State;
-	const auto state = finished
-		? State::StoppedAtEnd
-		: _paused
-		? State::Paused
-		: State::Playing;
-	_controller->updatePhotoPlayback({
-		.state = state,
-		.position = elapsed,
-		.receivedTill = kPhotoDuration,
-		.length = kPhotoDuration,
-		.frequency = 1000,
-	});
+	_read = true;
+	_controller->markAsRead();
 }
 
 Controller::Unsupported::Unsupported(
@@ -325,9 +299,6 @@ Controller::Controller(not_null<Delegate*> delegate)
 		updateContentFaded();
 	}, _lifetime);
 
-	_reactions->setReplyFieldState(
-		_replyArea->focusedValue(),
-		_replyArea->hasSendTextValue());
 	if (const auto like = _replyArea->likeAnimationTarget()) {
 		_reactions->attachToReactionButton(like);
 	}
@@ -1232,11 +1203,7 @@ void Controller::updatePlayback(const Player::TrackState &state) {
 	_slider->updatePlayback(state);
 	updatePowerSaveBlocker(state);
 	maybeMarkAsRead(state);
-	if (Player::IsStoppedAtEnd(state.state)) {
-		if (!subjumpFor(1)) {
-			_delegate->storiesClose();
-		}
-	}
+
 }
 
 ClickHandlerPtr Controller::lookupAreaHandler(QPoint point) const {
@@ -1967,7 +1934,8 @@ rpl::lifetime &Controller::lifetime() {
 }
 
 void Controller::updatePowerSaveBlocker(const Player::TrackState &state) {
-	const auto block = !Player::IsPausedOrPausing(state.state)
+	const auto block = videoStream()
+		&& !Player::IsPausedOrPausing(state.state)
 		&& !Player::IsStoppedOrStopping(state.state);
 	base::UpdatePowerSaveBlocker(
 		_powerSaveBlocker,

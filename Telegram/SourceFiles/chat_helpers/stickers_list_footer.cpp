@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "chat_helpers/stickers_list_footer.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/emoji_keywords.h"
 #include "chat_helpers/stickers_emoji_pack.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -23,8 +24,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "lang/lang_keys.h"
 #include "lottie/lottie_single_player.h"
-#include "ui/dpr/dpr_icon.h"
-#include "ui/dpr/dpr_image.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/buttons.h"
 #include "ui/painter.h"
@@ -673,7 +672,6 @@ void StickersListFooter::paint(
 	enumerateVisibleIcons([&](const IconInfo &info) {
 		paintSetIcon(p, context, info, now, paused);
 	});
-	paintLeftRightFading(p, context);
 }
 
 void StickersListFooter::paintSelectionBg(
@@ -713,116 +711,8 @@ void StickersListFooter::paintSelectionBg(
 			progress);
 		p.setPen(Qt::NoPen);
 		p.setBrush(st().categoriesBgOver);
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
-}
-
-void StickersListFooter::paintLeftRightFading(
-		QPainter &p,
-		const ExpandingContext &context) const {
-	const auto o_left_normal = std::clamp(
-		_iconState.x.current() / st().fadeLeft.width(),
-		0.,
-		1.);
-	const auto o_left = context.expanding
-		? (1. - context.progress * (1. - o_left_normal))
-		: o_left_normal;
-	const auto radiusSkip = context.expanding
-		? std::max(context.radius - st::emojiPanRadius, 0)
-		: 0;
-	if (o_left > 0) {
-		p.setOpacity(o_left);
-		const auto left = std::max(_iconsLeft, radiusSkip);
-		const auto top = _iconsTop;
-		if (left >= st::emojiPanRadius) {
-			st().fadeLeft.fill(
-				p,
-				QRect(left, top, st().fadeLeft.width(), st().footer));
-		} else {
-			validateFadeLeft(left + st().fadeLeft.width());
-			p.drawImage(0, _iconsTop, _fadeLeftCache);
-		}
-		p.setOpacity(1.);
-	}
-	const auto o_right_normal = std::clamp(
-		(_iconState.max - _iconState.x.current()) / st().fadeRight.width(),
-		0.,
-		1.);
-	const auto o_right = context.expanding
-		? (1. - context.progress * (1. - o_right_normal))
-		: o_right_normal;
-	if (o_right > 0) {
-		p.setOpacity(o_right);
-		const auto right = std::max(_iconsRight, radiusSkip);
-		const auto rightWidth = right + st().fadeRight.width();
-		if (right >= st::emojiPanRadius) {
-			st().fadeRight.fill(
-				p,
-				QRect(
-					width() - rightWidth,
-					_iconsTop,
-					st().fadeRight.width(),
-					st().footer));
-		} else {
-			validateFadeRight(rightWidth);
-			p.drawImage(width() - rightWidth, _iconsTop, _fadeRightCache);
-		}
-		p.setOpacity(1.);
-	}
-}
-
-void StickersListFooter::validateFadeLeft(int leftWidth) const {
-	validateFadeMask();
-
-	const auto ratio = devicePixelRatioF();
-	const auto &color = st().categoriesBg->c;
-	dpr::Validate(_fadeLeftCache, ratio, { leftWidth, st().footer }, [&](
-			QPainter &p,
-			QSize size) {
-		_fadeLeftColor = color;
-		const auto frame = dpr::IconFrame(st().fadeLeft, color, ratio);
-		p.drawImage(
-			QRect(
-				size.width() - frame.width(),
-				0,
-				frame.width(),
-				size.height()),
-			frame);
-		p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-		p.drawImage(0, 0, _fadeMask);
-	}, (_fadeLeftColor != color), Qt::transparent);
-}
-
-void StickersListFooter::validateFadeRight(int rightWidth) const {
-	validateFadeMask();
-
-	const auto ratio = devicePixelRatioF();
-	const auto &color = st().categoriesBg->c;
-	dpr::Validate(_fadeRightCache, ratio, { rightWidth, st().footer }, [&](
-			QPainter &p,
-			QSize size) {
-		_fadeRightColor = color;
-		const auto frame = dpr::IconFrame(st().fadeRight, color, ratio);
-		p.drawImage(QRect(0, 0, frame.width(), size.height()), frame);
-		p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-		p.drawImage(size.width() - _fadeMask.width(), 0, _fadeMask);
-	}, (_fadeRightColor != color), Qt::transparent);
-}
-
-void StickersListFooter::validateFadeMask() const {
-	const auto ratio = devicePixelRatioF();
-	const auto width = st().fadeLeft.width()
-		+ st().fadeRight.width()
-		+ 2 * st::emojiPanRadius;
-	dpr::Validate(_fadeMask, ratio, { width, st().footer }, [&](
-			QPainter &p,
-			QSize size) {
-		const auto radius = st::emojiPanRadius * ratio;
-		p.setBrush(Qt::white);
-		p.setPen(Qt::NoPen);
-		auto hq = PainterHighQualityEnabler(p);
-		p.drawRoundedRect(QRect(QPoint(), size), radius, radius);
-	}, false, Qt::transparent, false);
 }
 
 void StickersListFooter::resizeEvent(QResizeEvent *e) {
@@ -1341,7 +1231,7 @@ void StickersListFooter::prepareSetIcon(
 	p.setPen(pen);
 	const auto area = st().iconArea;
 	auto rect = QRect(_areaPosition, QSize(area, area));
-	p.drawRoundedRect(rect, st::emojiPanRadius, st::emojiPanRadius);
+	p.drawRoundedRect(rect, style::CornerRadius(st::emojiPanRadius), style::CornerRadius(st::emojiPanRadius));
 }
 
 void StickersListFooter::paintSetIconToCache(

@@ -7,16 +7,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/player/media_player_dropdown.h"
 
-#include "base/invoke_queued.h"
+#include "ui/style/style_classic.h"
 #include "base/timer.h"
 #include "lang/lang_keys.h"
 #include "media/player/media_player_button.h"
-#include "ui/cached_round_corners.h"
 #include "ui/widgets/menu/menu.h"
 #include "ui/widgets/menu/menu_action.h"
 #include "ui/widgets/continuous_sliders.h"
 #include "ui/widgets/dropdown_menu.h"
-#include "ui/widgets/shadow.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
 #include "styles/style_media_player.h"
@@ -71,6 +69,8 @@ private:
 
 	const base::unique_qptr<Ui::MediaSlider> _slider;
 	const not_null<QAction*> _dummyAction;
+	const style::Menu _menuStyle;
+	const style::TextStyle _sliderStyle;
 	const style::MediaSpeedMenu &_st;
 	Ui::Text::String _text;
 	int _height = 0;
@@ -84,15 +84,17 @@ private:
 };
 
 SpeedSliderItem::SpeedSliderItem(
-	not_null<Ui::Menu::Menu*> parent,
-	const style::MediaSpeedMenu &st,
-	rpl::producer<float64> value)
-: Ui::Menu::ItemBase(parent, st.dropdown.menu)
+		not_null<Ui::Menu::Menu*> parent,
+		const style::MediaSpeedMenu &st,
+		rpl::producer<float64> value)
+: Ui::Menu::ItemBase(parent, parent->st())
 , _slider(base::make_unique_q<Ui::MediaSlider>(this, st.slider))
 , _dummyAction(new QAction(parent))
+, _menuStyle(parent->st())
+, _sliderStyle(Ui::ClassicSettingsStyle(st.sliderStyle))
 , _st(st)
 , _height(st.sliderPadding.top()
-	+ st.dropdown.menu.itemStyle.font->height
+	+ _menuStyle.itemStyle.font->height
 	+ st.sliderPadding.bottom())
 , _debounceTimer([=] { _debounced.fire(current()); }) {
 	fitToMenuWidth();
@@ -121,11 +123,11 @@ SpeedSliderItem::SpeedSliderItem(
 	) | rpl::on_next([=](const QRect &clip) {
 		auto p = Painter(this);
 
-		p.fillRect(clip, _st.dropdown.menu.itemBg);
+		p.fillRect(clip, _menuStyle.itemBg);
 
 		const auto left = (_st.sliderPadding.left() - _text.maxWidth()) / 2;
-		const auto top = _st.dropdown.menu.itemPadding.top();
-		p.setPen(_st.dropdown.menu.itemFg);
+		const auto top = _menuStyle.itemPadding.top();
+		p.setPen(_menuStyle.itemFg);
 		_text.drawLeftElided(p, left, top, _text.maxWidth(), width());
 	}, lifetime());
 
@@ -156,7 +158,7 @@ SpeedSliderItem::SpeedSliderItem(
 	) | rpl::on_next([=](float64 value) {
 		const auto text = QString::number(value, 'f', 1) + 'x';
 		if (_text.toString() != text) {
-			_text.setText(_st.sliderStyle, text);
+			_text.setText(_sliderStyle, text);
 			update();
 		}
 	}, lifetime());
@@ -204,58 +206,67 @@ void FillSpeedMenu(
 		return;
 	}
 
-	menu->addSeparator(&st.dropdown.menu.separator);
+	const auto &menuStyle = menu->st();
+	menu->addSeparator();
 
 	struct SpeedPoint {
 		float64 speed = 0.;
 		tr::phrase<> text;
-		const style::icon &icon;
-		const style::icon &iconActive;
 	};
 	const auto points = std::vector<SpeedPoint>{
 		{
 			0.5,
-			tr::lng_voice_speed_slow,
-			st.slow,
-			st.slowActive },
+			tr::lng_voice_speed_slow },
 		{
 			1.0,
-			tr::lng_voice_speed_normal,
-			st.normal,
-			st.normalActive },
+			tr::lng_voice_speed_normal },
 		{
 			1.2,
-			tr::lng_voice_speed_medium,
-			st.medium,
-			st.mediumActive },
+			tr::lng_voice_speed_medium },
 		{
 			1.5,
-			tr::lng_voice_speed_fast,
-			st.fast,
-			st.fastActive },
+			tr::lng_voice_speed_fast },
 		{
 			1.7,
-			tr::lng_voice_speed_very_fast,
-			st.veryFast,
-			st.veryFastActive },
+			tr::lng_voice_speed_very_fast },
 		{
 			2.0,
-			tr::lng_voice_speed_super_fast,
-			st.superFast,
-			st.superFastActive },
+			tr::lng_voice_speed_super_fast },
 	};
 	for (const auto &point : points) {
 		const auto speed = point.speed;
 		const auto text = point.text(tr::now);
-		const auto icon = &point.icon;
-		const auto iconActive = &point.iconActive;
 		auto action = base::make_unique_q<Ui::Menu::Action>(
 			menu,
-			st.dropdown.menu,
+			menuStyle,
 			Ui::Menu::CreateAction(menu, text, [=] { callback(speed); }),
-			&point.icon,
-			&point.icon);
+			nullptr,
+			nullptr);
 		const auto raw = action.get();
+		const auto speedText = QString::number(speed, 'f', 1) + 'x';
+		const auto speedLabel = Ui::CreateChild<Ui::RpWidget>(raw);
+		const auto speedFont = st::classicSettingsFont;
+		speedLabel->resize(
+			speedFont->width(speedText),
+			speedFont->height);
+		speedLabel->paintRequest(
+		) | rpl::on_next([=] {
+			auto p = QPainter(speedLabel);
+			p.setFont(speedFont);
+			Ui::PaintClassicText(
+				p,
+				QPointF(0, speedFont->ascent),
+				speedText,
+				st::classicMenuText->c);
+		}, speedLabel->lifetime());
+		raw->sizeValue(
+		) | rpl::on_next([=](QSize size) {
+			speedLabel->moveToLeft(
+				menuStyle.itemIconPosition.x(),
+				(size.height() - speedLabel->height()) / 2,
+				size.width());
+		}, speedLabel->lifetime());
+		speedLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 		const auto check = Ui::CreateChild<Ui::RpWidget>(raw);
 		check->resize(st.activeCheck.size());
 		check->paintRequest(
@@ -274,8 +285,6 @@ void FillSpeedMenu(
 		state->realtime.value(
 		) | rpl::on_next([=](float64 now) {
 			const auto chosen = EqualSpeeds(speed, now);
-			const auto overriden = chosen ? iconActive : icon;
-			raw->setIcon(overriden, overriden);
 			raw->action()->setEnabled(!chosen);
 			check->setVisible(chosen);
 		}, raw->lifetime());
@@ -330,6 +339,7 @@ Dropdown::Dropdown(QWidget *parent)
 : RpWidget(parent)
 , _hideTimer([=] { startHide(); })
 , _showTimer([=] { startShow(); }) {
+	setFocusPolicy(Qt::StrongFocus);
 	hide();
 
 	macWindowDeactivateEvents(
@@ -379,22 +389,18 @@ void Dropdown::paintEvent(QPaintEvent *e) {
 		return;
 	}
 
-	// draw shadow
-	auto shadowedRect = rect().marginsRemoved(getMargin());
-	auto shadowedSides = RectPart::Left | RectPart::Right | RectPart::Bottom;
-	Ui::Shadow::paint(p, shadowedRect, width(), st::roundShadowRadius8px, shadowedSides);
-	const auto &corners = Ui::CachedCornerPixmaps(Ui::MenuCorners);
-	const auto fill = Ui::CornersPixmaps{
-		.p = { QPixmap(), QPixmap(), corners.p[2], corners.p[3] },
-	};
-	Ui::FillRoundRect(
-		p,
-		shadowedRect.x(),
-		0,
-		shadowedRect.width(),
-		shadowedRect.y() + shadowedRect.height(),
-		st::menuBg,
-		fill);
+	const auto panel = rect().marginsRemoved(getMargin());
+	Ui::PaintClassicButton(p, panel, this, false);
+}
+
+void Dropdown::showFromClick() {
+	_hideTimer.cancel();
+	_showTimer.cancel();
+	_pinned = true;
+	if (isHidden() || _hiding) {
+		startShow();
+	}
+	setFocus(Qt::PopupFocusReason);
 }
 
 void Dropdown::enterEventHook(QEnterEvent *e) {
@@ -409,7 +415,9 @@ void Dropdown::enterEventHook(QEnterEvent *e) {
 
 void Dropdown::leaveEventHook(QEvent *e) {
 	_showTimer.cancel();
-	if (_a_appearance.animating()) {
+	if (_pinned) {
+		_hideTimer.cancel();
+	} else if (_a_appearance.animating()) {
 		startHide();
 	} else {
 		_hideTimer.callOnce(300);
@@ -428,11 +436,28 @@ void Dropdown::otherEnter() {
 
 void Dropdown::otherLeave() {
 	_showTimer.cancel();
-	if (_a_appearance.animating()) {
+	if (_pinned) {
+		_hideTimer.cancel();
+	} else if (_a_appearance.animating()) {
 		startHide();
 	} else {
 		_hideTimer.callOnce(0);
 	}
+}
+
+void Dropdown::focusOutEvent(QFocusEvent *e) {
+	RpWidget::focusOutEvent(e);
+	Ui::PostponeCall(this, [=] {
+		if (_pinned && !Ui::InFocusChain(this)) {
+			_pinned = false;
+			startHide();
+		}
+	});
+}
+
+void Dropdown::hideEvent(QHideEvent *e) {
+	_pinned = false;
+	RpWidget::hideEvent(e);
 }
 
 void Dropdown::startShow() {
@@ -482,7 +507,9 @@ void Dropdown::hidingFinished() {
 }
 
 bool Dropdown::eventFilter(QObject *obj, QEvent *e) {
-	if (e->type() == QEvent::Enter) {
+	if (isHidden()) {
+		return false;
+	} else if (e->type() == QEvent::Enter) {
 		otherEnter();
 	} else if (e->type() == QEvent::Leave) {
 		otherLeave();
@@ -503,20 +530,7 @@ WithDropdownController::WithDropdownController(
 , _menuAlign(menuAlign)
 , _menuPosition(menuPosition)
 , _menuOverCallback(std::move(menuOverCallback)) {
-	button->events(
-	) | rpl::filter([=](not_null<QEvent*> e) {
-		return (e->type() == QEvent::Enter)
-			|| (e->type() == QEvent::Leave);
-	}) | rpl::on_next([=](not_null<QEvent*> e) {
-		_overButton = (e->type() == QEvent::Enter);
-		if (_overButton) {
-			InvokeQueued(button, [=] {
-				if (_overButton) {
-					showMenu();
-				}
-			});
-		}
-	}, button->lifetime());
+	_button->setFocusPolicy(Qt::ClickFocus);
 }
 
 not_null<Ui::AbstractButton*> WithDropdownController::button() const {
@@ -582,9 +596,15 @@ void WithDropdownController::showBack() {
 
 void WithDropdownController::showMenu() {
 	if (_menu) {
+		if (!_menu->isHidden()) {
+			_menu->hideAnimated(
+				Ui::DropdownMenu::HideOption::IgnoreShow);
+		}
 		return;
 	}
 	_menu.emplace(_menuParent, _menuSt);
+	_menu->setAutoHiding(false);
+	_menu->setFocusPolicy(Qt::StrongFocus);
 	const auto raw = _menu.get();
 	_menu->events(
 	) | rpl::on_next([this](not_null<QEvent*> e) {
@@ -623,7 +643,9 @@ void WithDropdownController::showMenu() {
 		}
 		Unexpected("Menu align value.");
 	}();
+	_button->setFocus(Qt::MouseFocusReason);
 	_menu->showAnimated(origin);
+	_menu->setFocus(Qt::PopupFocusReason);
 	_menuToggled = true;
 }
 
@@ -636,7 +658,7 @@ OrderController::OrderController(
 : WithDropdownController(
 	button,
 	menuParent,
-	st::mediaPlayerMenu,
+	st::mediaPlayerOrderDropdown,
 	style::al_topright,
 	st::mediaPlayerMenuPosition,
 	std::move(menuOverCallback))
@@ -654,6 +676,7 @@ OrderController::OrderController(
 }
 
 void OrderController::fillMenu(not_null<Ui::DropdownMenu*> menu) {
+	const auto &menuStyle = menu->menu()->st();
 	const auto addOrderAction = [&](OrderMode mode) {
 		struct Fields {
 			QString label;
@@ -681,9 +704,7 @@ void OrderController::fillMenu(not_null<Ui::DropdownMenu*> menu) {
 		}();
 		menu->addAction(base::make_unique_q<Ui::Menu::Action>(
 			menu->menu(),
-			(active
-				? st::mediaPlayerOrderMenuActive
-				: st::mediaPlayerOrderMenu),
+			menuStyle,
 			Ui::Menu::CreateAction(menu, fields.label, callback),
 			&(active ? fields.activeIcon : fields.icon),
 			&(active ? fields.activeIcon : fields.icon)));
@@ -738,16 +759,20 @@ SpeedController::SpeedController(
 	Expects(_qualities.empty() || (_lookupQuality && _changeQuality));
 
 	button->setClickedCallback([=] {
+		showMenu();
+	});
+	button->events(
+	) | rpl::filter([=](not_null<QEvent*> event) {
+		return event->type() == QEvent::MouseButtonDblClick;
+	}) | rpl::on_next([=] {
 		if (_lookup && !_lookupQuality && !_changeQuality) {
 			toggleDefault();
 			save();
 			if (const auto current = menu()) {
 				current->otherEnter();
 			}
-		} else {
-			showMenu();
 		}
-	});
+	}, button->lifetime());
 	if (const auto lookup = _lookup) {
 		setSpeed(lookup(false));
 		_speed = lookup(true);
@@ -824,8 +849,9 @@ void SpeedController::fillMenu(not_null<Ui::DropdownMenu*> menu) {
 	_quality = _lookupQuality();
 	const auto raw = menu->menu();
 	const auto &st = _st.menu;
+	const auto &menuStyle = raw->st();
 	if (_lookup) {
-		raw->addSeparator(&st.dropdown.menu.separator);
+		raw->addSeparator();
 	}
 
 	const auto add = [&](VideoQuality quality) {
@@ -840,7 +866,7 @@ void SpeedController::fillMenu(not_null<Ui::DropdownMenu*> menu) {
 			: u"%1p"_q.arg(quality.height);
 		auto action = base::make_unique_q<Ui::Menu::Action>(
 			raw,
-			st.qualityMenu,
+			menuStyle,
 			Ui::Menu::CreateAction(
 				raw,
 				text,

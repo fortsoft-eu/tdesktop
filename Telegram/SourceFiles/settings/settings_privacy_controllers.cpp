@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "ui/vertical_list.h"
 #include "ui/text/format_values.h" // Ui::FormatPhone
 #include "ui/text/text_utilities.h"
@@ -64,6 +65,15 @@ namespace {
 using UserPrivacy = Api::UserPrivacy;
 using PrivacyRule = Api::UserPrivacy::Rule;
 using Option = EditPrivacyBox::Option;
+
+[[nodiscard]] style::SettingsButton CheckOnLeftStyle(
+		style::SettingsButton result) {
+	result.toggleSkip = result.padding.left();
+	result.padding.setLeft(result.toggleSkip
+		+ st::classicCheckSize
+		+ st::settingsExperimentalButton.padding.right());
+	return result;
+}
 
 [[nodiscard]] QString PublicLinkByPhone(not_null<UserData*> user) {
 	return user->session().createInternalLinkFull('+' + user->phone());
@@ -275,7 +285,7 @@ struct ForwardedTooltip {
 		}
 		Unexpected("Option value in ForwardsPrivacyController.");
 	}();
-	const auto &font = st::defaultToast.style.font;
+	const auto &font = st::settingsForwardPrivacyTooltipFont;
 	const auto textWidth = font->width(text);
 	const auto arrowSkip = st::settingsForwardPrivacyArrowSkip;
 	const auto arrowSize = st::settingsForwardPrivacyArrowSize;
@@ -313,11 +323,13 @@ struct ForwardedTooltip {
 		rounded->paint(p, geometry);
 
 		p.setFont(font);
-		p.setPen(st::toastFg);
-		p.drawText(
-			geometry.x() + padding.left(),
-			geometry.y() + padding.top() + font->ascent,
-			text);
+		Ui::PaintClassicText(
+			p,
+			QPointF(
+				geometry.x() + padding.left(),
+				geometry.y() + padding.top() + font->ascent),
+			text,
+			st::settingsForwardPrivacyTooltipFg->c);
 
 		const auto bottom = full.y() + full.height() - line;
 
@@ -697,11 +709,14 @@ object_ptr<Ui::RpWidget> LastSeenPrivacyController::setupBelowWidget(
 	Ui::AddSkip(content);
 
 	const auto privacy = &controller->session().api().globalPrivacy();
+	const auto checkStyle = content->lifetime().make_state<
+		style::SettingsButton>(CheckOnLeftStyle(st::settingsButtonNoIcon));
 	const auto hideReadTimeButton = content->add(object_ptr<Ui::SettingsButton>(
 		content,
 		tr::lng_edit_lastseen_hide_read_time(),
-		st::settingsButtonNoIcon
+		*checkStyle
 	));
+	hideReadTimeButton->setProperty("classicCheckOnLeft", true);
 	_hideReadTimeButton = hideReadTimeButton;
 	hideReadTimeButton->toggleOn(privacy->hideReadTime())->toggledValue(
 	) | rpl::on_next([=](bool value) {
@@ -1715,10 +1730,14 @@ object_ptr<Ui::RpWidget> GiftsAutoSavePrivacyController::setupAboveWidget(
 	using Type = Api::DisallowedGiftType;
 
 	const auto session = &controller->session();
+	const auto checkStyle = content->lifetime().make_state<
+		style::SettingsButton>(
+			CheckOnLeftStyle(st::settingsButtonNoIconLocked));
 	const auto icon = content->add(object_ptr<Ui::SettingsButton>(
 		content,
 		tr::lng_edit_privacy_gifts_show_icon(),
-		st::settingsButtonNoIconLocked));
+		*checkStyle));
+	icon->setProperty("classicCheckOnLeft", true);
 	_showIconButton = icon;
 	icon->toggleOn(rpl::single(
 		session->premium() && (_state->disallowed & Type::SendHide)
@@ -1763,6 +1782,9 @@ object_ptr<Ui::RpWidget> GiftsAutoSavePrivacyController::setupBelowWidget(
 
 	const auto session = &controller->session();
 	auto premium = Data::AmPremiumValue(session);
+	const auto checkStyle = content->lifetime().make_state<
+		style::SettingsButton>(
+			CheckOnLeftStyle(st::settingsButtonNoIconLocked));
 
 	Ui::AddSkip(content, st::settingsPeerToPeerSkip);
 	const auto typesTitle = Ui::AddSubsectionTitle(
@@ -1780,7 +1802,8 @@ object_ptr<Ui::RpWidget> GiftsAutoSavePrivacyController::setupBelowWidget(
 		const auto button = content->add(object_ptr<Ui::SettingsButton>(
 			content,
 			rpl::duplicate(title),
-			st::settingsButtonNoIconLocked));
+			*checkStyle));
+		button->setProperty("classicCheckOnLeft", true);
 		button->toggleOn(rpl::single(
 			!session->premium() || !(_state->disallowed & type)
 		) | rpl::then(_state->disables.events() | rpl::map([=] {

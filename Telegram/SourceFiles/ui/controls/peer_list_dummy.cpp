@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/peer_list_dummy.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "styles/style_widgets.h"
 
@@ -35,7 +36,7 @@ void PeerListDummy::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	for (auto i = from; i != till; ++i) {
 		p.setBrush(st::windowBgOver);
-		p.drawEllipse(
+		p.drawRect(
 			_st.item.photoPosition.x(),
 			_st.item.photoPosition.y(),
 			_st.item.photoSize,
@@ -53,8 +54,8 @@ void PeerListDummy::paintEvent(QPaintEvent *e) {
 			- _st.item.photoPosition.x()
 			- _st.item.photoSize;
 		const auto next = left + small + skip;
-		p.drawRoundedRect(left, top, small, height, radius, radius);
-		p.drawRoundedRect(next, top, second, height, radius, radius);
+		p.drawRoundedRect(left, top, small, height, style::CornerRadius(radius), style::CornerRadius(radius));
+		p.drawRoundedRect(next, top, second, height, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		p.translate(0, _st.item.height);
 	}

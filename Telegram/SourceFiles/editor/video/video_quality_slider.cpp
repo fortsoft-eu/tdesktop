@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "editor/video/video_quality_slider.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "styles/style_editor.h"
 
@@ -158,8 +159,8 @@ void VideoQualitySlider::paintEvent(QPaintEvent *e) {
 		p.setBrush(st::videoQualitySliderFg);
 		p.drawRoundedRect(
 			QRectF(from, lineY - lineWidth / 2., till - from, lineWidth),
-			lineWidth / 2.,
-			lineWidth / 2.);
+			style::CornerRadius(lineWidth / 2.),
+			style::CornerRadius(lineWidth / 2.));
 	}
 	for (auto i = 0; i != count; ++i) {
 		const auto x = dotX(i);

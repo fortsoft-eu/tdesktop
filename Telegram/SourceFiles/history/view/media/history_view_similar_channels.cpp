@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/effects/ripple_animation.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/text_utilities.h"
 #include "ui/dynamic_image.h"
 #include "ui/dynamic_thumbnails.h"
@@ -288,8 +289,7 @@ void SimilarChannels::draw(Painter &p, const PaintContext &context) const {
 				}
 			}
 			q->setFont(font);
-			q->setPen(st::premiumButtonFg);
-			q->drawText(textLeft, textTop, channel.counter);
+			Ui::PaintClassicText(*q, QPoint(textLeft, textTop), channel.counter, st::premiumButtonFg->c);
 		}
 		q->setPen(channel.more ? st::windowSubTextFg : stm->historyTextFg);
 		channel.name.drawLeftElided(
@@ -331,13 +331,12 @@ void SimilarChannels::draw(Painter &p, const PaintContext &context) const {
 		return;
 	}
 	p.setFont(ClickHandler::showAsActive(_viewAllLink)
-		? st::normalFont->underline()
-		: st::normalFont);
+		? st::chatSimilarTitle->underline()
+		: st::chatSimilarTitle);
 	p.setPen(stm->textPalette.linkFg);
-	const auto add = st::normalFont->ascent - st::chatSimilarTitle->ascent;
 	p.drawTextRight(
 		st::chatSimilarTitlePosition.x(),
-		st::chatSimilarTitlePosition.y() + add,
+		st::chatSimilarTitlePosition.y(),
 		width(),
 		_viewAll);
 	p.setClipping(false);
@@ -584,7 +583,7 @@ QSize SimilarChannels::countOptimalSize() {
 	_title = tr::lng_similar_channels_title(tr::now);
 	_titleWidth = st::chatSimilarTitle->width(_title);
 	_viewAll = tr::lng_similar_channels_view_all(tr::now);
-	_viewAllWidth = std::max(st::normalFont->width(_viewAll), 0);
+	_viewAllWidth = std::max(st::chatSimilarTitle->width(_viewAll), 0);
 	const auto count = int(_channels.size());
 	const auto desired = (count ? (x - skip) : x)
 		- st::chatSimilarPadding.left();

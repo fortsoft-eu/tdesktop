@@ -294,7 +294,9 @@ public:
 		const QString &key);
 
 	void joinChannel(not_null<ChannelData*> channel);
+	void joinChat(not_null<ChatData*> chat);
 	void leaveChannel(not_null<ChannelData*> channel);
+	[[nodiscard]] bool leaveConversation(not_null<PeerData*> peer);
 
 	void requestNotifySettings(const MTPInputNotifyPeer &peer);
 	void updateNotifySettingsDelayed(not_null<const Data::Thread*> thread);
@@ -690,6 +692,7 @@ private:
 	base::flat_map<
 		not_null<ChannelData*>,
 		mtpRequestId> _channelAmInRequests;
+	base::flat_map<not_null<ChatData*>, mtpRequestId> _chatAmInRequests;
 
 	struct NotifySettingsKey {
 		PeerId peerId = 0;

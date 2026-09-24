@@ -1344,10 +1344,7 @@ void Widget::scrollToSearchSegment(int segmentIndex) {
 	if (rect.isEmpty()) {
 		return;
 	}
-	const auto topMargin = _topContentPadding
-		+ st::ivEditorToolbarPadding.top()
-		+ st::ivEditorToolbarButtonSize
-		+ 2 * st::ivEditorPillPadding;
+	const auto topMargin = _topContentPadding + _searchSlideHeight.current();
 	const auto current = scroll->scrollTop();
 	const auto height = scroll->height();
 	const auto from = rect.y() - topMargin;
@@ -1365,7 +1362,9 @@ void Widget::updateSearchBarGeometry() {
 	if (!_search) {
 		return;
 	}
-	_search->moveBar(searchBarColumn(width()).left, searchBarTop());
+	const auto scroll = selectionScrollArea();
+	const auto left = scroll ? scroll->mapTo(_outer, QPoint()).x() : 0;
+	_search->moveBar(left + searchBarColumn(width()).left, searchBarTop());
 }
 
 Widget::ArticleColumn Widget::searchBarColumn(int outerWidth) const {
@@ -1376,9 +1375,8 @@ Widget::ArticleColumn Widget::searchBarColumn(int outerWidth) const {
 }
 
 int Widget::searchBarTop() const {
-	return st::ivEditorToolbarPadding.top()
-		+ st::ivEditorToolbarButtonSize
-		+ 2 * st::ivEditorPillPadding;
+	const auto scroll = selectionScrollArea();
+	return scroll ? scroll->mapTo(_outer, QPoint()).y() : 0;
 }
 
 void Widget::refreshPreparedContent() {
@@ -11625,7 +11623,8 @@ style::margins Widget::effectiveBodyPadding() const {
 	const auto base = EditorBodyPadding();
 	return style::margins(
 		base.left(),
-		base.top() + _topContentPadding + _searchSlideHeight.current(),
+		base.top() + st::lineWidth
+			+ _topContentPadding + _searchSlideHeight.current(),
 		base.right(),
 		base.bottom() + _bottomContentPadding);
 }

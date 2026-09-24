@@ -24,7 +24,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "export/export_settings.h"
 #include "window/notifications_manager.h"
 #include "window/window_controller.h"
-#include "data/data_peer_values.h" // Data::AmPremiumValue.
+
+#include <limits>
 
 namespace Main {
 
@@ -269,7 +270,7 @@ void Domain::scheduleUpdateUnreadBadge() {
 
 not_null<Main::Account*> Domain::add(MTP::Environment environment) {
 	Expects(started());
-	Expects(_accounts.size() < kPremiumMaxAccounts);
+	Expects(_accounts.size() < std::numeric_limits<int>::max());
 
 	static const auto cloneConfig = [](const MTP::Config &config) {
 		return std::make_unique<MTP::Config>(config);
@@ -326,17 +327,7 @@ void Domain::addActivated(MTP::Environment environment, bool newWindow) {
 			activate(account);
 		}
 	};
-	if (accounts().size() < maxAccounts()) {
-		added(add(environment));
-	} else {
-		for (auto &[index, account] : accounts()) {
-			if (!account->sessionExists()
-				&& account->mtp().environment() == environment) {
-				added(account.get());
-				break;
-			}
-		}
-	}
+	added(add(environment));
 }
 
 void Domain::watchSession(not_null<Account*> account) {
@@ -347,12 +338,6 @@ void Domain::watchSession(not_null<Account*> account) {
 		session->data().unreadBadgeChanges(
 		) | rpl::on_next([=] {
 			scheduleUpdateUnreadBadge();
-		}, session->lifetime());
-
-		Data::AmPremiumValue(
-			session
-		) | rpl::on_next([=] {
-			_lastMaxAccounts = maxAccounts();
 		}, session->lifetime());
 	}, account->lifetime());
 
@@ -513,20 +498,6 @@ void Domain::scheduleWriteAccounts() {
 		_writeAccountsScheduled = false;
 		_local->writeAccounts();
 	});
-}
-
-int Domain::maxAccounts() const {
-	const auto premiumCount = ranges::count_if(accounts(), [](
-			const Main::Domain::AccountWithIndex &d) {
-		return d.account->sessionExists()
-			&& (d.account->session().premium()
-				|| d.account->session().isTestMode());
-	});
-	return std::min(int(premiumCount) + kMaxAccounts, kPremiumMaxAccounts);
-}
-
-rpl::producer<int> Domain::maxAccountsChanges() const {
-	return _lastMaxAccounts.changes();
 }
 
 } // namespace Main

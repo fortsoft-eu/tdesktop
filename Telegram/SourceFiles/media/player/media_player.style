@@ -97,7 +97,14 @@ mediaPlayerCloseRight: 0px;
 mediaPlayerName: FlatLabel(defaultFlatLabel) {
 	maxHeight: 20px;
 }
+mediaPlayerVoiceDate: FlatLabel(mediaPlayerName) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+mediaPlayerVoiceDateSkip: 4px;
 mediaPlayerTime: LabelSimple(defaultLabelSimple) {
+	font: classicSettingsFont;
 	textFg: windowSubTextFg;
 }
 
@@ -165,7 +172,7 @@ mediaPlayerMenu: DropdownMenu(defaultDropdownMenu) {
 		padding: margins(10px, 10px, 10px, 10px);
 	}
 }
-mediaPlayerMenuCheck: icon {{ "player/player_check", mediaPlayerActiveFg }};
+mediaPlayerMenuCheck: icon {{ "player/player_check", classicMenuText }};
 
 mediaPlayerSpeedMenuInner: Menu(menuWithIcons) {
 	separator: MenuSeparator(defaultMenuSeparator) {
@@ -185,7 +192,7 @@ mediaPlayerSpeedMenu: MediaSpeedMenu {
 	activeCheck: mediaPlayerMenuCheck;
 	activeCheckSkip: 8px;
 	sliderStyle: TextStyle(defaultTextStyle) {
-		font: font(12px semibold);
+		font: classicSettingsFont;
 	}
 	sliderPadding: margins(50px, 8px, 12px, 8px);
 	sliderWidth: 122px;
@@ -217,7 +224,7 @@ mediaPlayerSpeedMenu: MediaSpeedMenu {
 mediaPlayerSpeedButton: MediaSpeedButton {
 	size: size(30px, 30px);
 	padding: margins(0px, 6px, 0px, 0px);
-	font: font(11px bold);
+	font: classicSettingsFont;
 	fg: menuIconFg;
 	overFg: menuIconFgOver;
 	activeFg: mediaPlayerActiveFg;
@@ -248,6 +255,7 @@ mediaPlayerVolumeToggle: IconButton(mediaPlayerRepeatButton) {
 }
 mediaPlayerVolumeMargin: 10px;
 mediaPlayerVolumeSize: size(27px, 100px);
+mediaPlayerVolumeSliderSize: size(12px, 75px);
 
 mediaPlayerControlsFade: icon {{ "fade_horizontal", mediaPlayerBg }};
 
@@ -323,13 +331,18 @@ mediaPlayerMenuPosition: point(-2px, -1px);
 mediaPlayerOrderMenu: Menu(defaultMenu) {
 	itemIconPosition: point(13px, 8px);
 	itemPadding: margins(49px, 9px, 17px, 11px);
-	itemStyle: boxTextStyle;
+	itemStyle: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	itemFg: classicMenuText;
+	itemFgOver: classicMenuText;
 }
 mediaPlayerOrderMenuActive: Menu(mediaPlayerOrderMenu) {
-	itemFg: windowActiveTextFg;
-	itemFgOver: windowActiveTextFg;
 }
-mediaPlayerOrderIconReverse: icon{{ "player/player_order", windowFg }};
-mediaPlayerOrderIconReverseActive: icon{{ "player/player_order", windowActiveTextFg }};
-mediaPlayerOrderIconShuffle: icon{{ "player/player_shuffle", windowFg }};
-mediaPlayerOrderIconShuffleActive: icon{{ "player/player_shuffle", windowActiveTextFg }};
+mediaPlayerOrderDropdown: DropdownMenu(mediaPlayerMenu) {
+	menu: mediaPlayerOrderMenu;
+}
+mediaPlayerOrderIconReverse: icon{{ "player/player_order", classicMenuText }};
+mediaPlayerOrderIconReverseActive: icon{{ "player/player_order", classicMenuText }};
+mediaPlayerOrderIconShuffle: icon{{ "player/player_shuffle", classicMenuText }};
+mediaPlayerOrderIconShuffleActive: icon{{ "player/player_shuffle", classicMenuText }};

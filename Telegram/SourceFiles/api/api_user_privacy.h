@@ -58,7 +58,8 @@ public:
 
 	void save(
 		Key key,
-		const UserPrivacy::Rule &rule);
+		const UserPrivacy::Rule &rule,
+		Fn<void(const QString &)> completed = nullptr);
 	void apply(
 		mtpTypeId type,
 		const MTPVector<MTPPrivacyRule> &rules,

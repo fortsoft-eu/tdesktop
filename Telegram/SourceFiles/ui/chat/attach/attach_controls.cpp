@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/attach/attach_controls.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "styles/style_chat_helpers.h"
 
@@ -34,7 +35,7 @@ void AttachControls::paint(QPainter &p, int x, int y) {
 			p.drawEllipse(circleRect);
 		} else {
 			const auto radius = std::min(groupWidth, groupHeight) / 2.;
-			p.drawRoundedRect(groupRect, radius, radius);
+			p.drawRoundedRect(groupRect, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 	}
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_media_generic.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_document.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
@@ -155,13 +156,13 @@ void MediaGeneric::draw(Painter &p, const PaintContext &context) const {
 		if (parent()->data()->inlineReplyKeyboard()) {
 			const auto half = rect.height() / 2;
 			p.setClipRect(rect - QMargins(0, 0, 0, half));
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 			p.setClipRect(rect - QMargins(0, rect.height() - half, 0, 0));
 			const auto small = Ui::BubbleRadiusSmall();
-			p.drawRoundedRect(rect, small, small);
+			p.drawRoundedRect(rect, style::CornerRadius(small), style::CornerRadius(small));
 			p.setClipping(false);
 		} else {
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 	}
 
@@ -404,9 +405,7 @@ void MediaGenericTextPart::draw(
 		.outerWidth = outerWidth,
 		.availableWidth = use,
 		.align = _align,
-		.palette = &(owner->service()
-			? context.st->serviceTextPalette()
-			: context.messageStyle()->textPalette),
+		.palette = &textPalette(owner, context),
 		.spoiler = Ui::Text::DefaultSpoilerCache(),
 		.now = context.now,
 		.pausedEmoji = context.paused || On(PowerSaving::kEmojiChat),
@@ -424,6 +423,14 @@ void MediaGenericTextPart::setupPen(
 	p.setPen(service
 		? context.st->msgServiceFg()
 		: context.messageStyle()->historyTextFg);
+}
+
+const style::TextPalette &MediaGenericTextPart::textPalette(
+		not_null<const MediaGeneric*> owner,
+		const PaintContext &context) const {
+	return owner->service()
+		? context.st->serviceTextPalette()
+		: context.messageStyle()->textPalette;
 }
 
 int MediaGenericTextPart::elisionLines() const {
@@ -829,10 +836,10 @@ void StickerWithBadgePart::paintBadge(
 		const auto half = st::chatGiveawayBadgeStroke / 2.;
 		const auto inner = QRectF(rect) - Margins(half);
 		const auto radius = inner.height() / 2.;
-		p.drawRoundedRect(inner, radius, radius);
+		p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 		if (_colorOverride && context.selected()) {
 			p.setBrush(context.st->msgStickerOverlay());
-			p.drawRoundedRect(inner, radius, radius);
+			p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 	}
 
@@ -885,7 +892,7 @@ void StickerWithBadgePart::validateBadge(
 	const auto smaller = QRectF(rect.translated(-rect.topLeft()))
 		- Margins(half);
 	const auto radius = smaller.height() / 2.;
-	p.drawRoundedRect(smaller, radius, radius);
+	p.drawRoundedRect(smaller, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setPen(_badgeFg);
 	p.setFont(font);
 	p.drawText(

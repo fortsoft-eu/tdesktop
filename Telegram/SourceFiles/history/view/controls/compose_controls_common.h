@@ -19,11 +19,17 @@ namespace Data {
 class GroupCall;
 } // namespace Data
 
+namespace Ui {
+class RpWidget;
+} // namespace Ui
+
 class History;
 
 namespace HistoryView::Controls {
 
 extern const char kOptionMacCmdReplyImmediately[];
+
+void DisablePointerCursor(not_null<Ui::RpWidget*> widget);
 
 struct MessageToEdit {
 	FullMsgId fullId;

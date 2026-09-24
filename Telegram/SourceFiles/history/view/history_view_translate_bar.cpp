@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_translate_bar.h"
 
+#include "ui/style/style_classic.h"
 #include "boxes/translate_box.h"
 #include "ui/boxes/about_cocoon_box.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -36,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller.h"
 #include "styles/style_chat.h"
 #include "styles/style_menu_icons.h"
+#include "styles/style_settings.h"
 
 #include <QtGui/QtEvents>
 
@@ -43,6 +45,45 @@ namespace HistoryView {
 namespace {
 
 constexpr auto kToastDuration = 4 * crl::time(1000);
+
+class TranslateButton final : public Ui::RippleButton {
+public:
+	explicit TranslateButton(QWidget *parent) : RippleButton(parent, st::historyTranslateSettings.ripple) {
+		setFocusPolicy(Qt::StrongFocus);
+		resize(0, st::historyTranslateButtonHeight);
+	}
+
+	void setText(QString text) {
+		_text = std::move(text);
+		setNaturalWidth(st::settingsTerminateSessionsButton.width);
+		accessibilityNameChanged();
+		update();
+	}
+
+	QString accessibilityName() override {
+		return _text;
+	}
+
+protected:
+	void paintEvent(QPaintEvent *e) override {
+		auto p = Painter(this);
+		Ui::PaintClassicButton(p, rect(), this, isDown());
+		p.translate(Ui::ClassicButtonContentOffset(this, isDown()));
+		const auto font = st::historyTranslateLabel.style.font;
+		const auto &icon = st::historyTranslateIcon;
+		const auto available = Ui::ClassicButtonContentRect(rect(), this).width();
+		const auto text = font->elided(_text, available);
+		const auto left = (width() - font->width(text)) / 2;
+		icon.paint(p, Ui::ClassicButtonIconLeft(height(), icon.size()), (height() - icon.height()) / 2, width());
+		p.setFont(font);
+		p.setPen(st::historyTranslateLabel.textFg);
+		p.drawTextLeft(left, (height() - font->height) / 2, width(), text);
+	}
+
+private:
+	QString _text;
+
+};
 
 class TwoTextAction final : public Ui::Menu::ItemBase {
 public:
@@ -104,7 +145,7 @@ TwoTextAction::TwoTextAction(
 , _text2(text2)
 , _height(st::ttlItemPadding.top()
 	+ _st.itemStyle.font->height
-	+ st::ttlItemTimerFont->height
+	+ _st.itemStyle.font->height
 	+ st::ttlItemPadding.bottom()) {
 	fitToMenuWidth();
 	setActionTriggered(std::move(callback));
@@ -148,7 +189,7 @@ void TwoTextAction::paint(Painter &p) {
 		_textWidth1,
 		width());
 
-	p.setFont(st::ttlItemTimerFont);
+	p.setFont(_st.itemStyle.font);
 	p.setPen(selected ? _st.itemFgShortcutOver : _st.itemFgShortcut);
 	p.drawTextLeft(
 		_st.itemPadding.left(),
@@ -160,7 +201,7 @@ void TwoTextAction::paint(Painter &p) {
 void TwoTextAction::prepare(const QString &text1) {
 	_text1.setMarkedText(_st.itemStyle, { text1 }, MenuTextOptions);
 	const auto textWidth1 = _text1.maxWidth();
-	const auto textWidth2 = st::ttlItemTimerFont->width(_text2);
+	const auto textWidth2 = _st.itemStyle.font->width(_text2);
 	const auto &padding = _st.itemPadding;
 
 	const auto goodWidth = padding.left()
@@ -168,10 +209,7 @@ void TwoTextAction::prepare(const QString &text1) {
 		+ padding.right();
 	const auto ttlMaxWidth = [&](const QString &duration) {
 		return padding.left()
-			+ st::ttlItemTimerFont->width(tr::lng_context_auto_delete_in(
-				tr::now,
-				lt_duration,
-				duration))
+			+ _st.itemStyle.font->width(tr::lng_context_auto_delete_in(tr::now, lt_duration, duration))
 			+ padding.right();
 	};
 	const auto maxWidth1 = ttlMaxWidth("23:59:59");
@@ -239,7 +277,7 @@ TranslateBar::TranslateBar(
 	not_null<History*> history)
 : _controller(controller)
 , _history(history)
-, _wrap(parent, object_ptr<Ui::AbstractButton>(parent))
+, _wrap(parent, object_ptr<Ui::RpWidget>(parent))
 , _shadow(std::make_unique<Ui::PlainShadow>(parent)) {
 	_wrap.hide(anim::type::instant);
 	_shadow->hide();
@@ -286,59 +324,35 @@ void TranslateBar::setup(not_null<History*> history) {
 			migrated->translateTo(id);
 		}
 	};
-	const auto button = static_cast<Ui::AbstractButton*>(_wrap.entity());
-	button->resize(0, st::historyTranslateBarHeight);
-	button->setAttribute(Qt::WA_OpaquePaintEvent);
-
-	button->paintRequest(
-	) | rpl::on_next([=](QRect clip) {
-		QPainter(button).fillRect(clip, st::historyComposeButtonBg);
-	}, button->lifetime());
-
+	const auto container = _wrap.entity();
+	container->resize(0, st::historyTranslateBarHeight);
+	container->paintRequest() | rpl::on_next([=](QRect clip) {
+		QPainter(container).fillRect(clip, st::windowBg);
+	}, container->lifetime());
+	const auto button = Ui::CreateChild<TranslateButton>(container);
 	button->setClickedCallback([=] {
 		translateTo(history->translatedTo() ? LanguageId() : _to.current());
 	});
 
-	const auto label = Ui::CreateChild<Ui::FlatLabel>(
-		button,
-		st::historyTranslateLabel);
-	const auto icon = Ui::CreateChild<Ui::RpWidget>(button);
-	label->setAttribute(Qt::WA_TransparentForMouseEvents);
-	icon->setAttribute(Qt::WA_TransparentForMouseEvents);
-	icon->resize(st::historyTranslateIcon.size());
-	icon->paintRequest() | rpl::on_next([=] {
-		auto p = QPainter(icon);
-		st::historyTranslateIcon.paint(p, 0, 0, icon->width());
-	}, icon->lifetime());
 	const auto settings = Ui::CreateChild<Ui::IconButton>(
-		button,
+		container,
 		st::historyTranslateSettings);
 	settings->setClickedCallback([=] { showMenu(createMenu(settings)); });
 
-	const auto updateLabelGeometry = [=] {
-		const auto full = _wrap.width() - icon->width();
-		const auto skip = st::semiboldFont->spacew * 2;
-		const auto natural = label->textMaxWidth();
-		const auto top = [&] {
-			return (_wrap.height() - label->height()) / 2;
-		};
-		if (natural <= full - 2 * (settings->width() + skip)) {
-			label->resizeToWidth(natural);
-			label->moveToRight((full - label->width()) / 2, top());
-		} else {
-			const auto available = full - settings->width() - 2 * skip;
-			label->resizeToWidth(std::min(natural, available));
-			label->moveToRight(settings->width() + skip, top());
-		}
-		icon->move(
-			label->x() - icon->width(),
-			(_wrap.height() - icon->height()) / 2);
+	const auto updateButtonGeometry = [=] {
+		const auto margin = st::historyTranslateButtonMargin;
+		const auto available = std::max(container->width() - settings->width() - 2 * margin, 0);
+		const auto width = std::min(available, button->naturalWidth());
+		button->setGeometry(
+			(container->width() - settings->width() - width) / 2,
+			(container->height() - button->height()) / 2,
+			width,
+			button->height());
 	};
-
-	_wrap.sizeValue() | rpl::on_next([=](QSize size) {
+	container->sizeValue() | rpl::on_next([=](QSize size) {
 		settings->moveToRight(0, 0, size.width());
-		updateLabelGeometry();
-	}, lifetime());
+		updateButtonGeometry();
+	}, container->lifetime());
 
 	_overridenTo = history->translatedTo();
 	_to = rpl::combine(
@@ -398,8 +412,8 @@ void TranslateBar::setup(not_null<History*> history) {
 	) | rpl::on_next([=](QString phrase) {
 		_shouldBeShown = !phrase.isEmpty();
 		if (_shouldBeShown) {
-			label->setText(phrase);
-			updateLabelGeometry();
+			button->setText(std::move(phrase));
+			updateButtonGeometry();
 		}
 		if (!_forceHidden) {
 			_wrap.toggle(_shouldBeShown, anim::type::normal);
@@ -492,7 +506,7 @@ void TranslateBar::showMenu(base::unique_qptr<Ui::PopupMenu> menu) {
 		true);
 	auto item = base::make_unique_q<Ui::Menu::MultilineAction>(
 		_menu->menu(),
-		st::defaultMenu,
+		_menu->menu()->st(),
 		st::historyTranslateCocoonLabel,
 		QPoint(
 			st::defaultMenu.itemPadding.left(),

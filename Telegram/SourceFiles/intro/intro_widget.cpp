@@ -88,7 +88,7 @@ Widget::Widget(
 	object_ptr<Ui::RoundButton>(
 		this,
 		tr::lng_menu_settings(),
-		st::defaultBoxButton))
+		st::compactBoxButton))
 , _next(
 	this,
 	object_ptr<Ui::RoundButton>(this, nullptr, *_nextStyle))
@@ -280,7 +280,7 @@ void Widget::createLanguageLink() {
 			const QString &languageId) {
 		_changeLanguage.create(
 			this,
-			object_ptr<Ui::LinkButton>(this, text));
+			object_ptr<Ui::LinkButton>(this, text, st::introLink));
 		_changeLanguage->hide(anim::type::instant);
 		_changeLanguage->entity()->setClickedCallback([=] {
 			Lang::CurrentCloudManager().switchToLanguage(languageId);
@@ -323,7 +323,7 @@ void Widget::checkUpdateStatus() {
 			object_ptr<Ui::RoundButton>(
 				this,
 				tr::lng_menu_update(),
-				st::defaultBoxButton));
+				st::compactBoxButton));
 		_update->entity()->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
 		if (!_showAnimation) {
 			_update->setVisible(true);

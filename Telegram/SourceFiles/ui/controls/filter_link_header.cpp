@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/filter_link_header.h"
 
+#include "ui/style/style_radius.h"
 #include "lang/lang_keys.h"
 #include "ui/image/image_prepare.h"
 #include "ui/text/text_utilities.h"
@@ -229,7 +230,7 @@ private:
 	const auto chatLeft = size + st::lineWidth - (chatSize / 2);
 	const auto paintChat = [&](int top, const style::color &bg) {
 		p.setBrush(bg);
-		p.drawEllipse(chatLeft, top, chatSize, chatSize);
+		p.drawRect(chatLeft, top, chatSize, chatSize);
 	};
 	const auto chatSkip = st::filterLinkPreviewChatSkip;
 	const auto chat1Top = (size - 2 * chatSize - chatSkip) / 2;
@@ -262,7 +263,7 @@ private:
 		const auto radius = (badgeHeight / 2) + add;
 		const auto rect = QRect(badgeLeft, badgeTop, badgeWidth, badgeHeight)
 			+ QMargins(add, add, add, add);
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		p.setPen(st.badgeFg);
 		p.setFont(st.badgeStyle.font);
@@ -273,7 +274,7 @@ private:
 	pen.setWidthF(st::lineWidth * 2.);
 	p.setPen(pen);
 	p.setBrush(Qt::NoBrush);
-	p.drawRoundedRect(0, 0, size, size, radius, radius);
+	p.drawRoundedRect(0, 0, size, size, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.end();
 
 	result = Images::Round(std::move(result), Images::CornersMask(radius));
@@ -594,8 +595,8 @@ object_ptr<RoundButton> FilterLinkProcessButton(
 				top - badgePadding.top());
 			p.drawRoundedRect(
 				QRect(badgePosition, badgeSize),
-				radius,
-				radius);
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 			p.setPen(st->textBg);
 			label->badge.drawLeftElided(
 				p,

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/editor/iv_editor_button_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/flat_set.h"
 #include "base/weak_qptr.h"
 #include "boxes/peers/edit_peer_invite_link.h"
@@ -194,8 +195,8 @@ void RichButtonPreviewRow::paintSelectionOutline(QPainter &p) {
 	p.drawRoundedRect(
 		QRectF(_buttons[_selected].rect).marginsAdded(
 			{ shift, shift, shift, shift }),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 }
 
 void RichButtonPreviewRow::mouseMoveEvent(QMouseEvent *e) {

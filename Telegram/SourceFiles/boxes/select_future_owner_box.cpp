@@ -346,7 +346,9 @@ void SelectFutureOwnerbox(
 		st::boxRowPadding,
 		style::al_justify);
 	leave->setClickedCallback([=, revoke = false] {
-		peer->session().api().deleteConversation(peer, revoke);
+		if (!peer->session().api().leaveConversation(peer)) {
+			peer->session().api().deleteConversation(peer, revoke);
+		}
 		box->closeBox();
 	});
 	select->setClickedCallback([=] {
@@ -500,9 +502,9 @@ void SelectFutureOwnerbox(
 							selectBox->uiShow(),
 							[=](std::shared_ptr<Ui::Show> show) {
 								const auto revoke = false;
-								peer->session().api().deleteConversation(
-									peer,
-									revoke);
+								if (!peer->session().api().leaveConversation(peer)) {
+									peer->session().api().deleteConversation(peer, revoke);
+								}
 								show->hideLayer();
 							})->start();
 					}

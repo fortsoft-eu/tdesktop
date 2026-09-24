@@ -66,6 +66,7 @@ struct LimitRowLabels {
 	rpl::producer<QString> rightLabel;
 	rpl::producer<QString> rightCount;
 	Fn<QBrush()> activeLineBg;
+	const style::TextStyle *textStyle = nullptr;
 };
 
 struct LimitRowState {

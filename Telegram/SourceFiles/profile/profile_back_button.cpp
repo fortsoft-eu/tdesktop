@@ -18,7 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Profile {
 
 BackButton::BackButton(QWidget *parent) : Ui::AbstractButton(parent) {
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 }
 
 void BackButton::setText(const QString &text) {

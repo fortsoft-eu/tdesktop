@@ -20,13 +20,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lottie/lottie_icon.h"
 #include "qr/qr_generate.h"
 #include "base/unique_qptr.h"
-#include "styles/style_intro.h"
+#include "styles/style_boxes.h"
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"
 #include "styles/style_widgets.h"
 
 #include <QtGui/QPainter>
-#include <QtSvg/QSvgRenderer>
 
 #include <rpl/flatten_latest.h>
 #include <rpl/map.h>
@@ -46,36 +45,14 @@ namespace {
 	return controller ? controller->uiShow() : nullptr;
 }
 
-[[nodiscard]] QImage QrCenterImage() {
-	const auto ratio = style::DevicePixelRatio();
-	const auto side = st::passkeyCableQrCenter.width() * ratio;
-	auto result = QImage(side, side, QImage::Format_ARGB32_Premultiplied);
-	result.fill(Qt::transparent);
-	auto p = QPainter(&result);
-	auto hq = PainterHighQualityEnabler(p);
-	p.setPen(Qt::NoPen);
-	p.setBrush(Qt::white);
-	const auto radius = side / 5.;
-	p.drawRoundedRect(0, 0, side, side, radius, radius);
-	auto svg = QSvgRenderer(u":/gui/passkey_qr_center.svg"_q);
-	if (svg.isValid()) {
-		const auto target = (side * 94) / 100;
-		const auto shift = (side - target) / 2.;
-		svg.render(&p, QRectF(shift, shift, target, target));
-	}
-	return result;
-}
-
 [[nodiscard]] QImage RenderQr(const QString &text) {
 	const auto data = Qr::Encode(text, Qr::Redundancy::Quartile);
 	const auto ratio = style::DevicePixelRatio();
+	const auto modules = data.size + (2 * Qr::kQuietZoneModules);
 	const auto pixel = std::max(
-		st::passkeyCableQrSize / std::max(data.size, 1),
+		st::passkeyCableQrSize / modules,
 		1);
-	auto image = Qr::Generate(data, pixel * ratio, Qt::black, Qt::white);
-
-	auto center = QrCenterImage();
-	image = Qr::ReplaceCenter(std::move(image), center);
+	auto image = Qr::GenerateStrict(data, pixel * ratio);
 	image.setDevicePixelRatio(ratio);
 	return image;
 }
@@ -102,7 +79,9 @@ bool ShowCableBox(BoxContent &&content) {
 	const auto securityKeyChosen = content.securityKeyChosen;
 	const auto cancelled = content.cancelled;
 	show->show(Box([=](not_null<Ui::GenericBox*> box) {
-		box->setStyle(st::passkeyCableBox);
+		const auto boxStyle = box->lifetime().make_state<style::Box>(
+			st::passkeyCableBox);
+		box->setStyle(*boxStyle);
 		box->setTitle(state->sheet.value(
 		) | rpl::map([=](Sheet sheet) -> rpl::producer<QString> {
 			switch (sheet) {
@@ -141,21 +120,20 @@ bool ShowCableBox(BoxContent &&content) {
 						st::boxLabel),
 					st::boxRowPadding);
 			};
-			const auto addPill = [&](
+			const auto addAction = [&](
 					rpl::producer<QString> text,
 					Fn<void()> callback) {
 				const auto button = content->add(
 					object_ptr<Ui::RoundButton>(
 						content,
 						std::move(text),
-						st::defaultLightButton),
+						st::changePhoneButton),
 					style::margins(
 						st::boxRowPadding.left(),
 						2 * st::boxLittleSkip,
 						st::boxRowPadding.right(),
 						2 * st::boxLittleSkip),
-					style::al_justify);
-				button->setFullRadius(true);
+					style::al_top);
 				button->setClickedCallback(std::move(callback));
 			};
 			box->clearButtons();
@@ -165,15 +143,21 @@ bool ShowCableBox(BoxContent &&content) {
 					((sheet == Sheet::Error)
 						? tr::lng_close()
 						: tr::lng_cancel()),
-					st::defaultLightButton);
-				bottom->setFullRadius(true);
-				bottom->resizeToWidth(st::boxWidth
-					- st::passkeyCableBox.buttonPadding.left()
-					- st::passkeyCableBox.buttonPadding.right());
+					st::changePhoneButton);
 				bottom->setClickedCallback([=] {
 					box->closeBox();
 				});
+				const auto button = bottom.data();
 				box->addButton(std::move(bottom));
+				rpl::combine(
+					box->sizeValue(),
+					button->sizeValue()
+				) | rpl::on_next([=] {
+					const auto side = (button->parentWidget()->width() - button->width()) / 2;
+					boxStyle->buttonPadding.setLeft(side);
+					boxStyle->buttonPadding.setRight(side);
+					box->updateButtonsGeometry();
+				}, button->lifetime());
 			}
 
 			switch (sheet) {
@@ -185,9 +169,6 @@ bool ShowCableBox(BoxContent &&content) {
 
 					const auto size = qrImage->width()
 						/ style::DevicePixelRatio();
-					const auto skip = st::introQrBackgroundSkip;
-					const auto radius = st::introQrBackgroundRadius;
-					const auto full = size + 2 * skip;
 					const auto qr = content->add(
 						object_ptr<Ui::RpWidget>(content),
 						style::margins(
@@ -195,19 +176,11 @@ bool ShowCableBox(BoxContent &&content) {
 							st::boxLittleSkip,
 							0,
 							st::boxLittleSkip));
-					qr->resize(full, full);
+					qr->resize(size, size);
 					qr->paintRequest(
 					) | rpl::on_next([=] {
 						auto p = QPainter(qr);
-						auto hq = PainterHighQualityEnabler(p);
-						const auto x = (qr->width() - full) / 2;
-						p.setPen(Qt::NoPen);
-						p.setBrush(Qt::white);
-						p.drawRoundedRect(
-							QRect(x, 0, full, full),
-							radius,
-							radius);
-						p.drawImage(x + skip, skip, *qrImage);
+						p.drawImage((qr->width() - size) / 2, 0, *qrImage);
 					}, qr->lifetime());
 
 					content->add(
@@ -221,7 +194,7 @@ bool ShowCableBox(BoxContent &&content) {
 					addDescription(tr::lng_passkey_cable_no_bluetooth());
 				}
 
-				addPill(tr::lng_passkey_method_key(), [=] {
+				addAction(tr::lng_passkey_method_key(), [=] {
 					if (securityKeyChosen) {
 						securityKeyChosen();
 					}

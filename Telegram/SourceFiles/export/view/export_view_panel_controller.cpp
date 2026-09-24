@@ -10,8 +10,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "export/view/export_view_settings.h"
 #include "export/view/export_view_progress.h"
 #include "export/export_manager.h"
+#include "info/info_layer_widget.h"
+#include "window/window_controller.h"
+#include "window/section_widget.h"
+#include "window/window_session_controller.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/separate_panel.h"
+#include "ui/style/style_classic.h"
 #include "ui/wrap/padding_wrap.h"
 #include "mtproto/mtproto_config.h"
 #include "ui/boxes/confirm_box.h"
@@ -51,6 +56,8 @@ SuggestBox::SuggestBox(QWidget*, not_null<Main::Session*> session)
 }
 
 void SuggestBox::prepare() {
+	setProperty("classicFormFrame", true);
+	Ui::SetClassicSettingsStyle(this);
 	setTitle(tr::lng_export_suggest_title());
 
 	addButton(tr::lng_box_ok(), [=] {
@@ -175,6 +182,10 @@ void PanelController::createPanel() {
 	_panel = base::make_unique_q<Ui::SeparatePanel>(Ui::SeparatePanelArgs{
 		.onAllSpaces = true,
 	});
+	_panel->setProperty("classicFormFrame", true);
+	Ui::SetClassicSettingsStyle(_panel.get());
+	_panel->overrideTitleColor(st::classicControlBg->c);
+	_panel->overrideBodyColor(st::classicControlBg->c);
 	_panel->setTitle((singleTopic
 		? tr::lng_export_header_topic
 		: singlePeer
@@ -221,6 +232,18 @@ void PanelController::showSettings() {
 
 	auto size = st::exportPanelSize;
 	size.setHeight(size.height() + settings->sizeLimitExtraHeight());
+	if (!_settings->onlySinglePeer()) {
+		if (const auto window = Core::App().activePrimaryWindow()) {
+			const auto body = window->widget()->bodyWidget();
+			auto height = Info::LayerWidget::MaximumHeightForParent(body->height());
+			const auto controller = window->sessionController();
+			const auto section = controller ? controller->activeLayerSection() : nullptr;
+			if (const auto layer = section ? dynamic_cast<Info::LayerWidget*>(section->parentWidget()) : nullptr) {
+				height = layer->height();
+			}
+			size.setHeight(height - 4 * st::lineWidth);
+		}
+	}
 	_panel->setInnerSize(size);
 
 	_panel->showInner(std::move(settings));

@@ -54,6 +54,7 @@ void EnableQTextEditLineMetrics(style::Markdown &style) {
 
 style::Markdown CreateEditorMarkdownStyle() {
 	auto result = st::messageMarkdown;
+	result.textPadding = style::margins();
 	EnableQTextEditLineMetrics(result);
 	return result;
 }

@@ -17,6 +17,7 @@ struct CommunityUserpicEffect;
 } // namespace Ui
 
 namespace style {
+struct TextPalette;
 struct TextStyle;
 } // namespace style
 
@@ -191,6 +192,9 @@ public:
 protected:
 	virtual void setupPen(
 		Painter &p,
+		not_null<const MediaGeneric*> owner,
+		const PaintContext &context) const;
+	[[nodiscard]] virtual const style::TextPalette &textPalette(
 		not_null<const MediaGeneric*> owner,
 		const PaintContext &context) const;
 	virtual int elisionLines() const;

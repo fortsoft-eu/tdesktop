@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/ripple_animation.h"
 #include "ui/layers/generic_box.h"
 #include "ui/rp_widget.h"
+#include "ui/style/style_classic.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/fields/input_field.h"
@@ -66,6 +67,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QPainter>
 #include <QtGui/QRegion>
 #include <QtGui/QScreen>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QStyle>
 #include <QtSvg/QSvgRenderer>
 
 #include <algorithm>
@@ -260,8 +263,9 @@ void SetupToolbarButtonState(
 		anim::type animated = anim::type::normal) {
 	const auto disabled = (state == ToolbarButtonState::Disabled);
 	const auto active = (state == ToolbarButtonState::Active);
+	button->setProperty("classicButtonChecked", active);
 	button->setAttribute(Qt::WA_TransparentForMouseEvents, disabled);
-	button->setPointerCursor(!disabled);
+	button->setPointerCursor(false);
 	if (active) {
 		button->setRippleColorOverride(&st::lightButtonBgOver);
 		button->setForceRippled(true, animated);
@@ -630,10 +634,9 @@ void ToolbarStarButton::setRippleColorOverride(const style::color *color) {
 
 void ToolbarStarButton::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-	paintRipple(
-		p,
-		_st.rippleAreaPosition,
-		_rippleColorOverride ? &(*_rippleColorOverride)->c : nullptr);
+	const auto down = isDown() || property("classicButtonChecked").toBool();
+	Ui::PaintClassicButton(p, rect(), this, down);
+	p.translate(Ui::ClassicButtonContentOffset(this, down));
 	validateFrame();
 	p.drawImage(0, 0, _frame);
 }
@@ -1465,17 +1468,13 @@ int Toolbar::resizeGetHeight(int width) {
 	const auto undoRedoLeft = padding.left();
 	_undoRedoPill->moveToLeft(undoRedoLeft, top, width);
 	const auto controlsWidth = _controlsPill->naturalSize().width();
-	const auto staticCommandLeft = undoRedoLeft
+	const auto controlsLeft = undoRedoLeft
 		+ _undoRedoPill->naturalSize().width()
 		+ st::ivEditorToolbarGroupsSkip;
-	const auto centeredCommandLeft = (width - controlsWidth) / 2;
-	const auto controlsLeft = std::max(
-		staticCommandLeft,
-		centeredCommandLeft);
 	_controlsPill->moveToLeft(controlsLeft, top, width);
-	const auto emojiLeft = width
-		- padding.right()
-		- _emojiPill->naturalSize().width();
+	const auto emojiLeft = controlsLeft
+		+ controlsWidth
+		+ st::ivEditorToolbarGroupsSkip;
 	_emojiPill->moveToLeft(emojiLeft, top, width);
 	updateInputMask();
 	if (_hovered && _hovered->isHidden()) {
@@ -1558,8 +1557,8 @@ void Toolbar::showTooltip(not_null<Ui::RippleButton*> button) {
 			parent,
 			rpl::single(TextWithEntities::Simple(i->second())),
 			st::boxWideWidth,
-			st::defaultImportantTooltipLabel),
-		st::defaultImportantTooltip));
+			st::ivEditorTooltipLabel),
+		st::ivEditorTooltip));
 	_tooltip->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_tooltip->toggleFast(false);
 	updateTooltipGeometry();
@@ -1627,6 +1626,7 @@ private:
 	object_ptr<Ui::RpWidget> _top = { nullptr };
 	object_ptr<Ui::RpWidget> _bottomFade = { nullptr };
 	object_ptr<Ui::RpWidget> _bottom = { nullptr };
+	object_ptr<Ui::RpWidget> _fieldFrame = { nullptr };
 	object_ptr<Ui::ElasticScroll> _scroll = { nullptr };
 	QPointer<Widget> _editor;
 	object_ptr<Toolbar> _toolbar = { nullptr };
@@ -1679,6 +1679,7 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 
 	_window = std::make_unique<Window>();
 	const auto window = _window.get();
+	window->setNativeFrame(true);
 	window->setCloseRequestHandler([=] {
 		return handleCloseRequest();
 	});
@@ -1691,34 +1692,32 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 	window->setGeometry(DefaultWindowGeometry(descriptor.centerOver));
 
 	window->body()->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(window->body().get()).fillRect(clip, st::windowBg);
+		QPainter(window->body().get()).fillRect(clip, st::classicControlBg);
 	}, window->body()->lifetime());
 
 	_top = object_ptr<Ui::RpWidget>(window->body().get());
 	_top->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_top->paintRequest() | rpl::on_next([=] {
 		auto p = QPainter(_top.data());
-		Dialogs::PaintTopFade(
-			p,
-			_top->width(),
-			_top->height(),
-			st::windowBg->c);
+		p.fillRect(_top->rect(), st::classicControlBg);
 	}, _top->lifetime());
 	_bottomFade = object_ptr<Ui::RpWidget>(window->body().get());
 	_bottomFade->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_bottomFade->paintRequest() | rpl::on_next([=] {
 		auto p = QPainter(_bottomFade.data());
-		Dialogs::PaintBottomFade(
-			p,
-			_bottomFade->width(),
-			_bottomFade->height(),
-			st::windowBg->c);
+		p.fillRect(_bottomFade->rect(), st::classicControlBg);
 	}, _bottomFade->lifetime());
 	_bottom = object_ptr<Ui::RpWidget>(window->body().get());
 
 	const auto hasRequestMedia = static_cast<bool>(descriptor.requestMedia);
+	_fieldFrame = object_ptr<Ui::RpWidget>(window->body().get());
+	_fieldFrame->paintRequest() | rpl::on_next([=] {
+		auto p = QPainter(_fieldFrame.data());
+		p.fillRect(_fieldFrame->rect(), st::windowBg);
+		Ui::PaintClassicField(p, _fieldFrame->rect(), _fieldFrame.data());
+	}, _fieldFrame->lifetime());
 	_scroll = object_ptr<Ui::ElasticScroll>(
-		window->body().get(),
+		_fieldFrame.data(),
 		st::ivEditorScroll);
 	using OverscrollType = Ui::ElasticScroll::OverscrollType;
 	_scroll->setOverscrollTypes(OverscrollType::Real, OverscrollType::Real);
@@ -1886,6 +1885,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 		_bottom.data(),
 		save ? st::ivEditorBottomSaveSend : st::ivEditorBottomSend);
 	const auto raw = _send.data();
+	raw->setProperty("classicButton", true);
+	raw->setPointerCursor(false);
 	raw->setAccessibleName(SubmitText(descriptor));
 	raw->setClickedCallback([=] { submit(); });
 	raw->show();
@@ -1976,13 +1977,7 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 			return;
 		}
 		_searchTopSlide = slide;
-		if (_top && _toolbar) {
-			_top->setGeometry(
-				0,
-				0,
-				_top->width(),
-				_toolbar->height() + slide);
-		}
+		_scroll->setBarTopInset(slide);
 	}, _lifetime);
 	rpl::combine(
 		_scroll->scrollTopValue(),
@@ -2009,6 +2004,7 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 	_top->show();
 	_bottomFade->show();
 	_bottom->show();
+	_fieldFrame->show();
 	_scroll->show();
 	_top->raise();
 	_bottomFade->raise();
@@ -2126,7 +2122,7 @@ void WindowHost::Impl::layout() {
 	const auto padding = st::ivEditorBottomControlsPadding;
 	const auto emojiWidth = _emojiColumnShown ? emojiColumnWidth() : 0;
 	const auto editorWidth = std::max(width - emojiWidth, 0);
-	_editor->setContentMaxWidth(_toolbar->contentMaxWidth());
+	_editor->setContentMaxWidth(editorWidth);
 	const auto toolbarHeight = _toolbar->resizeGetHeight(editorWidth);
 	auto buttonsHeight = _send->height();
 	if (_cancel) {
@@ -2141,7 +2137,7 @@ void WindowHost::Impl::layout() {
 	}
 	const auto bottomHeight = padding.top() + buttonsHeight + padding.bottom();
 	const auto buttonsTop = padding.top();
-	_top->setGeometry(0, 0, editorWidth, toolbarHeight + _searchTopSlide);
+	_top->setGeometry(0, 0, editorWidth, toolbarHeight);
 	_toolbar->setGeometry(0, 0, editorWidth, toolbarHeight);
 	_toolbar->raise();
 	_bottomFade->setGeometry(0, height - bottomHeight, editorWidth, bottomHeight);
@@ -2163,24 +2159,30 @@ void WindowHost::Impl::layout() {
 		editorWidth);
 	if (leftPill) {
 		leftPill->moveToLeft(
-			right
+			_discard ? left : (right
 				- shadowSkipRight
 				- _send->width()
 				- st::ivEditorToolbarGroupsSkip
-				- leftPill->naturalSize().width(),
+				- leftPill->naturalSize().width()),
 			buttonsTop,
 			editorWidth);
 	}
 	if (_aiPill) {
 		_aiPill->moveToLeft(
-			left - _aiPill->shadowMargins().left(),
+			left - _aiPill->shadowMargins().left()
+				+ (_discard
+					? (_discard->naturalSize().width()
+						+ st::ivEditorToolbarGroupsSkip)
+					: 0),
 			buttonsTop,
 			editorWidth);
 	}
 	updateBottomMask();
-	_scroll->setGeometry(0, 0, editorWidth, std::max(height, 1));
-	_scroll->setBarTopInset(toolbarHeight);
-	_scroll->setBarBottomInset(bottomHeight);
+	_fieldFrame->setGeometry(0, toolbarHeight, editorWidth, std::max(height - toolbarHeight - bottomHeight, 0));
+	const auto border = QApplication::style()->pixelMetric(QStyle::PM_DefaultFrameWidth, nullptr, _fieldFrame.data());
+	_scroll->setGeometry(_fieldFrame->rect().marginsRemoved(QMargins(border, border, border, border)));
+	_scroll->setBarTopInset(_searchTopSlide);
+	_scroll->setBarBottomInset(0);
 	if (_emojiColumnShown) {
 		_emojiColumn->setGeometry(
 			editorWidth,
@@ -2202,9 +2204,7 @@ void WindowHost::Impl::layout() {
 			- st::ivEditorEmojiColumnCloseScrollSkip
 			- closeNatural.width()
 			+ closeMargins.right();
-		const auto closeY = searchCenterY
-			- closeVisibleHeight / 2
-			- closeMargins.top();
+		const auto closeY = std::max(searchCenterY - closeVisibleHeight / 2 - closeMargins.top(), 0);
 		_emojiColumnClose->moveToLeft(closeX, closeY, width);
 		_emojiColumnClose->show();
 		_emojiColumnClose->raise();
@@ -2213,8 +2213,8 @@ void WindowHost::Impl::layout() {
 		_emojiColumnShadow->hide();
 		_emojiColumnClose->hide();
 	}
-	_editor->setTopContentPadding(toolbarHeight);
-	_editor->setBottomContentPadding(bottomHeight);
+	_editor->setTopContentPadding(0);
+	_editor->setBottomContentPadding(0);
 	_editor->resizeToWidth(std::max(_scroll->width(), 1));
 	updateEditorVisibleTopBottom();
 }

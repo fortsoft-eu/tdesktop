@@ -10,11 +10,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer.h"
 #include "base/weak_ptr.h"
 #include "ui/effects/animations.h"
-#include "ui/effects/round_area_with_shadow.h"
 #include "ui/text/text.h"
 
 namespace Ui {
-class RippleAnimation;
 struct ChatPaintContext;
 } // namespace Ui
 
@@ -104,6 +102,9 @@ public:
 	void updateButton(ButtonParameters parameters);
 	void paint(QPainter &p, const PaintContext &context);
 	[[nodiscard]] TextState buttonTextState(QPoint position) const;
+	[[nodiscard]] bool isPressed() const {
+		return _pressed;
+	}
 	void remove(FullMsgId context);
 
 protected:
@@ -118,12 +119,6 @@ private:
 		QPainter &p,
 		const PaintContext &context,
 		not_null<Button*> button);
-	void paintButton(
-		QPainter &p,
-		const PaintContext &context,
-		not_null<Button*> button,
-		int frame,
-		float64 scale);
 	void removeStaleButtons();
 	void clearAppearAnimations();
 	[[nodiscard]] QMargins innerMargins() const;
@@ -132,10 +127,10 @@ private:
 
 	QSize _outer;
 	QRect _inner;
-	Ui::RoundAreaWithShadow _cachedRound;
 
 	ClickHandlerPtr _link;
 	FullMsgId _buttonContext;
+	std::optional<ButtonParameters> _parametersWhilePressed;
 
 	std::optional<ButtonParameters> _scheduledParameters;
 	base::Timer _buttonShowTimer;
@@ -144,8 +139,7 @@ private:
 	std::vector<std::unique_ptr<Button>> _buttonHiding;
 
 	Ui::Text::String _text;
-	std::unique_ptr<Ui::RippleAnimation> _ripple;
-	QPoint _lastPointer;
+	bool _pressed = false;
 
 };
 

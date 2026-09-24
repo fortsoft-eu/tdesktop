@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/multi_select.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "base/debug_log.h"
 #include "styles/style_boxes.h"
 #include "styles/style_info.h"
@@ -156,6 +157,7 @@ Row::Row(not_null<RpWidget*> parent, LanguageId id)
 , _status(LanguageName(id))
 , _titleText(LanguageNameNative(id))
 , _title(_st.nameStyle, _titleText) {
+	setProperty("classicCheckOnLeft", true);
 }
 
 LanguageId Row::id() const {
@@ -183,10 +185,11 @@ void Row::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(color);
 
-	const auto left = st::defaultSubsectionTitlePadding.left();
 	const auto toggleRect = SettingsButton::maybeToggleRect();
-	const auto right = left
-		+ (toggleRect.isEmpty() ? 0 : (width() - toggleRect.x()));
+	const auto right = st::defaultSubsectionTitlePadding.right();
+	const auto left = toggleRect.isEmpty()
+		? st::defaultSubsectionTitlePadding.left()
+		: toggleRect.x() + toggleRect.width() + right;
 
 	const auto availableWidth = std::min(
 		_title.maxWidth(),
@@ -200,7 +203,7 @@ void Row::paintEvent(QPaintEvent *e) {
 		width() - left - right);
 
 	p.setPen(paintOver ? _st.statusFgOver : _st.statusFg);
-	p.setFont(st::contactsStatusFont);
+	p.setFont(st::classicSettingsFont);
 	p.drawTextLeft(
 		left,
 		_st.statusPosition.y(),
@@ -268,6 +271,10 @@ void ChooseLanguageBox(
 		std::vector<LanguageId> selected,
 		bool multiselect,
 		Fn<bool(LanguageId)> toggleCheck) {
+	box->setProperty("classicFormFrame", true);
+	const auto boxStyle = box->lifetime().make_state<style::Box>(st::defaultBox);
+	boxStyle->title.style.font = st::classicActionFont;
+	box->setStyle(*boxStyle);
 	box->setMinHeight(st::boxWidth);
 	box->setMaxHeight(st::boxWidth);
 	box->setTitle(std::move(title));

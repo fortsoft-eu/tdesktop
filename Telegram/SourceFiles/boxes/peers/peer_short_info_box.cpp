@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/peer_short_info_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/event_filter.h"
 #include "core/application.h"
 #include "info/profile/info_profile_text.h"
@@ -17,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/radial_animation.h"
 #include "ui/image/image_prepare.h"
 #include "ui/painter.h"
+#include "ui/ui_utility.h"
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
@@ -28,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/wrap.h"
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
+#include <QtGui/QWheelEvent>
 #include "styles/style_boxes.h"
 #include "styles/style_info.h"
 #include "styles/style_layers.h"
@@ -131,6 +134,19 @@ PeerShortInfoCover::PeerShortInfoCover(
 	}, lifetime());
 
 	base::install_event_filter(_widget.get(), [=](not_null<QEvent*> e) {
+		if (e->type() == QEvent::Wheel) {
+			const auto wheel = static_cast<QWheelEvent*>(e.get());
+			const auto delta = Ui::ScrollDeltaF(wheel).y();
+			if (!delta) {
+				return base::EventFilterResult::Continue;
+			} else if (delta > 0 && _index > 0) {
+				_moveRequests.fire(-1);
+			} else if (delta < 0 && _index + 1 < _count) {
+				_moveRequests.fire(1);
+			}
+			wheel->accept();
+			return base::EventFilterResult::Cancel;
+		}
 		if (e->type() != QEvent::MouseButtonPress
 			&& e->type() != QEvent::MouseButtonDblClick) {
 			return base::EventFilterResult::Continue;
@@ -139,9 +155,9 @@ PeerShortInfoCover::PeerShortInfoCover(
 		const auto x = mouse->pos().x();
 		if (mouse->button() != Qt::LeftButton) {
 			return base::EventFilterResult::Continue;
-		} else if (/*_index > 0 && */x < _st.size / 3) {
+		} else if (_index > 0 && x < _st.size / 3) {
 			_moveRequests.fire(-1);
-		} else if (/*_index + 1 < _count && */x >= _st.size / 3) {
+		} else if (_index + 1 < _count && x >= _st.size / 3) {
 			_moveRequests.fire(1);
 		}
 		e->accept();
@@ -610,7 +626,7 @@ void PeerShortInfoCover::refreshBarImages() {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::groupCallVideoTextFg);
-		p.drawRoundedRect(0, 0, size, _st.line, radius, radius);
+		p.drawRoundedRect(0, 0, size, _st.line, style::CornerRadius(radius), style::CornerRadius(radius));
 		p.end();
 
 		return result;
@@ -810,10 +826,14 @@ void PeerShortInfoBox::prepareRows() {
 		tr::lng_info_username_label(),
 		usernameValue(),
 		tr::lng_context_copy_mention(tr::now));
-	addInfoOneLine(
+	auto birthdayStyle = _st.labeledOneLine;
+	birthdayStyle.style.font = st::infoApplicationText.font;
+	const auto birthday = addInfoLine(
 		birthdayLabel(),
 		birthdayValue() | rpl::map(tr::marked),
-		tr::lng_mediaview_copy(tr::now));
+		birthdayStyle);
+	birthday->setDoubleClickSelectsParagraph(true);
+	birthday->setContextCopyText(tr::lng_mediaview_copy(tr::now));
 	addInfoLine(
 		tr::lng_info_notes_label(),
 		noteValue(),

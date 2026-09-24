@@ -20,10 +20,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "webrtc/webrtc_video_track.h"
 #include "lang/lang_keys.h"
 #include "styles/style_calls.h"
+#include "styles/style_layers.h"
 
 #include <tgcalls/desktop_capturer/DesktopCaptureSourceManager.h>
 #include <tgcalls/desktop_capturer/DesktopCaptureSourceHelper.h>
 #include <QtGui/QWindow>
+#include <QtCore/QScopedValueRollback>
 
 namespace Calls::Group::Ui::DesktopCapture {
 namespace {
@@ -80,6 +82,7 @@ private:
 	rpl::event_stream<> _activations;
 	QImage _frame;
 	bool _active = false;
+	bool _highlighted = false;
 
 };
 
@@ -143,7 +146,7 @@ Source::Source(
 	const QString &title)
 : _widget(parent, st::groupCallRipple)
 , _label(&_widget, title, st::desktopCaptureLabel)
-, _selectedRect(ImageRoundRadius::Large, st::groupCallMembersBgOver)
+, _selectedRect(ImageRoundRadius::Large, st::groupCallMuted1)
 , _activeRect(ImageRoundRadius::Large, st::groupCallMuted1)
 , _source(source) {
 	_widget.paintRequest(
@@ -196,6 +199,11 @@ void Source::clearHelper() {
 
 void Source::paint() {
 	auto p = QPainter(&_widget);
+	const auto highlighted = _active || _widget.isOver() || _widget.isDown();
+	if (_highlighted != highlighted) {
+		_highlighted = highlighted;
+		_label.setTextColorOverride(highlighted ? QColor(Qt::white) : st::classicMenuText->c);
+	}
 
 	if (_frame.isNull() && !_preview) {
 		setupPreview();
@@ -272,8 +280,8 @@ ChooseSourceProcess::ChooseSourceProcess(
 		tr::lng_group_call_screen_share_audio(tr::now),
 		false,
 		st::desktopCaptureWithAudio)) {
-	_submit->setTextTransform(RoundButtonTextTransform::ToUpper);
-	_finish->setTextTransform(RoundButtonTextTransform::ToUpper);
+	_submit->setTextTransform(RoundButtonTextTransform::NoTransform);
+	_finish->setTextTransform(RoundButtonTextTransform::NoTransform);
 	setupPanel();
 	setupSources();
 	activate();
@@ -318,6 +326,10 @@ void ChooseSourceProcess::setupPanel() {
 	_window->setWindowIcon(QIcon(
 		QPixmap::fromImage(Image::Empty()->original(), Qt::ColorOnly)));
 	_window->setTitleStyle(st::desktopCaptureSourceTitle);
+	_window->setTitle(tr::lng_call_screencast(tr::now));
+#ifdef Q_OS_WIN
+	_window->setNativeFrame(true);
+#endif // Q_OS_WIN
 
 	const auto skips = st::desktopCaptureSourceSkips;
 	const auto margins = st::desktopCaptureMargins;
@@ -339,8 +351,16 @@ void ChooseSourceProcess::setupPanel() {
 
 	_window->body()->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
-		QPainter(_window->body()).fillRect(clip, st::groupCallMembersBg);
+		QPainter(_window->body()).fillRect(clip, st::classicControlBg);
 	}, _window->lifetime());
+	auto palette = _scroll->viewport()->palette();
+	palette.setColor(QPalette::Window, Qt::white);
+	_scroll->viewport()->setPalette(palette);
+	_scroll->viewport()->setBackgroundRole(QPalette::Window);
+	_scroll->viewport()->setAutoFillBackground(true);
+	_inner->paintRequest() | rpl::on_next([=](QRect clip) {
+		QPainter(_inner).fillRect(clip, Qt::white);
+	}, _inner->lifetime());
 
 	_bottom->setGeometry(0, height - bottomHeight, width, bottomHeight);
 
@@ -367,28 +387,45 @@ void ChooseSourceProcess::setupPanel() {
 		_bottom.get(),
 		tr::lng_cancel(),
 		st::desktopCaptureCancel);
-	cancel->setTextTransform(RoundButtonTextTransform::ToUpper);
+	cancel->setTextTransform(RoundButtonTextTransform::NoTransform);
 	cancel->setClickedCallback([=] {
 		_window->close();
 	});
 
+	const auto updatingButtons = _bottom->lifetime().make_state<bool>(false);
 	rpl::combine(
 		_submit->widthValue(),
 		_submit->shownValue(),
 		_finish->widthValue(),
 		_finish->shownValue(),
-		cancel->widthValue()
+		cancel->widthValue(),
+		_bottom->widthValue()
 	) | rpl::on_next([=](
-			int submitWidth,
+			int,
 			bool submitShown,
-			int finishWidth,
+			int,
 			bool finishShown,
-			int cancelWidth) {
-		_finish->moveToRight(bottomSkip, bottomSkip);
-		_submit->moveToRight(bottomSkip, bottomSkip);
-		cancel->moveToRight(
-			bottomSkip * 2 + (submitShown ? submitWidth : finishWidth),
-			bottomSkip);
+			int,
+			int width) {
+		if (*updatingButtons) {
+			return;
+		}
+		const auto guard = QScopedValueRollback(*updatingButtons, true);
+		const auto padding = st::defaultBox.buttonPadding;
+		const auto natural = std::max({
+			cancel->naturalWidth(),
+			submitShown ? _submit->naturalWidth() : 0,
+			finishShown ? _finish->naturalWidth() : 0,
+		});
+		const auto available = std::max(width - padding.right() * 2 - padding.left(), 0);
+		const auto buttonWidth = std::min(natural, available / 2);
+		for (const auto button : { cancel, _submit.get(), _finish.get() }) {
+			button->resizeToWidth(buttonWidth);
+		}
+		const auto top = bottomHeight - padding.bottom() - cancel->height();
+		_finish->moveToRight(padding.right(), top);
+		_submit->moveToRight(padding.right(), top);
+		cancel->moveToRight(padding.right() + padding.left() + buttonWidth, top);
 	}, _bottom->lifetime());
 
 	_withAudio->widthValue(

@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_media.h"
+
+#include "ui/style/style_radius.h"
 #include "ui/basic_click_handlers.h"
 
 #include "boxes/send_credits_box.h" // CreditsEmoji.
@@ -271,14 +273,12 @@ void Media::drawPurchasedTag(
 	const auto tagY = top;
 	const auto tagW = padding.left() + size.width() + padding.right();
 	const auto tagH = padding.top() + size.height() + padding.bottom();
-	Ui::FillRoundRect(
-		p,
+	p.fillRect(
 		tagX - padding.left(),
 		tagY - padding.top(),
 		tagW,
 		tagH,
-		sti->msgDateImgBg,
-		sti->msgDateImgBgCorners);
+		sti->msgDateImgBg);
 
 	p.setPen(st->msgDateImgFg());
 	purchased->text.draw(p, {
@@ -470,8 +470,8 @@ void Media::drawSpoilerTag(
 		p.setBrush(st->msgSelectOverlay());
 		p.drawRoundedRect(
 			QRect(left, top, size.width(), size.height()),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	p.setOpacity(1.);
 }

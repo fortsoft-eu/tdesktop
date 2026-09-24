@@ -45,11 +45,11 @@ mediaviewControllerSize: size(480px, 72px);
 mediaviewTimestampLabelTop: 63px;
 mediaviewTimestampLabelHeight: 10px;
 mediaviewTimestampLabel: LabelSimple(defaultLabelSimple) {
-	font: font(12px);
+	font: classicSettingsFont;
 	textFg: mediaviewPlaybackProgressFg;
 }
 mediaviewPlayProgressLabel: LabelSimple(defaultLabelSimple) {
-	font: font(12px semibold);
+	font: classicSettingsFont;
 	textFg: mediaviewPlaybackProgressFg;
 }
 mediaviewPlayProgressSkip: 10px;
@@ -60,12 +60,12 @@ mediaviewPlayButton: IconButton(mediaviewControlsButton) {
 	height: 40px;
 	rippleAreaSize: 40px;
 
-	icon: icon {{ "player/player_play_big", mediaviewPlaybackIconFg }};
-	iconOver: icon {{ "player/player_play_big", mediaviewPlaybackIconFgOver }};
+	icon: icon {{ "player/player_play_big", classicMenuText }};
+	iconOver: icon {{ "player/player_play_big", classicMenuText }};
 	iconPosition: point(8px, 8px);
 }
-mediaviewPauseIcon: icon {{ "player/player_pause_big", mediaviewPlaybackIconFg }};
-mediaviewPauseIconOver: icon {{ "player/player_pause_big", mediaviewPlaybackIconFgOver }};
+mediaviewPauseIcon: icon {{ "player/player_pause_big", classicMenuText }};
+mediaviewPauseIconOver: icon {{ "player/player_pause_big", classicMenuText }};
 
 mediaviewButtonsTop: 6px;
 mediaviewButtonsRight: 8px;
@@ -75,8 +75,8 @@ mediaviewPipButton: IconButton(mediaviewControlsButton) {
 	width: 32px;
 	height: 32px;
 	rippleAreaSize: 32px;
-	icon: icon {{ "player/player_pip", mediaviewPlaybackIconFg }};
-	iconOver: icon {{ "player/player_pip", mediaviewPlaybackIconFgOver }};
+	icon: icon {{ "player/player_pip", classicMenuText }};
+	iconOver: icon {{ "player/player_pip", classicMenuText }};
 	iconPosition: point(4px, 4px);
 }
 
@@ -84,21 +84,21 @@ mediaviewPipShadow: callShadow;
 
 mediaviewFullScreenButtonSkip: 4px;
 mediaviewFullScreenButton: IconButton(mediaviewPipButton) {
-	icon: icon {{ "player/player_fullscreen", mediaviewPlaybackIconFg }};
-	iconOver: icon {{ "player/player_fullscreen", mediaviewPlaybackIconFgOver }};
+	icon: icon {{ "player/player_fullscreen", classicMenuText }};
+	iconOver: icon {{ "player/player_fullscreen", classicMenuText }};
 }
-mediaviewFullScreenOutIcon: icon {{ "player/player_minimize", mediaviewPlaybackIconFg }};
-mediaviewFullScreenOutIconOver: icon {{ "player/player_minimize", mediaviewPlaybackIconFgOver }};
+mediaviewFullScreenOutIcon: icon {{ "player/player_minimize", classicMenuText }};
+mediaviewFullScreenOutIconOver: icon {{ "player/player_minimize", classicMenuText }};
 
 mediaviewVolumeWidth: 75px;
 mediaviewControllerRadius: 9px;
 
-mediaviewVolumeIcon0: icon {{ "player/player_volume_off", mediaviewPlaybackIconFg }};
-mediaviewVolumeIcon0Over: icon {{ "player/player_volume_off", mediaviewPlaybackIconFgOver }};
-mediaviewVolumeIcon1: icon {{ "player/player_volume_small", mediaviewPlaybackIconFg }};
-mediaviewVolumeIcon1Over: icon {{ "player/player_volume_small", mediaviewPlaybackIconFgOver }};
-mediaviewVolumeIcon2: icon {{ "player/player_volume_on", mediaviewPlaybackIconFg }};
-mediaviewVolumeIcon2Over: icon {{ "player/player_volume_on", mediaviewPlaybackIconFgOver }};
+mediaviewVolumeIcon0: icon {{ "player/player_volume_off", classicMenuText }};
+mediaviewVolumeIcon0Over: icon {{ "player/player_volume_off", classicMenuText }};
+mediaviewVolumeIcon1: icon {{ "player/player_volume_small", classicMenuText }};
+mediaviewVolumeIcon1Over: icon {{ "player/player_volume_small", classicMenuText }};
+mediaviewVolumeIcon2: icon {{ "player/player_volume_on", classicMenuText }};
+mediaviewVolumeIcon2Over: icon {{ "player/player_volume_on", classicMenuText }};
 mediaviewVolumeTop: 6px;
 mediaviewVolumeToggleLeft: 6px;
 mediaviewVolumeToggle: IconButton(mediaviewControlsButton) {
@@ -128,7 +128,7 @@ mediaviewRecognize: icon {{ "mediaview/recognize", mediaviewControlFg }};
 mediaviewDraw: icon {{ "mediaview/draw", mediaviewControlFg }};
 
 mediaviewVoteButton: RoundButton(defaultActiveButton) {
-	height: 36px;
+	height: classicButtonHeight;
 	radius: 18px;
 }
 mediaviewVoteButtonMargin: 8px;
@@ -176,10 +176,10 @@ mediaviewMenuSeparator: MenuSeparator(defaultMenuSeparator) {
 	fg: groupCallMenuBgOver;
 }
 mediaviewMenu: Menu(menuWithIcons) {
-	itemBg: groupCallMenuBg;
-	itemBgOver: groupCallMenuBgOver;
-	itemFg: groupCallMembersFg;
-	itemFgOver: groupCallMembersFg;
+	itemBg: classicControlBg;
+	itemBgOver: classicMenuSelectionBg;
+	itemFg: classicMenuText;
+	itemFgOver: classicMenuText;
 	itemFgDisabled: groupCallMemberNotJoinedStatus;
 	itemFgShortcut: groupCallMemberNotJoinedStatus;
 	itemFgShortcutOver: groupCallMemberNotJoinedStatus;
@@ -189,17 +189,17 @@ mediaviewMenu: Menu(menuWithIcons) {
 	arrow: icon {{ "menu/submenu_arrow", groupCallMemberNotJoinedStatus }};
 
 	ripple: RippleAnimation(defaultRippleAnimation) {
-		color: groupCallMenuBgRipple;
+		color: classicMenuSelectionBg;
 	}
 }
 mediaviewMenuShadow: Shadow(defaultEmptyShadow) {
-	fallback: groupCallMenuBg;
+	fallback: classicControlBg;
 }
 mediaviewPanelAnimation: PanelAnimation(defaultPanelAnimation) {
-	fadeBg: groupCallMenuBg;
+	fadeBg: classicControlBg;
 }
 mediaviewPopupMenu: PopupMenu(defaultPopupMenu) {
-	shadowFallback: groupCallMenuBg;
+	shadowFallback: classicControlBg;
 	menu: mediaviewMenu;
 	animation: mediaviewPanelAnimation;
 }
@@ -209,21 +209,21 @@ mediaviewSponsorInfoMenu: PopupMenu(mediaviewPopupMenu) {
 mediaviewDropdownMenu: DropdownMenu(defaultDropdownMenu) {
 	menu: mediaviewMenu;
 	wrap: InnerDropdown(defaultInnerDropdown) {
-		bg: groupCallMenuBg;
+		bg: classicControlBg;
 		animation: mediaviewPanelAnimation;
-		scrollPadding: margins(0px, 8px, 0px, 8px);
+		scrollPadding: margins(2px, 8px, 2px, 8px);
 		shadow: mediaviewMenuShadow;
 	}
 }
 
-mediaviewSaveMsgCheck: icon {{ "mediaview/save_check", mediaviewSaveMsgFg }};
+mediaviewSaveMsgCheck: icon {{ "mediaview/save_check", classicMenuText }};
 mediaviewSaveMsgPadding: margins(55px, 19px, 29px, 20px);
 mediaviewSaveMsgCheckPos: point(23px, 21px);
 mediaviewSaveMsgShowing: 200;
-mediaviewSaveMsgShown: 2000;
-mediaviewSaveMsgHiding: 2500;
+mediaviewSaveMsgShown: 10000;
+mediaviewSaveMsgHiding: 200;
 mediaviewSaveMsgStyle: TextStyle(defaultTextStyle) {
-	font: font(16px);
+	font: classicSettingsFont;
 }
 mediaviewChapterPadding: margins(20px, 12px, 20px, 12px);
 mediaviewChapterFont: font(15px semibold);
@@ -259,9 +259,11 @@ mediaviewTextPalette: TextPalette(defaultTextPalette) {
 
 mediaviewCaptionStyle: historyTextStyle;
 
-mediaviewThickFont: semiboldFont;
-mediaviewFont: normalFont;
-mediaviewTextStyle: defaultTextStyle;
+mediaviewThickFont: classicSettingsFont;
+mediaviewFont: classicSettingsFont;
+mediaviewTextStyle: TextStyle(defaultTextStyle) {
+	font: font(fsize "Unifont");
+}
 
 mediaviewTextLeft: 14px;
 mediaviewTextSkip: 10px;
@@ -382,7 +384,7 @@ mediaviewSpeedMenu: MediaSpeedMenu(mediaPlayerSpeedMenu) {
 	qualityMenu: Menu(mediaviewSpeedMenuInner) {
 		itemPadding: margins(17px, 7px, 54px, 9px);
 	}
-	activeCheck: icon {{ "player/player_check", mediaviewTextLinkFg }};
+	activeCheck: icon {{ "player/player_check", classicMenuText }};
 	slider: MediaSlider(defaultContinuousSlider) {
 		activeFg: mediaviewTextLinkFg;
 		inactiveFg: mediaviewMenuBgOver;
@@ -410,11 +412,11 @@ mediaviewSpeedMenu: MediaSpeedMenu(mediaPlayerSpeedMenu) {
 mediaviewSpeedButton: MediaSpeedButton(mediaPlayerSpeedButton) {
 	size: size(32px, 32px);
 	padding: margins(0px, 0px, 0px, 0px);
-	font: font(8px bold);
-	fg: mediaviewPlaybackIconFg;
-	overFg: mediaviewPlaybackIconFgOver;
-	activeFg: mediaviewTextLinkFg;
-	icon: icon{{ "player/player_settings", mediaviewPlaybackIconFg }};
+	font: classicSettingsFont;
+	fg: classicMenuText;
+	overFg: classicMenuText;
+	activeFg: classicMenuText;
+	icon: icon{{ "player/player_settings", classicMenuText }};
 	ripple: RippleAnimation(defaultRippleAnimation) {
 		color: mediaviewPlaybackIconRipple;
 	}
@@ -435,13 +437,13 @@ themePreviewTitleFont: font(17px semibold);
 themePreviewLoadingFont: font(16px);
 themePreviewLoadingFg: windowSubTextFg;
 themePreviewApplyButton: RoundButton(defaultActiveButton) {
-	height: 38px;
+	height: classicButtonHeight;
 	style: TextStyle(semiboldTextStyle) {
 		font: font(15px semibold);
 	}
 }
 themePreviewCancelButton: RoundButton(defaultLightButton) {
-	height: 38px;
+	height: classicButtonHeight;
 	style: TextStyle(semiboldTextStyle) {
 		font: font(15px semibold);
 	}
@@ -506,6 +508,11 @@ storiesHeaderDate: FlatLabel(defaultFlatLabel) {
 	minWidth: 10px;
 	maxHeight: 20px;
 }
+storiesHeaderTimestamp: FlatLabel(storiesHeaderDate) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
 storiesHeaderDatePosition: point(50px, 17px);
 storiesHeaderRepostWidthMin: 40px;
 storiesShadowTop: icon{{ "mediaview/shadow_bottom-flip_vertical", windowShadowFg }};
@@ -520,12 +527,12 @@ storiesCaptionFull: FlatLabel(defaultFlatLabel) {
 	palette: mediaviewTextPalette;
 	minWidth: 36px;
 }
-storiesComposeBg: groupCallMembersBg;
-storiesComposeBgOver: groupCallMembersBgOver;
-storiesComposeBgRipple: groupCallMembersBgRipple;
-storiesComposeWhiteText: groupCallMembersFg;
-storiesComposeGrayText: groupCallMemberNotJoinedStatus;
-storiesComposeGrayIcon: groupCallMemberInactiveIcon;
+storiesComposeBg: classicControlBg;
+storiesComposeBgOver: classicControlBg;
+storiesComposeBgRipple: classicMenuSelectionBg;
+storiesComposeWhiteText: classicMenuText;
+storiesComposeGrayText: placeholderFg;
+storiesComposeGrayIcon: classicMenuText;
 storiesComposeBlue: groupCallActiveFg;
 storiesComposeRippleLight: RippleAnimation(defaultRippleAnimation) {
 	color: storiesComposeBgOver;
@@ -582,7 +589,7 @@ storiesMenu: Menu(defaultMenu) {
 }
 storiesMenuAnimation: mediaviewPanelAnimation;
 storiesPopupMenu: PopupMenu(defaultPopupMenu) {
-	shadowFallback: groupCallMenuBg;
+	shadowFallback: classicControlBg;
 	menu: storiesMenu;
 	animation: storiesMenuAnimation;
 }
@@ -646,9 +653,9 @@ storiesEmojiTabbedSearch: TabbedSearch(defaultTabbedSearch) {
 }
 storiesEmojiPan: EmojiPan(defaultEmojiPan) {
 	showAnimation: PanelAnimation(emojiPanAnimation) {
-		fadeBg: storiesComposeBg;
+		fadeBg: windowBg;
 	}
-	bg: storiesComposeBg;
+	bg: windowBg;
 	headerFg: storiesComposeGrayText;
 	trendingHeaderFg: storiesComposeWhiteText;
 	trendingSubheaderFg: storiesComposeGrayText;
@@ -770,11 +777,13 @@ storiesComposeRadius: 21px;
 storiesComposeControls: ComposeControls(defaultComposeControls) {
 	bg: storiesComposeBg;
 	radius: storiesComposeRadius;
-	padding: margins(1px, 8px, 1px, 6px);
+	padding: margins(1px, 6px, 1px, 6px);
 	field: InputField(historyComposeField) {
-		textMargins: margins(2px, 0px, 2px, 0px);
-		textFg: storiesComposeWhiteText;
-		textBg: storiesComposeBg;
+		textMargins: margins(3px, 2px, 2px, 0px);
+		frameBottomSkip: 1px;
+		heightMin: 38px;
+		textFg: windowFg;
+		textBg: windowBg;
 		placeholderFg: storiesComposeGrayText;
 		placeholderFgActive: storiesComposeGrayText;
 		placeholderFgError: storiesComposeGrayText;
@@ -836,7 +845,7 @@ storiesComposeControls: ComposeControls(defaultComposeControls) {
 		fadeLeft: icon {{ "fade_horizontal-flip_horizontal", storiesComposeBg }};
 		fadeRight: icon {{ "fade_horizontal", storiesComposeBg }};
 	}
-	tabbed: storiesEmojiPan;
+	tabbed: defaultEmojiPan;
 	tabbedHeightMin: 220px;
 	tabbedHeightMax: 480px;
 	record: RecordBar(defaultRecordBar) {
@@ -954,6 +963,9 @@ storiesViewsMenu: PopupMenu(storiesPopupMenuWithIcons) {
 	radius: 7px;
 }
 storiesRecentViewsSkip: 8px;
+storiesRecentViewsTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 storiesWhoViewed: WhoRead(defaultWhoRead) {
 	userpics: GroupCallUserpics {
 		size: 24px;
@@ -964,7 +976,7 @@ storiesWhoViewed: WhoRead(defaultWhoRead) {
 }
 mediaviewEmojiPan: EmojiPan(storiesEmojiPan) {
 	showAnimation: PanelAnimation(emojiPanAnimation) {
-		fadeBg: groupCallMenuBg;
+		fadeBg: classicControlBg;
 	}
 	bg: groupCallMenuBg;
 	overBg: groupCallMenuBgOver;
@@ -983,13 +995,21 @@ mediaviewEmojiPan: EmojiPan(storiesEmojiPan) {
 	}
 }
 
-storiesReactionsPan: EmojiPan(storiesEmojiPan) {
+storiesReactionsPan: EmojiPan(defaultEmojiPan) {
+	showAnimation: PanelAnimation(emojiPanAnimation) {
+		fadeBg: windowBg;
+	}
 	margin: margins(reactStripSkip, 0px, reactStripSkip, 0px);
 	padding: margins(reactStripSkip, 0px, reactStripSkip, reactStripSkip);
 	desiredSize: reactStripSize;
 	verticalSizeSub: 0px;
+	bg: windowBg;
 	overBg: transparent;
-	search: TabbedSearch(storiesEmojiTabbedSearch) {
+	categoriesBg: classicControlBg;
+	categoriesBgOver: windowBgOver;
+	fadeLeft: icon {{ "fade_horizontal-flip_horizontal", classicControlBg }};
+	fadeRight: icon {{ "fade_horizontal", classicControlBg }};
+	search: TabbedSearch(defaultTabbedSearch) {
 		defaultFieldWidth: 88px;
 	}
 	searchMargin: margins(1px, 10px, 2px, 6px);
@@ -1008,10 +1028,8 @@ storiesUnsupportedLabel: FlatLabel(defaultFlatLabel) {
 	}
 	align: align(top);
 }
-storiesUnsupportedUpdate: RoundButton(defaultActiveButton) {
+storiesUnsupportedUpdate: RoundButton(classicWideBoxButton) {
 	width: -102px;
-	height: 42px;
-	textTop: 12px;
 }
 storiesUnsupportedTop: 24px;
 storiesUnsupportedSkip: 18px;
@@ -1034,36 +1052,6 @@ storiesShortInfoBox: ShortInfoBox(shortInfoBox) {
 	}
 }
 storiesReportBox: ReportBox(defaultReportBox) {
-	button: SettingsButton(reportReasonButton) {
-		textFg: storiesComposeWhiteText;
-		textFgOver: storiesComposeWhiteText;
-		textBg: storiesComposeBg;
-		textBgOver: storiesComposeBgOver;
-		ripple: storiesComposeRipple;
-	}
-	noIconButton: SettingsButton(reportReasonButton) {
-		textFg: storiesComposeWhiteText;
-		textFgOver: storiesComposeWhiteText;
-		textBg: storiesComposeBg;
-		textBgOver: storiesComposeBgOver;
-		padding: margins(22px, 7px, 8px, 7px);
-		ripple: storiesComposeRipple;
-	}
-	label: storiesBoxLabel;
-	field: InputField(storiesBoxInputField) {
-		textMargins: margins(1px, 26px, 1px, 4px);
-		heightMax: 116px;
-	}
-	divider: groupCallDividerLabel;
-	spam: icon {{ "menu/delete", storiesComposeWhiteText }};
-	fake: icon {{ "menu/fake", storiesComposeWhiteText }};
-	violence: icon {{ "menu/violence", storiesComposeWhiteText }};
-	children: icon {{ "menu/block", storiesComposeWhiteText }};
-	pornography: icon {{ "menu/porn", storiesComposeWhiteText }};
-	copyright: icon {{ "menu/copyright", storiesComposeWhiteText }};
-	drugs: icon {{ "menu/drugs", storiesComposeWhiteText }};
-	personal: icon {{ "menu/personal", storiesComposeWhiteText }};
-	other: icon {{ "menu/report", storiesComposeWhiteText }};
 }
 storiesActionToast: Toast(defaultToast) {
 	maxWidth: 320px;
@@ -1121,37 +1109,41 @@ storiesShowMoreFont: semiboldFont;
 storiesStealthLogoAdd: 12px;
 storiesStealthLogoMargin: margins(0px, 28px, 0px, 7px);
 storiesStealthBox: Box(defaultBox) {
-	buttonPadding: margins(10px, 10px, 10px, 10px);
-	buttonHeight: 42px;
-	button: RoundButton(defaultBoxButton) {
-		height: 42px;
-		textTop: 12px;
-		style: semiboldTextStyle;
+	buttonPadding: margins(10px, 8px, 10px, 10px);
+	buttonHeight: 28px;
+	buttonWide: false;
+	button: RoundButton(pickLocationChooseOnMap) {
+		style: TextStyle(semiboldTextStyle) {
+			font: classicActionFont;
+		}
 
-		textFg: storiesComposeWhiteText;
-		textFgOver: storiesComposeWhiteText;
-		numbersTextFg: storiesComposeWhiteText;
-		numbersTextFgOver: storiesComposeWhiteText;
-		textBg: storiesComposeBlue;
-		textBgOver: storiesComposeBlue;
+		textFg: classicMenuText;
+		textFgOver: classicMenuText;
+		numbersTextFg: classicMenuText;
+		numbersTextFgOver: classicMenuText;
+		textBg: classicControlBg;
+		textBgOver: classicControlBg;
 
 		ripple: universalRippleAnimation;
 	}
 	margin: margins(0px, 56px, 0px, 10px);
 	bg: groupCallMembersBg;
 	title: FlatLabel(boxTitle) {
-		textFg: groupCallMembersFg;
+		textFg: classicMenuText;
 		align: align(top);
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
 	}
-	titleAdditionalFg: groupCallMemberNotJoinedStatus;
+	titleAdditionalFg: classicMenuText;
 }
 storiesStealthTitleMargin: margins(0px, 10px, 0px, 0px);
 storiesStealthBoxClose: IconButton(defaultIconButton) {
 	width: boxTitleHeight;
 	height: boxTitleHeight;
 
-	icon: icon {{ "box_button_close", storiesComposeGrayIcon }};
-	iconOver: icon {{ "box_button_close", storiesComposeGrayIcon }};
+	icon: icon {{ "box_button_close", classicMenuText }};
+	iconOver: icon {{ "box_button_close", classicMenuText }};
 
 	rippleAreaPosition: point(4px, 4px);
 	rippleAreaSize: 40px;
@@ -1166,22 +1158,37 @@ storiesStealthToast: Toast(defaultMultilineToast) {
 storiesStealthStyle: StealthBoxStyle {
 	box: storiesStealthBox;
 	buttonLabel: FlatLabel(defaultFlatLabel) {
-		style: semiboldTextStyle;
-		textFg: storiesComposeWhiteText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
+		textFg: classicMenuText;
 		align: align(top);
 		minWidth: 20px;
 		maxHeight: 20px;
 	}
-	lockIcon: icon {{ "dialogs/dialogs_lock_on", storiesComposeWhiteText }};
+	lockIcon: icon {{ "dialogs/dialogs_lock_on", classicMenuText }};
 	boxClose: storiesStealthBoxClose;
 	about: FlatLabel(defaultFlatLabel) {
-		textFg: storiesComposeGrayText;
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
 		align: align(top);
 		minWidth: 20px;
 	}
-	featureTitle: storiesHeaderName;
+	featureTitle: FlatLabel(defaultFlatLabel) {
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
+		minWidth: 10px;
+		maxHeight: 20px;
+	}
 	featureAbout: FlatLabel(defaultFlatLabel) {
-		textFg: storiesComposeGrayText;
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
 		minWidth: 20px;
 	}
 	featurePastIcon: icon{{ "stories/stealth_5m", storiesComposeBlue }};
@@ -1194,16 +1201,21 @@ storiesViewsPosition: point(4px, 29px);
 storiesViewsIcon: icon{{ "mediaview/views", storiesComposeGrayText }};
 storiesViewsIconTop: 11px;
 storiesViewsText: FlatLabel(defaultFlatLabel) {
-	textFg: storiesComposeGrayText;
+	textFg: mediaviewControlFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 storiesViewsTextPosition: point(26px, 14px);
 storiesChannelReactionsTextTop: 16px;
 
 storiesLikesPosition: point(0px, 29px);
-storiesLikesIcon: icon {{ "chat/input_like", storiesComposeWhiteText }};
+storiesLikesIcon: icon {{ "chat/input_like", storiesComposeGrayText }};
 storiesLikesText: FlatLabel(defaultFlatLabel) {
-	textFg: storiesComposeWhiteText;
-	style: semiboldTextStyle;
+	textFg: mediaviewControlFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 storiesLikesTextPosition: point(41px, 14px);
 storiesLikesTextRightSkip: 8px;

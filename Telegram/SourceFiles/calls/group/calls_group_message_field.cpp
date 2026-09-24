@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "calls/group/calls_group_message_field.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/event_filter.h"
 #include "boxes/premium_preview_box.h"
 #include "calls/group/calls_group_messages.h"
@@ -36,6 +39,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_media_view.h"
 
+#include <QtGui/QKeyEvent>
+
 namespace Calls::Group {
 namespace {
 
@@ -51,7 +56,6 @@ public:
 		not_null<QWidget*> outer,
 		std::shared_ptr<ChatHelpers::Show> show,
 		rpl::producer<QRect> fieldGeometry);
-	~ReactionPanel();
 
 	[[nodiscard]] rpl::producer<Chosen> chosen() const;
 	[[nodiscard]] bool ownsInputAt(QPoint globalPosition) const;
@@ -59,268 +63,104 @@ public:
 	void show();
 	void hide();
 	void raise();
-	void hideIfCollapsed();
-	void collapse();
 
 private:
-	struct Hiding;
+	void choose(Chosen reaction);
 
-	void create();
-	void updateShowState();
-	void fadeOutSelector();
-	void startAnimation();
-
-	const not_null<QWidget*> _outer;
 	const std::shared_ptr<ChatHelpers::Show> _show;
-	std::unique_ptr<Ui::RpWidget> _parent;
-	std::unique_ptr<HistoryView::Reactions::Selector> _selector;
-	std::vector<std::unique_ptr<Hiding>> _hiding;
+	std::unique_ptr<ChatHelpers::TabbedPanel> _panel;
 	rpl::event_stream<Chosen> _chosen;
-	Ui::Animations::Simple _showing;
-	rpl::variable<float64> _shownValue;
-	rpl::variable<QRect> _fieldGeometry;
-	rpl::variable<bool> _expanded;
-	rpl::variable<bool> _shown = false;
+	bool _suppressShow = false;
 
-};
-
-struct ReactionPanel::Hiding {
-	explicit Hiding(not_null<QWidget*> parent) : widget(parent) {
-	}
-
-	Ui::RpWidget widget;
-	Ui::Animations::Simple animation;
-	QImage frame;
 };
 
 ReactionPanel::ReactionPanel(
 	not_null<QWidget*> outer,
 	std::shared_ptr<ChatHelpers::Show> show,
 	rpl::producer<QRect> fieldGeometry)
-: _outer(outer)
-, _show(std::move(show))
-, _fieldGeometry(std::move(fieldGeometry)) {
+: _show(std::move(show)) {
+	using namespace ChatHelpers;
+	_panel = std::make_unique<TabbedPanel>(outer, TabbedPanelDescriptor{
+		.ownedSelector = object_ptr<TabbedSelector>(
+			nullptr,
+			TabbedSelectorDescriptor{
+				.show = _show,
+				.st = st::storiesReactionsPan,
+				.level = PauseReason::Layer,
+				.mode = TabbedSelector::Mode::FullReactions,
+				.features = {
+					.stickersSettings = false,
+					.openStickerSets = false,
+				},
+			}),
+		.separateWindow = true,
+		.windowTitle = tr::lng_notification_reactions(tr::now),
+	});
+	_panel->setAttribute(Qt::WA_ShowWithoutActivating);
+	base::install_event_filter(_panel.get(), [=](not_null<QEvent*> event) {
+		const auto closing = (event->type() == QEvent::Close)
+			|| (event->type() == QEvent::KeyPress
+				&& static_cast<QKeyEvent*>(event.get())->key() == Qt::Key_Escape);
+		if (closing) {
+			hide();
+			return base::EventFilterResult::Cancel;
+		}
+		return base::EventFilterResult::Continue;
+	});
+	_panel->setDesiredHeightValues(
+		st::emojiPanHeightRatio,
+		st::emojiPanMinHeight,
+		st::emojiPanMaxHeight);
+	std::move(fieldGeometry) | rpl::on_next([=](QRect field) {
+		_panel->moveBottomRight(field.y(), field.x() + field.width());
+	}, _panel->lifetime());
+	_panel->selector()->emojiChosen(
+	) | rpl::on_next([=](EmojiChosen data) {
+		choose({ .id = Data::ReactionId{ data.emoji->text() } });
+	}, _panel->lifetime());
+	_panel->selector()->customEmojiChosen(
+	) | rpl::on_next([=](FileChosen data) {
+		choose({ .id = Data::ReactionId{ data.document->id } });
+	}, _panel->lifetime());
 }
 
-ReactionPanel::~ReactionPanel() = default;
-
-auto ReactionPanel::chosen() const -> rpl::producer<Chosen> {
+rpl::producer<Chosen> ReactionPanel::chosen() const {
 	return _chosen.events();
 }
 
 bool ReactionPanel::ownsInputAt(QPoint globalPosition) const {
-	if (_selector && _parent) {
-		const auto local = _parent->mapFromGlobal(globalPosition);
-		if (_selector->geometry().contains(local)) {
-			return true;
-		}
-	}
-	const auto local = _outer->mapFromGlobal(globalPosition);
-	return ranges::any_of(_hiding, [&](const auto &hiding) {
-		return hiding->widget.geometry().contains(local);
-	});
+	return !_panel->isHidden()
+		&& QRect(_panel->mapToGlobal(QPoint()), _panel->size()).contains(
+			globalPosition);
 }
 
 void ReactionPanel::show() {
-	if (_shown.current()) {
-		return;
+	if (!_suppressShow && _panel->isHidden()) {
+		_panel->showAnimated();
 	}
-	create();
-	if (!_selector) {
-		return;
-	}
-	const auto duration = st::defaultPanelAnimation.heightDuration
-		* st::defaultPopupMenu.showDuration;
-	_shown = true;
-	_showing.start([=] { updateShowState(); }, 0., 1., duration);
-	updateShowState();
-	_parent->show();
 }
 
 void ReactionPanel::hide() {
-	if (!_selector) {
-		return;
-	}
-	_selector->beforeDestroy();
-	if (!anim::Disabled()) {
-		fadeOutSelector();
-	}
-	_shown = false;
-	_expanded = false;
-	_showing.stop();
-	_selector = nullptr;
-	_parent = nullptr;
+	_suppressShow = true;
+	_panel->hideFast();
+	InvokeQueued(_panel.get(), [=] { _suppressShow = false; });
 }
 
 void ReactionPanel::raise() {
-	if (_parent) {
-		_parent->raise();
+	if (!_panel->isHidden()) {
+		_panel->raise();
 	}
 }
 
-void ReactionPanel::hideIfCollapsed() {
-	if (!_expanded.current()) {
-		hide();
-	}
-}
-
-void ReactionPanel::collapse() {
-	if (_expanded.current()) {
-		hide();
-		show();
-	}
-}
-
-void ReactionPanel::create() {
-	auto reactions = Data::LookupPossibleReactions(&_show->session());
-	if (reactions.recent.empty()) {
+void ReactionPanel::choose(Chosen reaction) {
+	if (reaction.id.custom() && !_show->session().premium()) {
+		ShowPremiumPreviewBox(_show, PremiumFeature::AnimatedEmoji);
 		return;
 	}
-	_parent = std::make_unique<Ui::RpWidget>(_outer);
-	_parent->show();
-
-	_parent->events() | rpl::on_next([=](not_null<QEvent*> e) {
-		if (e->type() == QEvent::MouseButtonPress) {
-			const auto event = static_cast<QMouseEvent*>(e.get());
-			if (event->button() == Qt::LeftButton) {
-				if (!_selector
-					|| !_selector->geometry().contains(event->pos())) {
-					collapse();
-				}
-			}
-		}
-	}, _parent->lifetime());
-
-	_selector = std::make_unique<HistoryView::Reactions::Selector>(
-		_parent.get(),
-		st::storiesReactionsPan,
-		_show,
-		std::move(reactions),
-		TextWithEntities(),
-		[=](bool fast) { hide(); },
-		nullptr, // iconFactory
-		nullptr, // paused
-		true);
-
-	_selector->chosen(
-	) | rpl::on_next([=](Chosen reaction) {
-		if (reaction.id.custom() && !_show->session().premium()) {
-			ShowPremiumPreviewBox(
-				_show,
-				PremiumFeature::AnimatedEmoji);
-		} else {
-			hide();
-			// Fire last: a consumer may synchronously destroy the
-			// MessageField that owns this ReactionPanel.
-			_chosen.fire(std::move(reaction));
-		}
-	}, _selector->lifetime());
-
-	const auto desiredWidth = st::storiesReactionsWidth;
-	const auto maxWidth = desiredWidth * 2;
-	const auto width = _selector->countWidth(desiredWidth, maxWidth);
-	const auto margins = _selector->marginsForShadow();
-	const auto categoriesTop = _selector->extendTopForCategoriesAndAbout(
-		width);
-	const auto full = margins.left() + width + margins.right();
-
-	_shownValue = 0.;
-	rpl::combine(
-		_fieldGeometry.value(),
-		_shownValue.value(),
-		_expanded.value()
-	) | rpl::on_next([=](QRect field, float64 shown, bool expanded) {
-		const auto width = margins.left()
-			+ _selector->countAppearedWidth(shown)
-			+ margins.right();
-		const auto available = field.y();
-		const auto min = st::storiesReactionsBottomSkip
-			+ st::reactStripHeight;
-		const auto max = min
-			+ margins.top()
-			+ categoriesTop
-			+ st::storiesReactionsAddedTop;
-		const auto height = expanded ? std::min(available, max) : min;
-		const auto top = field.y() - height;
-		const auto shift = (width / 2);
-		const auto right = (field.x() + field.width() / 2 + shift);
-		_parent->setGeometry(QRect((right - width), top, full, height));
-		const auto innerTop = height
-			- st::storiesReactionsBottomSkip
-			- st::reactStripHeight;
-		const auto maxAdded = innerTop - margins.top() - categoriesTop;
-		const auto added = std::min(maxAdded, st::storiesReactionsAddedTop);
-		_selector->setSpecialExpandTopSkip(added);
-		_selector->initGeometry(innerTop);
-	}, _selector->lifetime());
-
-	_selector->willExpand(
-	) | rpl::on_next([=] {
-		_expanded = true;
-
-		const auto raw = _parent.get();
-		base::install_event_filter(raw, qApp, [=](not_null<QEvent*> e) {
-			if (e->type() == QEvent::MouseButtonPress) {
-				const auto event = static_cast<QMouseEvent*>(e.get());
-				if (event->button() == Qt::LeftButton) {
-					if (!_selector
-						|| !_selector->geometry().contains(
-							_parent->mapFromGlobal(event->globalPos()))) {
-						collapse();
-					}
-				}
-			}
-			return base::EventFilterResult::Continue;
-		});
-	}, _selector->lifetime());
-
-	_selector->escapes() | rpl::on_next([=] {
-		collapse();
-	}, _selector->lifetime());
-}
-
-void ReactionPanel::fadeOutSelector() {
-	const auto geometry = Ui::MapFrom(
-		_outer,
-		_parent.get(),
-		_selector->geometry());
-	_hiding.push_back(std::make_unique<Hiding>(_outer));
-	const auto raw = _hiding.back().get();
-	raw->frame = Ui::GrabWidgetToImage(_selector.get());
-	raw->widget.setGeometry(geometry);
-	raw->widget.show();
-	raw->widget.paintRequest(
-	) | rpl::on_next([=] {
-		if (const auto opacity = raw->animation.value(0.)) {
-			auto p = QPainter(&raw->widget);
-			p.setOpacity(opacity);
-			p.drawImage(0, 0, raw->frame);
-		}
-	}, raw->widget.lifetime());
-	Ui::PostponeCall(&raw->widget, [=] {
-		raw->animation.start([=] {
-			if (raw->animation.animating()) {
-				raw->widget.update();
-			} else {
-				const auto i = ranges::find(
-					_hiding,
-					raw,
-					&std::unique_ptr<Hiding>::get);
-				if (i != end(_hiding)) {
-					_hiding.erase(i);
-				}
-			}
-		}, 1., 0., st::slideWrapDuration);
-	});
-}
-
-void ReactionPanel::updateShowState() {
-	const auto progress = _showing.value(_shown.current() ? 1. : 0.);
-	const auto opacity = 1.;
-	const auto appearing = _showing.animating();
-	const auto toggling = false;
-	_shownValue = progress;
-	_selector->updateShowState(progress, opacity, appearing, toggling);
+	hide();
+	// Fire last: a consumer may synchronously destroy the
+	// MessageField that owns this ReactionPanel.
+	_chosen.fire(std::move(reaction));
 }
 
 MessageField::MessageField(
@@ -365,11 +205,10 @@ void MessageField::createControls(PeerData *peer) {
 		_fieldFocused.value(),
 		_fieldEmpty.value()
 	) | rpl::on_next([=](bool focused, bool empty) {
-		if (!focused) {
-			_reactionPanel->hideIfCollapsed();
-		} else if (empty) {
+		if (focused && empty
+			&& (!_emojiPanel || _emojiPanel->isHidden())) {
 			_reactionPanel->show();
-		} else {
+		} else if (!empty) {
 			_reactionPanel->hide();
 		}
 	}, _field->lifetime());
@@ -447,6 +286,7 @@ void MessageField::createControls(PeerData *peer) {
 						.openStickerSets = false,
 					},
 				}),
+			.separateWindow = true,
 		});
 	const auto panel = _emojiPanel.get();
 	panel->setDesiredHeightValues(
@@ -454,6 +294,11 @@ void MessageField::createControls(PeerData *peer) {
 		st::emojiPanMinHeight / 2,
 		st::emojiPanMinHeight);
 	panel->hide();
+	panel->shownValue() | rpl::on_next([=](bool shown) {
+		if (shown) {
+			_reactionPanel->hide();
+		}
+	}, lifetime());
 	panel->selector()->setCurrentPeer(peer);
 	panel->selector()->emojiChosen(
 	) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
@@ -478,6 +323,7 @@ void MessageField::createControls(PeerData *peer) {
 
 	_emojiToggle->installEventFilter(panel);
 	_emojiToggle->addClickHandler([=] {
+		_reactionPanel->hide();
 		panel->toggleAnimated();
 	});
 
@@ -553,7 +399,10 @@ void MessageField::setupBackground() {
 
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::storiesComposeBg);
-		p.drawRoundedRect(_wrap->rect(), radius, radius);
+		p.drawRoundedRect(
+			_wrap->rect(),
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}, _lifetime);
 }
 
@@ -573,6 +422,10 @@ void MessageField::move(int x, int y) {
 }
 
 void MessageField::toggle(bool shown) {
+	if (!shown) {
+		_reactionPanel->hide();
+		_emojiPanel->hideFast();
+	}
 	if (_shown == shown) {
 		return;
 	} else if (shown) {
@@ -628,8 +481,10 @@ void MessageField::raise() {
 }
 
 bool MessageField::ownsReactionPanelInput(QPoint globalPosition) const {
-	return _reactionPanel
-		&& _reactionPanel->ownsInputAt(globalPosition);
+	return (_reactionPanel && _reactionPanel->ownsInputAt(globalPosition))
+		|| (_emojiPanel && !_emojiPanel->isHidden()
+			&& QRect(_emojiPanel->mapToGlobal(QPoint()), _emojiPanel->size()
+				).contains(globalPosition));
 }
 
 void MessageField::updateWrapSize(int widthOverride) {

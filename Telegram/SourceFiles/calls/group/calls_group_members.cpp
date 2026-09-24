@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "calls/group/calls_group_members.h"
 
+#include "ui/style/style_radius.h"
 #include "calls/group/calls_cover_item.h"
 #include "calls/group/calls_group_call.h"
 #include "calls/group/calls_group_menu.h"
@@ -49,6 +50,23 @@ namespace {
 constexpr auto kKeepRaisedHandStatusDuration = 3 * crl::time(1000);
 
 using Row = MembersRow;
+
+[[nodiscard]] object_ptr<Ui::RpWidget> CreateMemberAction(
+		not_null<QWidget*> parent,
+		rpl::producer<QString> text,
+		const style::RoundButton &st,
+		Fn<void()> callback) {
+	const auto padding = st::groupCallMemberActionPadding;
+	auto wrap = object_ptr<Ui::FixedHeightWidget>(parent, st.height + padding.top() + padding.bottom());
+	const auto button = Ui::CreateChild<Ui::RoundButton>(wrap.data(), std::move(text), st);
+	button->setClickedCallback(std::move(callback));
+	button->show();
+	wrap->widthValue() | rpl::on_next([=](int width) {
+		button->resizeToWidth(std::min(std::max(width - padding.left() - padding.right(), 0), st::groupCallAddMember.width));
+		button->move((width - button->width()) / 2, padding.top());
+	}, wrap->lifetime());
+	return wrap;
+}
 
 } // namespace
 
@@ -1888,31 +1906,24 @@ void Members::setupAddMember(not_null<GroupCall*> call) {
 			}
 			return;
 		}
-		auto addMember = Settings::CreateButtonWithIcon(
+		auto addMember = CreateMemberAction(
 			_layout.get(),
 			(conference
 				? tr::lng_group_call_invite_conf()
 				: tr::lng_group_call_invite()),
 			st::groupCallAddMember,
-			{ .icon = &st::groupCallAddMemberIcon });
-		addMember->clicks(
-		) | rpl::to_empty | rpl::start_to_stream(
-			_addMemberRequests,
-			addMember->lifetime());
+			[=] { _addMemberRequests.fire({}); });
 		addMember->show();
 		addMember->resizeToWidth(_layout->width());
 		delete _addMemberButton.current();
 		_addMemberButton = addMember.data();
 		_layout->insert(baseIndex, std::move(addMember));
 		if (conference) {
-			auto shareLink = Settings::CreateButtonWithIcon(
+			auto shareLink = CreateMemberAction(
 				_layout.get(),
 				tr::lng_group_invite_share(),
-				st::groupCallAddMember,
-				{ .icon = &st::groupCallShareLinkIcon });
-			shareLink->clicks() | rpl::to_empty | rpl::start_to_stream(
-				_shareLinkRequests,
-				shareLink->lifetime());
+				st::groupCallShareLink,
+				[=] { _shareLinkRequests.fire({}); });
 			shareLink->show();
 			shareLink->resizeToWidth(_layout->width());
 			delete _shareLinkButton.current();
@@ -2123,7 +2134,7 @@ void Members::setupFakeRoundCorners() {
 			p.setCompositionMode(QPainter::CompositionMode_Source);
 			p.setPen(Qt::NoPen);
 			p.setBrush(Qt::transparent);
-			p.drawRoundedRect(0, 0, full, full, size, size);
+			p.drawRoundedRect(0, 0, full, full, style::CornerRadius(size), style::CornerRadius(size));
 		}
 	};
 

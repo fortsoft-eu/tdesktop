@@ -43,14 +43,17 @@ var LocationPicker = {
 			LocationPicker.styles = styles;
 			document.getElementsByTagName('html')[0].style = styles;
 
-			LocationPicker.map.setConfigProperty(
-				'basemap',
-				'lightPreset',
-				LocationPicker.lightPreset());
+			if (LocationPicker.usesMapboxBasemap) {
+				LocationPicker.map.setConfigProperty(
+					'basemap',
+					'lightPreset',
+					LocationPicker.lightPreset());
+			}
 		}
 	},
 	init: function (params) {
 		mapboxgl.accessToken = params.token;
+		LocationPicker.usesMapboxBasemap = !!params.token;
 		if (location.hostname != 'desktop-app-resource') {
 			mapboxgl.config.API_URL = location.protocol + '//' + location.host + '/api.mapbox.com';
 		}
@@ -58,6 +61,24 @@ var LocationPicker = {
 		var options = { container: 'map', config: {
 			basemap: { lightPreset: LocationPicker.lightPreset() }
 		} };
+		if (!LocationPicker.usesMapboxBasemap) {
+			options.style = {
+				version: 8,
+				sources: {
+					openstreetmap: {
+						type: 'raster',
+						tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+						tileSize: 256,
+						attribution: '© OpenStreetMap contributors',
+					},
+				},
+				layers: [{
+					id: 'openstreetmap',
+					type: 'raster',
+					source: 'openstreetmap',
+				}],
+			};
+		}
 		var center = params.center;
 		if (center) {
 			center = [center[1], center[0]];

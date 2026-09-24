@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_notifications.h"
 
+#include "ui/style/style_radius.h"
 #include "settings/settings_common_session.h"
 
 #include "api/api_authorizations.h"
@@ -436,14 +437,23 @@ void NotificationsCount::prepareNotificationSampleSmall() {
 		auto nameTop = (height - 5 * padding) / 2;
 		auto nameWidth = height;
 		p.setBrush(st::notificationSampleNameFg);
-		p.drawRoundedRect(style::rtlrect(rowLeft, nameTop, nameWidth, rowHeight, width), rowHeight / 2, rowHeight / 2);
+		p.drawRoundedRect(
+			style::rtlrect(rowLeft, nameTop, nameWidth, rowHeight, width),
+			style::CornerRadius(rowHeight / 2),
+			style::CornerRadius(rowHeight / 2));
 
 		auto rowWidth = (width - rowLeft - 3 * padding);
 		auto rowTop = nameTop + rowHeight + padding;
 		p.setBrush(st::notificationSampleTextFg);
-		p.drawRoundedRect(style::rtlrect(rowLeft, rowTop, rowWidth, rowHeight, width), rowHeight / 2, rowHeight / 2);
+		p.drawRoundedRect(
+			style::rtlrect(rowLeft, rowTop, rowWidth, rowHeight, width),
+			style::CornerRadius(rowHeight / 2),
+			style::CornerRadius(rowHeight / 2));
 		rowTop += rowHeight + padding;
-		p.drawRoundedRect(style::rtlrect(rowLeft, rowTop, rowWidth, rowHeight, width), rowHeight / 2, rowHeight / 2);
+		p.drawRoundedRect(
+			style::rtlrect(rowLeft, rowTop, rowWidth, rowHeight, width),
+			style::CornerRadius(rowHeight / 2),
+			style::CornerRadius(rowHeight / 2));
 
 		auto closeLeft = width - 2 * padding;
 		p.fillRect(style::rtlrect(closeLeft, padding, padding, padding, width), st::notificationSampleCloseFg);
@@ -736,10 +746,10 @@ NotifyPreview::NotifyPreview(bool nameShown, bool previewShown)
 	_title.setText(st::defaultSubsectionTitle.style, AppName.utf16());
 
 	_text.setText(
-		st::boxTextStyle,
+		st::settingsExperimentalTextStyle,
 		tr::lng_notification_preview_text(tr::now));
 	_preview.setText(
-		st::boxTextStyle,
+		st::settingsExperimentalTextStyle,
 		tr::lng_notification_preview(tr::now));
 }
 
@@ -760,7 +770,7 @@ int NotifyPreview::resizeGetHeight(int newWidth) {
 		- st::notifyPreviewTextPosition.x()
 		- st::notifyPreviewUserpicPosition.x();
 	if (std::max(_text.maxWidth(), _preview.maxWidth()) >= available) {
-		_height += st::defaultTextStyle.font->height;
+		_height += st::settingsExperimentalTextStyle.font->height;
 	}
 	return _height;
 }
@@ -812,12 +822,13 @@ NotifyViewCheckboxes SetupNotifyViewOptions(
 		container,
 		object_ptr<Ui::RpWidget>(container)));
 	const auto widget = wrap->entity();
+	widget->setProperty("classicSettingsStyle", false);
 
 	const auto makeCheckbox = [&](const QString &text, bool checked) {
 		return Ui::MakeChatServiceCheckbox(
 			widget,
 			text,
-			st::backgroundCheckbox,
+			st::notifyPreviewCheckbox,
 			st::backgroundCheck,
 			checked).release();
 	};
@@ -1338,7 +1349,7 @@ void BuildBadgeCounterSection(SectionBuilder &builder) {
 	const auto muted = builder.addButton({
 		.id = u"notifications/include-muted-chats"_q,
 		.title = tr::lng_settings_include_muted(),
-		.st = &st::settingsButtonNoIcon,
+		.st = &st::settingsCompactToggle,
 		.toggled = rpl::single(settings.includeMutedCounter()),
 		.keywords = { u"muted"_q, u"badge"_q, u"counter"_q },
 	});
@@ -1347,7 +1358,7 @@ void BuildBadgeCounterSection(SectionBuilder &builder) {
 	const auto mutedFolders = hasFolders ? builder.addButton({
 		.id = u"notifications/badge/muted_folders"_q,
 		.title = tr::lng_settings_include_muted_folders(),
-		.st = &st::settingsButtonNoIcon,
+		.st = &st::settingsCompactToggle,
 		.toggled = rpl::single(settings.includeMutedCounterFolders()),
 		.keywords = { u"muted"_q, u"folders"_q },
 	}) : nullptr;
@@ -1355,7 +1366,7 @@ void BuildBadgeCounterSection(SectionBuilder &builder) {
 	const auto count = builder.addButton({
 		.id = u"notifications/count-unread-messages"_q,
 		.title = tr::lng_settings_count_unread(),
-		.st = &st::settingsButtonNoIcon,
+		.st = &st::settingsCompactToggle,
 		.toggled = rpl::single(settings.countUnreadMessages()),
 		.keywords = { u"unread"_q, u"messages"_q, u"count"_q },
 	});
@@ -1425,7 +1436,7 @@ void BuildSystemIntegrationAndAdvancedSection(SectionBuilder &builder) {
 	const auto native = nativeText ? builder.addButton({
 		.id = u"notifications/use-native"_q,
 		.title = std::move(nativeText),
-		.st = &st::settingsButtonNoIcon,
+		.st = &st::settingsCompactToggle,
 		.toggled = rpl::single(settings.nativeNotifications()),
 		.keywords = { u"native"_q, u"system"_q, u"windows"_q },
 	}) : nullptr;
@@ -1458,11 +1469,18 @@ void BuildSystemIntegrationAndAdvancedSection(SectionBuilder &builder) {
 		}
 
 		if (Platform::IsWindows()) {
+			auto buttonStyle = st::settingsCompactToggle;
+			buttonStyle.toggleSkip = buttonStyle.padding.left();
+			buttonStyle.padding.setLeft(
+				buttonStyle.toggleSkip
+				+ st::classicCheckSize
+				+ st::settingsExperimentalButton.padding.right());
 			const auto skipInFocus = advancedWrap->add(object_ptr<Ui::SettingsButton>(
 				advancedWrap,
 				tr::lng_settings_skip_in_focus(),
-				st::settingsButtonNoIcon
+				buttonStyle
 			))->toggleOn(rpl::single(Core::App().settings().skipToastsInFocus()));
+			skipInFocus->setProperty("classicCheckOnLeft", true);
 
 			skipInFocus->toggledChanges(
 			) | rpl::filter([](bool checked) {

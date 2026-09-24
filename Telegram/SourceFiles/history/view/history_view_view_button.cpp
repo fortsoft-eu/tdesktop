@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_view_button.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "boxes/gift_premium_box.h"
 #include "core/application.h"
 #include "core/click_handler_types.h"
@@ -237,9 +240,7 @@ void ViewButton::draw(
 			}
 		}
 		const auto padding = st::historyPageButtonPadding;
-		const auto availableWidth = r.width()
-			- padding.left()
-			- padding.right();
+		const auto availableWidth = r.width();
 		if (availableWidth > 0) {
 			const auto textWidth = (_inner->text.maxWidth() < availableWidth)
 				? _inner->text.maxWidth()
@@ -248,7 +249,6 @@ void ViewButton::draw(
 			_inner->text.drawElided(
 				p,
 				r.left()
-					+ padding.left()
 					+ (availableWidth - textWidth) / 2,
 				r.top() + padding.top(),
 				textWidth,
@@ -266,7 +266,7 @@ void ViewButton::draw(
 		PainterHighQualityEnabler hq(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(cache->bg);
-		p.drawRoundedRect(r, radius, radius);
+		p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		p.setPen(cache->icon);
 		_inner->text.drawElided(
@@ -282,7 +282,7 @@ void ViewButton::draw(
 			const auto padding = st::msgBotKbIconPadding;
 			icon.paint(
 				p,
-				r.left() + r.width() - icon.width() - padding,
+				r.left() + Ui::ClassicButtonIconLeft(r.height(), icon.size()),
 				r.top() + padding,
 				r.width(),
 				cache->icon);

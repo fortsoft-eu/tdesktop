@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/stories/media_stories_slider.h"
 
+#include "ui/style/style_radius.h"
 #include "media/stories/media_stories_controller.h"
 #include "media/view/media_view_playback_progress.h"
 #include "media/audio/media_audio.h"
@@ -80,7 +81,10 @@ void Slider::raise() {
 }
 
 void Slider::updatePlayback(const Player::TrackState &state) {
-	_progress->updateState(state);
+	auto stationary = state;
+	stationary.state = Player::State::Paused;
+	stationary.position = stationary.length;
+	_progress->updateState(stationary);
 }
 
 void Slider::resetProgress() {
@@ -135,20 +139,20 @@ void Slider::paint(QRectF clip) {
 			p.setOpacity(kOpacityInactive);
 			p.drawRoundedRect(
 				QRectF(inactiveLeft, 0, inactiveWidth, height),
-				radius,
-				radius);
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 			if (activeWidth > 0.) {
 				p.setOpacity(kOpacityActive);
 				p.drawRoundedRect(
 					QRectF(activeLeft, 0, activeWidth, height),
-					radius,
-					radius);
+					style::CornerRadius(radius),
+					style::CornerRadius(radius));
 			}
 		} else {
 			p.setOpacity((i < _data.index)
 				? kOpacityActive
 				: kOpacityInactive);
-			p.drawRoundedRect(_rects[i], radius, radius);
+			p.drawRoundedRect(_rects[i], style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 	}
 }

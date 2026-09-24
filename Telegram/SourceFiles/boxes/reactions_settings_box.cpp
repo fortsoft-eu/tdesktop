@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/reactions_settings_box.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/emoji_list_widget.h"
 #include "chat_helpers/tabbed_selector.h"
 #include "data/data_document.h"
@@ -317,8 +318,8 @@ void StripPreview::validateIslandCache() {
 	q.setBrush(QBrush(background));
 	q.drawRoundedRect(
 		QRect(QPoint(), island.size()),
-		st::localStorageIslandRadius,
-		st::localStorageIslandRadius);
+		style::CornerRadius(st::localStorageIslandRadius),
+		style::CornerRadius(st::localStorageIslandRadius));
 }
 
 void StripPreview::paintEvent(QPaintEvent *e) {
@@ -694,8 +695,8 @@ void ReactionsSettingsBox(
 		p.setBrush(st::boxBg);
 		p.drawRoundedRect(
 			island->rect(),
-			st::localStorageIslandRadius,
-			st::localStorageIslandRadius);
+			style::CornerRadius(st::localStorageIslandRadius),
+			style::CornerRadius(st::localStorageIslandRadius));
 	}, island->lifetime());
 	const auto selector = island->add(
 		object_ptr<TabbedSelector>(

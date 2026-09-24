@@ -34,6 +34,13 @@ void PaintVideoCornerStatus(
 	const Ui::ChatPaintContext &context,
 	const VideoCornerStatus &status);
 
+void PaintWhiteVideoStatusText(
+	Painter &p,
+	QPoint position,
+	int outerWidth,
+	const QString &text,
+	int textWidth);
+
 [[nodiscard]] QRect VideoCornerDownloadRect(QPoint position);
 
 void PaintVideoTimestampMark(

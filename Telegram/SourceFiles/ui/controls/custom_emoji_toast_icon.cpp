@@ -44,7 +44,7 @@ object_ptr<RpWidget> MakeCustomEmojiToastIcon(
 			(raw->width() - esize) / 2,
 			(raw->height() - esize) / 2);
 		state->emoji->paint(p, {
-			.textColor = st::toastFg->c,
+			.textColor = st::classicMenuText->c,
 			.now = crl::now(),
 			.position = position,
 		});

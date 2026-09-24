@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/edit_peer_color_box.h"
 
+#include "ui/style/style_radius.h"
+#include "ui/style/style_classic.h"
+
 #include "apiwrap.h"
 #include "api/api_peer_colors.h"
 #include "api/api_peer_photo.h"
@@ -53,7 +56,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/controls/button_labels.h"
-#include "ui/controls/sub_tabs.h"
 #include "ui/effects/path_shift_gradient.h"
 #include "ui/effects/premium_graphics.h"
 #include "ui/layers/generic_box.h"
@@ -66,16 +68,21 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rect.h"
 #include "ui/vertical_list.h"
 #include "window/themes/window_theme.h"
+#include "window/window_controller.h"
 #include "window/section_widget.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
 #include "styles/style_chat.h"
 #include "styles/style_credits.h"
 #include "styles/style_info.h" // defaultSubTabs, infoProfileTabsStrip.
+#include "styles/style_info_profile_top_bar.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
 #include "styles/style_widgets.h"
+
+#include <QtWidgets/QTabBar>
+#include <QtCore/QSignalBlocker>
 
 namespace {
 
@@ -84,6 +91,7 @@ using namespace Settings;
 constexpr auto kFakeChannelId = ChannelId(0xFFFFFFF000ULL);
 constexpr auto kFakeWebPageId = WebPageId(0xFFFFFFFF00000000ULL);
 constexpr auto kUnsetColorIndex = uint8(0xFF);
+constexpr auto kColorGiftsPerRow = 3;
 
 base::unique_qptr<Ui::RpWidget> CreateEmptyPlaceholder(
 		not_null<Ui::RpWidget*> parent,
@@ -471,7 +479,7 @@ void LevelBadge::paintEvent(QPaintEvent *e) {
 	auto gradient = QLinearGradient(QPointF(0, 0), QPointF(width(), 0));
 	gradient.setStops(Ui::Premium::ButtonGradientStops());
 	p.setBrush(gradient);
-	p.drawRoundedRect(rect(), radius, radius);
+	p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 
 	p.setPen(st::premiumButtonFg);
 	p.setBrush(Qt::NoBrush);
@@ -727,7 +735,8 @@ void Apply(
 		bool profileIndices) {
 	const auto button = ButtonStyleWithRightEmoji(
 		parent,
-		tr::lng_settings_color_emoji_off(tr::now));
+		tr::lng_settings_color_emoji_off(tr::now),
+		st::peerColorEmojiButton);
 	auto result = Settings::CreateButtonWithIcon(
 		parent,
 		!profileIndices
@@ -736,7 +745,7 @@ void Apply(
 			? tr::lng_settings_color_profile_emoji_channel()
 			: tr::lng_settings_color_profile_emoji(),
 		*button.st,
-		{ &st::menuBlueIconColorNames });
+		{ &st::peerColorEmojiIcon });
 	const auto raw = result.data();
 
 	const auto right = Ui::CreateChild<Ui::RpWidget>(raw);
@@ -812,7 +821,7 @@ void Apply(
 				},
 			});
 		} else {
-			const auto &font = st::normalFont;
+			const auto &font = button.st->style.font;
 			p.setFont(font);
 			p.setPen(style->windowActiveTextFg());
 			p.drawText(
@@ -942,7 +951,7 @@ void Apply(
 					(height - button.emojiWidth) / 2),
 			});
 		} else {
-			const auto &font = st::normalFont;
+			const auto &font = button.st->style.font;
 			p.setFont(font);
 			p.setPen(st::windowActiveTextFg);
 			p.drawText(
@@ -1101,7 +1110,7 @@ void Apply(
 
 struct ColorGiftTabsResult {
 	Fn<void()> switchToNext;
-	QPointer<Ui::SubTabs> tabs;
+	QPointer<Ui::RpWidget> tabs;
 };
 
 ColorGiftTabsResult AddColorGiftTabs(
@@ -1113,9 +1122,24 @@ ColorGiftTabsResult AddColorGiftTabs(
 
 	struct State {
 		rpl::variable<std::vector<Data::StarGift>> list;
-		Ui::SubTabs *tabs = nullptr;
 	};
 	const auto state = container->lifetime().make_state<State>();
+	const auto wrap = container->add(
+		object_ptr<Ui::RpWidget>(container),
+		QMargins(0, st::giftBoxTabsMargin.top(), 0, st::giftBoxTabsMargin.bottom()));
+	const auto tabs = Ui::CreateClassicTabBar(wrap);
+	tabs->setUsesScrollButtons(true);
+	tabs->setElideMode(Qt::ElideNone);
+	tabs->show();
+	wrap->widthValue() | rpl::on_next([=](int width) {
+		tabs->resize(width, tabs->sizeHint().height());
+		wrap->resize(width, tabs->height());
+	}, wrap->lifetime());
+	QObject::connect(tabs, &QTabBar::currentChanged, wrap, [=](int index) {
+		if (index >= 0) {
+			chosen(tabs->tabData(index).toULongLong());
+		}
+	});
 
 	GiftsStars(
 		session,
@@ -1130,58 +1154,52 @@ ColorGiftTabsResult AddColorGiftTabs(
 		state->list = std::move(filtered);
 	}, container->lifetime());
 
-	state->list.value(
-	) | rpl::on_next([=](const std::vector<Data::StarGift> &list) {
-		auto tabs = std::vector<Ui::SubTabs::Tab>();
-		tabs.push_back({
-			.id = u"my"_q,
-			.text = tr::lng_gift_stars_tabs_my(tr::now, tr::marked),
-		});
+	rpl::combine(
+		state->list.value(),
+		tr::lng_gift_stars_tabs_my()
+	) | rpl::on_next([=](
+			const std::vector<Data::StarGift> &list,
+			const QString &myGifts) {
+		const auto selected = tabs->tabData(tabs->currentIndex()).toULongLong();
+		const auto blocker = QSignalBlocker(tabs);
+		while (tabs->count()) {
+			tabs->removeTab(tabs->count() - 1);
+		}
+		tabs->addTab(myGifts);
+		tabs->setTabData(0, QVariant::fromValue(qulonglong(0)));
+		auto active = 0;
 		for (const auto &gift : list) {
-			auto text = TextWithEntities();
-			tabs.push_back({
-				.id = QString::number(gift.id),
-				.text = Data::SingleCustomEmoji(
-					gift.document).append(' ').append(gift.resellTitle),
-			});
+			const auto index = tabs->addTab(gift.resellTitle);
+			tabs->setTabData(index, QVariant::fromValue(qulonglong(gift.id)));
+			const auto icon = Ui::CreateChild<Ui::FlatLabel>(
+				tabs,
+				st::defaultFlatLabel);
+			icon->setMarkedText(
+				Data::SingleCustomEmoji(gift.document),
+				Core::TextContext({ .session = session }));
+			icon->resizeToNaturalWidth(st::infoProfileTopBarGiftSize);
+			icon->setAttribute(Qt::WA_TransparentForMouseEvents);
+			tabs->setTabButton(index, QTabBar::LeftSide, icon);
+			if (gift.id == selected) {
+				active = index;
+			}
 		}
-		const auto context = Core::TextContext({
-			.session = session,
-		});
-		if (!state->tabs) {
-			state->tabs = container->add(
-				object_ptr<Ui::SubTabs>(
-					container,
-					st::defaultSubTabs,
-					Ui::SubTabs::Options{
-						.selected = u"my"_q,
-						.centered = true,
-					},
-					std::move(tabs),
-					context));
-
-			state->tabs->activated(
-			) | rpl::on_next([=](const QString &id) {
-				state->tabs->setActiveTab(id);
-				chosen(id.toULongLong());
-			}, state->tabs->lifetime());
-		} else {
-			state->tabs->setTabs(std::move(tabs), context);
-		}
+		tabs->setCurrentIndex(active);
+		tabs->resize(wrap->width(), tabs->sizeHint().height());
+		wrap->resize(wrap->width(), tabs->height());
 		container->resizeToWidth(container->width());
+		if (selected && !active) {
+			chosen(0);
+		}
 	}, container->lifetime());
 
 	return {
 		.switchToNext = [=]() {
-			const auto &list = state->list.current();
-			if (!list.empty()) {
-				if (state->tabs) {
-					state->tabs->setActiveTab(QString::number(list.front().id));
-				}
-				chosen(list.front().id);
+			if (tabs->count() > 1) {
+				tabs->setCurrentIndex(1);
 			}
 		},
-		.tabs = state->tabs,
+		.tabs = wrap,
 	};
 }
 
@@ -1215,7 +1233,7 @@ void AddGiftSelector(
 		rpl::variable<Ui::VisibleRange> visibleRange;
 		rpl::variable<uint64> selected;
 		rpl::variable<uint64> selectedGiftId;
-		int perRow = 1;
+		QSize single;
 		base::unique_qptr<Ui::RpWidget> emptyPlaceholder;
 
 		Fn<void()> loadMore;
@@ -1245,11 +1263,8 @@ void AddGiftSelector(
 				entry.loading.destroy();
 				entry.offset = slice.offset;
 				entry.loaded = entry.offset.isEmpty();
-				if (state->showingGiftId.current() != shownGiftId) {
-					return;
-				}
 
-				auto &list = state->current->list;
+				auto &list = entry.list;
 				for (const auto &gift : slice.list) {
 					if (gift.unique && (profile || gift.unique->peerColor)) {
 						list.push_back({
@@ -1259,7 +1274,11 @@ void AddGiftSelector(
 						});
 					}
 				}
-				state->resize();
+				crl::on_main(raw, [=] {
+					if (state->showingGiftId.current() == shownGiftId) {
+						state->resize();
+					}
+				});
 			});
 		} else {
 			state->current->loading = Data::MyUniqueGiftsSlice(
@@ -1271,24 +1290,28 @@ void AddGiftSelector(
 				entry.loading.destroy();
 				entry.offset = slice.offset;
 				entry.loaded = entry.offset.isEmpty();
-				if (state->showingGiftId.current() != shownGiftId) {
-					return;
-				}
 
-				auto &list = state->current->list;
+				auto &list = entry.list;
 				for (const auto &gift : slice.list) {
 					if (gift.info.unique
 						&& (profile || gift.info.unique->peerColor)) {
 						list.push_back({ .info = gift.info });
 					}
 				}
-				state->resize();
+				crl::on_main(raw, [=] {
+					if (state->showingGiftId.current() == shownGiftId) {
+						state->resize();
+					}
+				});
 			});
 		}
 	};
 	state->rebuild = [=] {
+		if (state->single.isEmpty()) {
+			return;
+		}
 		const auto shownGiftId = state->showingGiftId.current();
-		const auto width = st::boxWideWidth;
+		const auto width = raw->width();
 		const auto padding = st::giftBoxPadding;
 		const auto available = width - padding.left() - padding.right();
 		const auto range = state->visibleRange.current();
@@ -1303,8 +1326,8 @@ void AddGiftSelector(
 
 		auto x = padding.left();
 		auto y = padding.top();
-		const auto single = state->delegate->buttonSize();
-		const auto perRow = state->perRow;
+		const auto single = state->single;
+		const auto perRow = kColorGiftsPerRow;
 		const auto singlew = single.width() + st::giftBoxGiftSkip.x();
 		const auto singleh = single.height() + st::giftBoxGiftSkip.y();
 		const auto rowFrom = std::max(range.top - y, 0) / singleh;
@@ -1442,16 +1465,23 @@ void AddGiftSelector(
 		}
 	};
 
-	const auto width = st::boxWideWidth;
 	const auto padding = st::giftBoxPadding;
-	const auto available = width - padding.left() - padding.right();
-	state->perRow = available / state->delegate->buttonSize().width();
 
 	state->resize = [=] {
+		const auto width = raw->width();
+		const auto available = width - padding.left() - padding.right();
+		const auto singleWidth = (available - (kColorGiftsPerRow - 1) * st::giftBoxGiftSkip.x()) / kColorGiftsPerRow;
+		if (singleWidth <= 0 || !state->current) {
+			return;
+		}
+		state->single = QSize(singleWidth, state->delegate->buttonSize().height());
 		const auto count = int(state->current->list.size());
 		state->validated.clear();
 
-		if (count == 0 && state->showingGiftId.current() == 0) {
+		if (count == 0 && state->showingGiftId.current() == 0 && state->current->loaded) {
+			if (state->emptyPlaceholder && state->emptyPlaceholder->width() != width) {
+				state->emptyPlaceholder = nullptr;
+			}
 			if (!state->emptyPlaceholder) {
 				state->emptyPlaceholder = CreateEmptyPlaceholder(
 					raw,
@@ -1466,10 +1496,10 @@ void AddGiftSelector(
 			state->emptyPlaceholder = nullptr;
 		}
 
-		const auto rows = (count + state->perRow - 1) / state->perRow;
+		const auto rows = (count + kColorGiftsPerRow - 1) / kColorGiftsPerRow;
 		const auto height = padding.top()
 			+ (rows * state->delegate->buttonSize().height())
-			+ ((rows - 1) * st::giftBoxGiftSkip.y())
+			+ (std::max(rows - 1, 0) * st::giftBoxGiftSkip.y())
 			+ padding.bottom();
 		raw->resize(raw->width(), height);
 
@@ -1487,7 +1517,10 @@ void AddGiftSelector(
 			? GiftButtonMode::Full
 			: GiftButtonMode::Minimal);
 		state->resize();
+		state->loadMore();
 	}, raw->lifetime());
+
+	raw->widthValue() | rpl::on_next(state->resize, raw->lifetime());
 
 	state->visibleRange = raw->visibleRange();
 	state->visibleRange.value(
@@ -1498,38 +1531,33 @@ Fn<void(int)> CreateTabsWidget(
 		not_null<Ui::VerticalLayout*> container,
 		const std::vector<QString> &labels,
 		const std::vector<Fn<void()>> &callbacks) {
-	const auto tabs = container->add(
-		object_ptr<Info::Profile::TabsStrip>(
-			container,
-			st::infoProfileTabsStrip),
-		st::boxRowPadding,
-		style::al_top);
-
-	auto list = std::vector<Info::Profile::StripTab>();
-	list.reserve(labels.size());
-	for (auto i = 0, count = int(labels.size()); i != count; ++i) {
-		list.push_back({
-			.id = QString::number(i),
-			.text = { labels[i] },
-		});
+	auto owned = object_ptr<Ui::RpWidget>(container);
+	const auto wrap = owned.data();
+	const auto tabs = Ui::CreateClassicTabBar(wrap);
+	for (const auto &label : labels) {
+		tabs->addTab(label);
 	}
-	tabs->setTabs(std::move(list));
-	tabs->setActiveTab(u"0"_q);
+	tabs->setCurrentIndex(0);
+	wrap->widthValue() | rpl::on_next([=](int width) {
+		tabs->resize(width, tabs->sizeHint().height());
+		wrap->resize(width, tabs->height());
+	}, wrap->lifetime());
+	tabs->show();
+	container->add(std::move(owned));
 
 	const auto invoke = [=](int index) {
 		if (index >= 0 && index < int(callbacks.size()) && callbacks[index]) {
 			callbacks[index]();
 		}
 	};
-	tabs->activated(
-	) | rpl::on_next([=](const QString &id) {
-		tabs->setActiveTab(id);
-		invoke(id.toInt());
-	}, tabs->lifetime());
+	QObject::connect(tabs, &QTabBar::currentChanged, wrap, invoke);
 
 	return [=](int index) {
-		tabs->setActiveTab(QString::number(index));
-		invoke(index);
+		if (tabs->currentIndex() == index) {
+			invoke(index);
+		} else {
+			tabs->setCurrentIndex(index);
+		}
 	};
 }
 
@@ -1664,7 +1692,7 @@ void AddLevelBadge(
 struct ColorSectionHighlights {
 	QPointer<Ui::SettingsButton> emojiButton;
 	QPointer<Ui::SettingsButton> resetButton;
-	QPointer<Ui::SubTabs> giftTabs;
+	QPointer<Ui::RpWidget> giftTabs;
 };
 
 void EditPeerColorSection(
@@ -1852,6 +1880,9 @@ void EditPeerColorSection(
 			state->index.value(),
 			state->emojiId.value(),
 			state->collectible.value()));
+		if (peer->isSelf()) {
+			container = container->add(object_ptr<Ui::VerticalLayout>(container));
+		}
 
 		auto indices = peer->session().api().peerColors().suggestedValue();
 		const auto margin = st::settingsColorRadioMargin;
@@ -2138,6 +2169,7 @@ void EditPeerProfileColorSection(
 	ProcessButton(button);
 
 	const auto preview = CreateProfilePreview(box, container, show, peer);
+	container = container->add(object_ptr<Ui::VerticalLayout>(container));
 
 	const auto peerColors = &peer->session().api().peerColors();
 	const auto indices = peerColors->profileColorIndices();
@@ -2414,43 +2446,46 @@ void EditPeerColorBox(
 			Window::Theme::DefaultChatThemeOn(box->lifetime()));
 		style->apply(theme.get());
 	}
+	const auto parent = controller->window().widget()->bodyWidget();
+	const auto fixedHeight = parent->height();
+	box->setMinHeight(fixedHeight);
+	box->setMaxHeight(fixedHeight);
 	box->setTitle(peer->isSelf()
 		? tr::lng_settings_color_title()
 		: tr::lng_edit_channel_color());
 	box->setWidth(st::boxWideWidth);
-	box->setStyle(st::giftBox);
+	box->setStyle(st::peerColorBox);
 	box->addTopButton(st::boxTitleClose, [=] {
 		box->closeBox();
 	});
+	const auto content = box->verticalLayout();
 	if (peer->isChannel()) {
+		const auto inner = content->add(object_ptr<Ui::VerticalLayout>(content));
 		const auto button = box->addButton(
 			tr::lng_settings_color_apply(),
 			[] {});
-		EditPeerColorSection(box, box->verticalLayout(), button, show, peer, style, theme, nullptr);
+		EditPeerColorSection(box, inner, button, show, peer, style, theme, nullptr);
 		return;
 	}
 	const auto buttonContainer = box->addButton(
 		rpl::single(QString()),
 		[] {});
-	const auto content = box->verticalLayout();
 
 	const auto profileButton = Ui::CreateChild<Ui::RoundButton>(
 		buttonContainer,
 		tr::lng_settings_color_apply(),
-		box->getDelegate()->style().button);
-	profileButton->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+		st::peerColorApplyButton);
 	const auto nameButton = Ui::CreateChild<Ui::RoundButton>(
 		buttonContainer,
 		tr::lng_settings_color_apply(),
-		box->getDelegate()->style().button);
-	nameButton->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+		st::peerColorApplyButton);
 	rpl::combine(
 		buttonContainer->widthValue(),
 		profileButton->sizeValue(),
 		nameButton->sizeValue()
 	) | rpl::on_next([=](int w, QSize, QSize) {
-		profileButton->resizeToWidth(w);
-		nameButton->resizeToWidth(w);
+		profileButton->moveToLeft((w - profileButton->width()) / 2, 0);
+		nameButton->moveToLeft((w - nameButton->width()) / 2, 0);
 	}, buttonContainer->lifetime());
 
 	auto nameOwned = object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -2627,11 +2662,11 @@ void SetupPeerColorSample(
 			std::optional<uint8> profileIndex,
 			EmojiStatusId emojiStatusId,
 			const QString &name) {
-		const auto available = width
-			- st::settingsButton.padding.left()
+		const auto available = std::max(width
+			- button->st().padding.left()
 			- (st::settingsColorButton.padding.right() - sampleSize)
-			- st::settingsButton.style.font->width(buttonText)
-			- st::settingsButtonRightSkip;
+			- button->st().style.font->width(buttonText)
+			- st::settingsButtonRightSkip, 0);
 
 		const auto hasEmojiStatus = emojiStatusId
 			&& emojiStatusId.collectible;
@@ -2818,9 +2853,10 @@ ButtonWithEmoji ButtonStyleWithRightEmoji(
 	const auto ratio = style::DevicePixelRatio();
 	const auto emojiWidth = Data::FrameSizeFromTag({}) / ratio;
 
-	const auto noneWidth = st::normalFont->width(noneString);
+	const auto font = parentSt.style.font;
+	const auto noneWidth = font->width(noneString);
 
-	const auto added = st::normalFont->spacew;
+	const auto added = font->spacew;
 	const auto rightAdded = std::max(noneWidth, emojiWidth);
 	return {
 		.st = ButtonStyleWithAddedPadding(

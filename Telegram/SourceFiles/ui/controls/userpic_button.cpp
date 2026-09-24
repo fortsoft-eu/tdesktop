@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/userpic_button.h"
 
+#include "ui/style/style_radius.h"
 #include "apiwrap.h"
 #include "api/api_peer_photo.h"
 #include "ui/effects/upload_progress_overlay.h"
@@ -147,7 +148,7 @@ void SetupSubButtonBackground(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setBrush(st::boxBg);
 		p.setPen(Qt::NoPen);
-		p.drawEllipse(background->rect());
+		p.drawRect(background->rect());
 	}, background->lifetime());
 
 	upload->positionValue(
@@ -791,7 +792,7 @@ QImage UserpicButton::prepareRippleMask() const {
 		? Ui::RippleAnimation::RoundRectMask(
 			size,
 			int(_st.photoSize * Ui::ForumUserpicRadiusMultiplier()))
-		: Ui::RippleAnimation::EllipseMask(size);
+		: Ui::RippleAnimation::RectMask(size);
 }
 
 QPoint UserpicButton::prepareRippleStartPosition() const {
@@ -1231,9 +1232,9 @@ void UserpicButton::fillShape(QPainter &p, QBrush brush) const {
 	const auto size = _st.photoSize;
 	if (useForumShape()) {
 		const auto radius = size * Ui::ForumUserpicRadiusMultiplier();
-		p.drawRoundedRect(0, 0, size, size, radius, radius);
+		p.drawRoundedRect(0, 0, size, size, style::CornerRadius(radius), style::CornerRadius(radius));
 	} else {
-		p.drawEllipse(0, 0, size, size);
+		p.drawRect(0, 0, size, size);
 	}
 }
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/star_gift_craft_animation.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "base/unixtime.h"
 #include "boxes/star_gift_box.h"
@@ -441,9 +442,9 @@ void PaintCubeFirstFlight(
 	const auto radius = (1. - progress) * st::boxRadius;
 	p.setPen(Qt::NoPen);
 	p.setBrush(overlayBg);
-	p.drawRoundedRect(forge, radius, radius);
+	p.drawRoundedRect(forge, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setBrush(sideBg);
-	p.drawRoundedRect(forge, radius, radius);
+	p.drawRoundedRect(forge, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	if (!skipForgeIcon) {
 		st::craftForge.paintInCenter(p, forge, st::white->c);
@@ -541,7 +542,7 @@ void FailureAnimationPrepareFrame(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setBrush(bg);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	} else {
 		p.fillRect(rect, bg);
 	}
@@ -937,7 +938,7 @@ void PaintSlideOutPhase(
 	const auto radius = st::boxRadius;
 	p.setPen(Qt::NoPen);
 	p.setBrush(shared->forgeBgOverlay);
-	p.drawRoundedRect(forge, radius, radius);
+	p.drawRoundedRect(forge, style::CornerRadius(radius), style::CornerRadius(radius));
 	st::craftForge.paintInCenter(p, forge, st::white->c);
 	p.setOpacity(1. - progress);
 	p.drawImage(
@@ -1481,7 +1482,7 @@ void SetupProgressControls(
 			p.setOpacity(opacity);
 			p.setBrush(state->shared->forgeBgOverlay);
 			const auto radius = chance->height() / 2.;
-			p.drawRoundedRect(chance->rect(), radius, radius);
+			p.drawRoundedRect(chance->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 	});
 

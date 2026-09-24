@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_media_unwrapped.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_session.h"
 #include "history/history.h"
 #include "history/view/media/history_view_ephemeral_plate.h"
@@ -327,8 +328,8 @@ void UnwrappedMedia::drawSurrounding(
 				const auto recth = surrounding.topicSize.height();
 				p.drawRoundedRect(
 					QRect{ rectx, recty, rectw, recth },
-					recth / 2,
-					recth / 2);
+					style::CornerRadius(recth / 2),
+					style::CornerRadius(recth / 2));
 			}
 
 			p.setPen(st->msgServiceFg());

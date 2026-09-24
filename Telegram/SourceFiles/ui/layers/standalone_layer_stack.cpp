@@ -85,7 +85,9 @@ StandaloneShow::operator bool() const {
 
 } // namespace
 
-StandaloneLayerStack::StandaloneLayerStack() = default;
+StandaloneLayerStack::StandaloneLayerStack(QWidget *parent)
+: _parent(parent) {
+}
 
 StandaloneLayerStack::~StandaloneLayerStack() {
 	for (auto &entry : base::take(_entries)) {
@@ -105,10 +107,23 @@ void StandaloneLayerStack::showBox(
 		_entries.back().panel->hideForStacking();
 	}
 	auto panel = base::make_unique_q<SeparatePanel>(SeparatePanelArgs{
+		.parent = _parent,
 		.anchorGeometry = _anchorGeometry,
 		.transientParent = _transientParent,
 	});
 	panel->setWindowFlag(Qt::WindowStaysOnTopHint, false);
+	if (!_toolWindowTitle.isEmpty()) {
+		panel->setProperty("classicToolWindow", true);
+		box->setProperty("classicFormFrame", false);
+		panel->setAttribute(Qt::WA_NoSystemBackground, false);
+		panel->setAttribute(Qt::WA_TranslucentBackground, false);
+		panel->setWindowFlags(Qt::WindowFlags(Qt::Tool)
+			| Qt::WindowTitleHint
+			| Qt::WindowSystemMenuHint
+			| Qt::WindowCloseButtonHint);
+		panel->setWindowTitle(_toolWindowTitle);
+		panel->setAttribute(Qt::WA_QuitOnClose, false);
+	}
 	panel->setAttribute(Qt::WA_DeleteOnClose, false);
 	panel->setTitleHeight(0);
 	panel->setCloseAllowed(false);
@@ -171,6 +186,10 @@ void StandaloneLayerStack::setAnchor(
 	for (const auto &entry : _entries) {
 		entry.panel->setAnchorData(_anchorGeometry, _transientParent);
 	}
+}
+
+void StandaloneLayerStack::setToolWindowTitle(QString title) {
+	_toolWindowTitle = std::move(title);
 }
 
 ShowFactory StandaloneLayerStack::showFactory() {

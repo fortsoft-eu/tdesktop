@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_service_message.h"
 
+#include "ui/style/style_classic.h"
 #include "history/view/media/history_view_media.h"
 #include "history/view/reactions/history_view_reactions.h"
 #include "history/view/history_view_cursor_state.h"
@@ -30,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_forum_topic.h"
 #include "lang/lang_keys.h"
 #include "styles/style_chat.h"
+#include "styles/style_chat_style.h"
 #include "styles/style_info.h"
 
 namespace HistoryView {
@@ -150,7 +152,7 @@ void PaintPreparedDate(
 		Painter &p,
 		const style::color &bg,
 		const Ui::CornersPixmaps &corners,
-		const style::color &fg,
+		const style::color &,
 		const QString &dateText,
 		int dateTextWidth,
 		int y,
@@ -173,18 +175,19 @@ void PaintPreparedDate(
 			y + st::msgServiceMargin.top(),
 			dateTextWidth
 				+ st::msgServicePadding.left()
-				+ st::msgServicePadding.left(),
+				+ st::msgServicePadding.right(),
 			height));
 
-	p.setFont(st::msgServiceFont);
-	p.setPen(fg);
-	p.drawText(
-		left + st::msgServicePadding.left(),
-		(y
-			+ st::msgServiceMargin.top()
-			+ st::msgServicePadding.top()
-			+ st::msgServiceFont->ascent),
-		dateText);
+	p.setFont(st::classicSettingsFont);
+	Ui::PaintClassicText(
+		p,
+		QPointF(
+			left + st::msgServicePadding.left(),
+			y + st::msgServiceMargin.top() + st::msgServicePadding.top()
+				+ (st::msgServiceFont->height - st::classicSettingsFont->height) / 2
+				+ st::classicSettingsFont->ascent),
+		dateText,
+		QColor(255, 255, 255));
 }
 
 bool NeedAboutGroup(not_null<History*> history) {
@@ -225,7 +228,7 @@ void ServiceMessagePainter::PaintDate(
 	PaintDate(
 		p,
 		st,
-		langDayOfMonthFull(date.date()),
+		langDayOfMonthFull(date.date(), true),
 		y,
 		w,
 		chatWide);
@@ -242,7 +245,7 @@ void ServiceMessagePainter::PaintDate(
 		p,
 		st,
 		dateText,
-		st::msgServiceFont->width(dateText),
+		st::classicSettingsFont->width(dateText),
 		y,
 		w,
 		chatWide);
@@ -303,6 +306,30 @@ void ServiceMessagePainter::PaintBubble(
 		const Ui::CornersPixmaps &corners,
 		QRect rect) {
 	Ui::FillRoundRect(p, rect, bg, corners);
+}
+
+const style::TextPalette &ServiceMessagePainter::WhiteTextPalette() {
+	static const auto white = style::owned_color(Qt::white);
+	static const auto result = [] {
+		auto result = st::serviceTextPalette;
+		result.linkFg = white.color();
+		result.monoFg = white.color();
+		result.spoilerFg = white.color();
+		result.selectFg = white.color();
+		result.selectLinkFg = white.color();
+		result.selectMonoFg = white.color();
+		result.selectSpoilerFg = white.color();
+		return result;
+	}();
+	return result;
+}
+
+void ServiceMessagePainter::PaintWhiteText(Painter &p, const Ui::Text::String &text, Ui::Text::PaintContext context) {
+	p.save();
+	p.setPen(Qt::white);
+	context.palette = &WhiteTextPalette();
+	text.draw(p, context);
+	p.restore();
 }
 
 void ServiceMessagePainter::PaintComplexBubble(
@@ -679,15 +706,12 @@ void Service::draw(Painter &p, const PaintContext &context) const {
 			trect);
 		p.translate(0, -g.top() + st::msgServiceMargin.top());
 
-		p.setBrush(Qt::NoBrush);
-		p.setPen(st->msgServiceFg());
 		p.setFont(st::msgServiceFont);
 		prepareCustomEmojiPaint(p, context, text());
-		text().draw(p, {
+		ServiceMessagePainter::PaintWhiteText(p, text(), {
 			.position = trect.topLeft(),
 			.availableWidth = trect.width(),
 			.align = style::al_top,
-			.palette = &st->serviceTextPalette(),
 			.spoiler = Ui::Text::DefaultSpoilerCache(),
 			.now = context.now,
 			.pausedEmoji = context.paused || On(PowerSaving::kEmojiChat),

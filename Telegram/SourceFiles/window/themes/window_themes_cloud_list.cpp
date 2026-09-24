@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/themes/window_themes_cloud_list.h"
 
+#include "ui/style/style_radius.h"
 #include "base/call_delayed.h"
 #include "ui/emoji_config.h"
 #include "window/themes/window_themes_embedded.h"
@@ -355,7 +356,7 @@ void CloudListCheck::paintNotSupported(
 	const auto height = getSize().height();
 	const auto rect = QRect(0, 0, outerWidth, height);
 	const auto radius = st::roundRadiusLarge;
-	p.drawRoundedRect(rect, radius, radius);
+	p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	st::settingsThemeNotSupportedIcon.paintInCenter(p, rect);
 }
 
@@ -385,9 +386,9 @@ void CloudListCheck::paintWithColors(
 	p.setPen(Qt::NoPen);
 
 	p.setBrush(_colors->received);
-	p.drawRoundedRect(style::rtlrect(received, outerWidth), radius, radius);
+	p.drawRoundedRect(style::rtlrect(received, outerWidth), style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setBrush(_colors->sent);
-	p.drawRoundedRect(style::rtlrect(sent, outerWidth), radius, radius);
+	p.drawRoundedRect(style::rtlrect(sent, outerWidth), style::CornerRadius(radius), style::CornerRadius(radius));
 
 	if (_emoji) {
 		paintEmoji(p, outerWidth);
@@ -435,8 +436,8 @@ void CloudListCheck::paintOutline(QPainter &p, int outerWidth) {
 			inset,
 			-inset,
 			-inset),
-		radius,
-		radius);
+		style::CornerRadius(radius),
+		style::CornerRadius(radius));
 	p.setOpacity(1.);
 }
 

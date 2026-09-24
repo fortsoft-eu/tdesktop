@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/filters/edit_filter_box.h"
 
+#include "ui/style/style_classic.h"
 #include "apiwrap.h"
 #include "base/event_filter.h"
 #include "boxes/filters/edit_filter_chats_list.h"
@@ -512,6 +513,9 @@ void EditFilterBox(
 		Fn<void(
 			const Data::ChatFilter &data,
 			Fn<void(Data::ChatFilter)> next)> saveAnd) {
+	const auto boxStyle = box->lifetime().make_state<style::Box>(st::defaultBox);
+	boxStyle->title.style.font = st::classicActionFont;
+	box->setStyle(*boxStyle);
 	using namespace rpl::mappers;
 	constexpr auto kColorsCount = 8;
 	constexpr auto kNoTag = kColorsCount - 1;
@@ -579,6 +583,10 @@ void EditFilterBox(
 	}, box->lifetime());
 
 	const auto content = box->verticalLayout();
+	const auto sectionTitle = box->lifetime().make_state<style::FlatLabel>(
+		st::defaultSubsectionTitle);
+	sectionTitle->style.font = st::classicActionFont;
+	sectionTitle->textFg = st::classicMenuText;
 	const auto current = state->title.current();
 	const auto name = content->add(
 		object_ptr<Ui::InputField>(
@@ -653,14 +661,19 @@ void EditFilterBox(
 	}, box->lifetime());
 
 	using Selector = ChatHelpers::TabbedSelector;
+	auto emojiSelector = object_ptr<Selector>(
+		nullptr,
+		window->uiShow(),
+		Window::GifPauseReason::Layer,
+		Selector::Mode::EmojiOnly);
 	state->emojiPanel = base::make_unique_q<ChatHelpers::TabbedPanel>(
-		box->getDelegate()->outerContainer(),
-		window,
-		object_ptr<Selector>(
-			nullptr,
-			window->uiShow(),
-			Window::GifPauseReason::Layer,
-			Selector::Mode::EmojiOnly));
+		window->window().widget()->bodyWidget(),
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = window,
+			.ownedSelector = std::move(emojiSelector),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
+		});
 	state->emojiPanel->setDesiredHeightValues(
 		1.,
 		st::emojiPanMinHeight / 2,
@@ -746,12 +759,12 @@ void EditFilterBox(
 	Ui::AddSkip(content);
 	Ui::AddDivider(content);
 	Ui::AddSkip(content);
-	Ui::AddSubsectionTitle(content, tr::lng_filters_include());
+	Ui::AddSubsectionTitle(content, tr::lng_filters_include(), {}, sectionTitle);
 
 	const auto includeAdd = AddButtonWithIcon(
 		content,
 		tr::lng_filters_add_chats(),
-		st::settingsButtonActive,
+		st::filterEditButton,
 		{ &st::settingsIconAdd, IconType::Round, &st::windowBgActive });
 
 	const auto include = SetupChatsPreview(
@@ -762,7 +775,11 @@ void EditFilterBox(
 		&Data::ChatFilter::always);
 
 	Ui::AddSkip(content);
-	Ui::AddDividerText(content, tr::lng_filters_include_about());
+	Ui::AddDividerText(
+		content,
+		tr::lng_filters_include_about(),
+		st::defaultBoxDividerLabelPadding,
+		st::filterAboutDividerLabel);
 	Ui::AddSkip(content);
 
 	auto excludeWrap = content->add(
@@ -773,12 +790,16 @@ void EditFilterBox(
 	excludeWrap->toggleOn(state->chatlist.value() | rpl::map(!_1));
 	const auto excludeInner = excludeWrap->entity();
 
-	Ui::AddSubsectionTitle(excludeInner, tr::lng_filters_exclude());
+	Ui::AddSubsectionTitle(
+		excludeInner,
+		tr::lng_filters_exclude(),
+		{},
+		sectionTitle);
 
 	const auto excludeAdd = AddButtonWithIcon(
 		excludeInner,
 		tr::lng_filters_remove_chats(),
-		st::settingsButtonActive,
+		st::filterEditButton,
 		{ &st::settingsIconRemove, IconType::Round, &st::windowBgActive });
 
 	const auto exclude = SetupChatsPreview(
@@ -789,7 +810,11 @@ void EditFilterBox(
 		&Data::ChatFilter::never);
 
 	Ui::AddSkip(excludeInner);
-	Ui::AddDividerText(excludeInner, tr::lng_filters_exclude_about());
+	Ui::AddDividerText(
+		excludeInner,
+		tr::lng_filters_exclude_about(),
+		st::defaultBoxDividerLabelPadding,
+		st::filterAboutDividerLabel);
 	Ui::AddSkip(excludeInner);
 
 	{
@@ -820,7 +845,7 @@ void EditFilterBox(
 		const auto title = Ui::CreateChild<Ui::FlatLabel>(
 			titleWrap,
 			tr::lng_filters_tag_color_subtitle(),
-			st::defaultSubsectionTitle);
+			st::filterTagColorTitle);
 		title->move(rect::m::pos::tl(padding));
 		const auto preview = Ui::CreateChild<Ui::RpWidget>(titleWrap);
 		rpl::combine(
@@ -862,8 +887,8 @@ void EditFilterBox(
 			p.drawImage(rect.topLeft(), tag->frame);
 			if (p.opacity() < 1) {
 				p.setOpacity(1. - p.opacity());
-				p.setFont(st::normalFont);
-				p.setPen(st::windowSubTextFg);
+				p.setFont(st::classicSettingsFont);
+				p.setPen(Qt::black);
 				p.drawText(
 					preview->rect().translated(-shift, 0) - st::boxRowPadding,
 					tr::lng_filters_tag_color_no(tr::now),
@@ -974,7 +999,11 @@ void EditFilterBox(
 
 		Ui::AddSkip(colors);
 		Ui::AddSkip(colors);
-		Ui::AddDividerText(colors, tr::lng_filters_tag_color_about());
+		Ui::AddDividerText(
+			colors,
+			tr::lng_filters_tag_color_about(),
+			st::defaultBoxDividerLabelPadding,
+			st::filterAboutDividerLabel);
 		Ui::AddSkip(colors);
 	}
 
@@ -1011,7 +1040,9 @@ void EditFilterBox(
 		rpl::conditional(
 			state->hasLinks.value(),
 			tr::lng_filters_link_has(),
-			tr::lng_filters_link()));
+			tr::lng_filters_link()),
+		{},
+		sectionTitle);
 
 	state->hasLinks.changes() | rpl::on_next([=] {
 		content->resizeToWidth(content->widthNoMargins());
@@ -1026,13 +1057,13 @@ void EditFilterBox(
 		content,
 		state->hasLinks.value() | rpl::map(!rpl::mappers::_1),
 		tr::lng_filters_link_create(),
-		st::settingsButtonActive,
+		st::filterEditButton,
 		{ &st::settingsFolderShareIcon, IconType::Simple });
 	const auto addLink = AddToggledButton(
 		content,
 		state->hasLinks.value(),
 		tr::lng_group_invite_add(),
-		st::settingsButtonActive,
+		st::filterEditButton,
 		{ &st::settingsIconAdd, IconType::Round, &st::windowBgActive });
 
 	SetupFilterLinks(
@@ -1092,7 +1123,9 @@ void EditFilterBox(
 		rpl::conditional(
 			state->hasLinks.value(),
 			tr::lng_filters_link_about_many(),
-			tr::lng_filters_link_about()));
+			tr::lng_filters_link_about()),
+		st::defaultBoxDividerLabelPadding,
+		st::filterAboutDividerLabel);
 
 	const auto show = box->uiShow();
 	const auto refreshPreviews = [=] {

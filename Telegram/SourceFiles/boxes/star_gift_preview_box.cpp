@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/star_gift_preview_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/random.h"
 #include "boxes/star_gift_box.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -309,7 +310,7 @@ void CacheBackdropBackground(
 		});
 		p.setBrush(gradient);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(inner, radius, radius);
+		p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 }
 
@@ -502,7 +503,7 @@ void AttributeButton::paintBackground(
 		{ phalf, phalf, phalf, phalf });
 	const auto xradius = removed.left() + st::giftBoxGiftRadius - phalf;
 	const auto yradius = removed.top() + st::giftBoxGiftRadius - phalf;
-	p.drawRoundedRect(extended, xradius, yradius);
+	p.drawRoundedRect(extended, style::CornerRadius(xradius), style::CornerRadius(yradius));
 }
 
 void AttributeButton::validatePatternCache() {
@@ -617,7 +618,7 @@ void AttributeButton::paintEvent(QPaintEvent *e) {
 		const auto extend = QMarginsF(_extend)
 			+ QMarginsF(shift, shift, shift, shift);
 		const auto radius = st::giftBoxGiftRadius - shift;
-		p.drawRoundedRect(outer.marginsRemoved(extend), radius, radius);
+		p.drawRoundedRect(outer.marginsRemoved(extend), style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 
 	const auto paused = !isOver();
@@ -697,7 +698,7 @@ void AttributeButton::paintEvent(QPaintEvent *e) {
 		top,
 		_percent.maxWidth(),
 		st::uniqueAttributeType.font->height);
-	p.drawRoundedRect(percent.marginsAdded(ppadding), pradius, pradius);
+	p.drawRoundedRect(percent.marginsAdded(ppadding), style::CornerRadius(pradius), style::CornerRadius(pradius));
 	p.setPen(!model
 		? QColor(255, 255, 255)
 		: (model->rarityType() == Data::UniqueGiftRarity::Default)
@@ -891,8 +892,8 @@ QImage Delegate::background() {
 		p.setBrush(st::windowShadowFg);
 		p.drawRoundedRect(
 			QRectF(rect).translated(0, radius / 12.),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	}
 	bg = bg.scaled(
 		(bgSize * ratio) / 2,
@@ -908,7 +909,7 @@ QImage Delegate::background() {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::windowBg);
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 
 	_bg = std::move(bg);
@@ -1553,7 +1554,6 @@ void StarGiftPreviewBox(
 	const auto add = [&](
 			tr::phrase<> text,
 			const style::RoundButton &st,
-			const style::icon &active,
 			Tab tab) {
 		auto owned = object_ptr<RoundButton>(
 			buttonsParent,
@@ -1564,32 +1564,23 @@ void StarGiftPreviewBox(
 		raw->setClickedCallback([=] {
 			state->tab = tab;
 		});
-		const auto icon = &active;
 		state->tab.value() | rpl::on_next([=](Tab now) {
-			raw->setTextFgOverride((now == tab)
-				? st::defaultActiveButton.textFg->c
-				: std::optional<QColor>());
-			raw->setBrushOverride((now == tab)
-				? st::defaultActiveButton.textBg->c
-				: std::optional<QColor>());
-			raw->setIconOverride((now == tab) ? icon : nullptr);
+			raw->setProperty("classicButtonChecked", now == tab);
+			raw->update();
 		}, raw->lifetime());
 		box->addButton(std::move(owned));
 	};
 	add(
 		tr::lng_auction_preview_symbols_button,
 		st::uniqueAttributeSymbol,
-		st::uniqueAttributeSymbolActive,
 		Tab::Pattern);
 	add(
 		tr::lng_auction_preview_backdrops_button,
 		st::uniqueAttributeBackdrop,
-		st::uniqueAttributeBackdropActive,
 		Tab::Backdrop);
 	add(
 		tr::lng_auction_preview_models_button,
 		st::uniqueAttributeModel,
-		st::uniqueAttributeModelActive,
 		Tab::Model);
 
 	state->paused.value() | rpl::on_next([=](bool paused) {

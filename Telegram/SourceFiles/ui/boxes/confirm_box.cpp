@@ -14,6 +14,17 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Ui {
 
+TextWithEntities BoldConfirmationQuestion(TextWithEntities text) {
+	const auto paragraphEnd = text.text.indexOf(u"\n\n"_q);
+	const auto length = (paragraphEnd >= 0)
+		? paragraphEnd
+		: text.text.size();
+	if (length > 0) {
+		text.entities.prepend(EntityInText(EntityType::Bold, 0, length));
+	}
+	return text;
+}
+
 void ConfirmBox(not_null<Ui::GenericBox*> box, ConfirmBoxArgs &&args) {
 	const auto weak = base::make_weak(box);
 	const auto lifetime = box->lifetime().make_state<rpl::lifetime>();
@@ -30,10 +41,15 @@ void ConfirmBox(not_null<Ui::GenericBox*> box, ConfirmBoxArgs &&args) {
 			: withTitle
 			? QMargins(padding.left(), 0, padding.right(), padding.bottom())
 			: padding;
+		auto text = v::text::take_marked(
+			std::move(args.text)
+		) | rpl::map([](TextWithEntities text) {
+			return BoldConfirmationQuestion(std::move(text));
+		});
 		const auto label = box->addRow(
 			object_ptr<Ui::FlatLabel>(
 				box.get(),
-				v::text::take_marked(std::move(args.text)),
+				std::move(text),
 				args.labelStyle ? *args.labelStyle : st::boxLabel,
 				st::defaultPopupMenu,
 				args.labelContext),

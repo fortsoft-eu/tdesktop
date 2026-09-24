@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "statistics/widgets/chart_lines_filter_widget.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/abstract_button.h"
 #include "ui/effects/animations.h"
 #include "ui/effects/shake_animation.h"
@@ -144,7 +145,7 @@ void ChartLinesFilterWidget::FlatCheckbox::paintEvent(QPaintEvent *e) {
 	const auto radius = r.height() / 2.;
 	{
 		auto hq = PainterHighQualityEnabler(p);
-		p.drawRoundedRect(r, radius, radius);
+		p.drawRoundedRect(r, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 
 	p.setPen(textColor);

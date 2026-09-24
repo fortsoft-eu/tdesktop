@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "chat_helpers/stickers_list_widget.h"
 
+#include "ui/style/style_radius.h"
 #include "base/options.h"
 #include "base/timer_rpl.h"
 #include "core/application.h"
@@ -47,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/confirm_box.h"
 #include "ui/text/text_entity.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "window/window_session_controller.h" // GifPauseReason.
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
@@ -90,6 +92,7 @@ base::options::toggle OptionUnlimitedRecentStickers({
 	.id = kOptionUnlimitedRecentStickers,
 	.name = "Unlimited recent stickers",
 	.description = "Display as much recent stickers as the server provides",
+	.defaultValue = false,
 });
 
 [[nodiscard]] bool SetInMyList(Data::StickersSetFlags flags) {
@@ -245,7 +248,12 @@ StickersListWidget::StickersListWidget(
 , _installedText(tr::lng_stickers_featured_installed(tr::now))
 , _installedWidth(
 	st::stickersTrendingInstalled.style.font->width(_installedText))
-, _settings(this, tr::lng_stickers_you_have(tr::now))
+, _settings(this, tr::lng_stickers_you_have(tr::now), [] {
+	auto result = st::defaultLinkButton;
+	result.font = st::classicSettingsFont;
+	result.overFont = st::classicSettingsFont->underline();
+	return result;
+}())
 , _previewTimer([=] { showPreview(); })
 , _premiumMark(std::make_unique<StickerPremiumMark>(
 	&session(),
@@ -264,10 +272,11 @@ StickersListWidget::StickersListWidget(
 		if (const auto window = _show->resolveWindow()) {
 			// While media viewer can't show StickersBox.
 			using Section = StickersBox::Section;
-			window->show(
-				Box<StickersBox>(_show, Section::Installed, _isMasks));
 			Core::App().hideMediaView();
 			Window::ActivateWindow(window);
+			window->showToolBox(
+				Box<StickersBox>(_show, Section::Installed, _isMasks),
+				_isMasks ? tr::lng_switch_masks(tr::now) : tr::lng_switch_stickers(tr::now));
 		}
 	});
 
@@ -351,14 +360,16 @@ object_ptr<TabbedSelector::InnerFooter> StickersListWidget::createFooter() {
 	_footer->openSettingsRequests(
 	) | rpl::on_next([=] {
 		const auto onlyFeatured = !_isMasks && _mySets.empty();
-		_show->showBox(Box<StickersBox>(
-			_show,
-			(onlyFeatured
-				? StickersBox::Section::Featured
-				: _isMasks
-				? StickersBox::Section::Masks
-				: StickersBox::Section::Installed),
-			onlyFeatured ? false : _isMasks));
+		const auto section = onlyFeatured
+			? StickersBox::Section::Featured
+			: _isMasks
+			? StickersBox::Section::Masks
+			: StickersBox::Section::Installed;
+		if (const auto window = _show->resolveWindow()) {
+			window->showToolBox(
+				Box<StickersBox>(_show, section, onlyFeatured ? false : _isMasks),
+				_isMasks ? tr::lng_switch_masks(tr::now) : tr::lng_switch_stickers(tr::now));
+		}
 	}, _footer->lifetime());
 
 	return result;
@@ -1468,15 +1479,16 @@ void StickersListWidget::paintSearchShortcuts(Painter &p, QRect clip) {
 		const auto available = rect.width()
 			- 2 * st().searchPackTextPadding;
 		auto title = set.title;
-		auto titleWidth = st::normalFont->width(title);
+		const auto font = st::classicSettingsFont;
+		auto titleWidth = font->width(title);
 		if (titleWidth > available) {
-			title = st::normalFont->elided(title, available);
-			titleWidth = st::normalFont->width(title);
+			title = font->elided(title, available);
+			titleWidth = font->width(title);
 		}
 		const auto titleLeft = (titleWidth < available)
 			? (rect.x() + (rect.width() - titleWidth) / 2)
 			: (rect.x() + st().searchPackTextPadding);
-		p.setFont(st::normalFont);
+		p.setFont(font);
 		p.setPen(st().textFg);
 		p.drawTextLeft(
 			titleLeft,
@@ -1492,7 +1504,7 @@ void StickersListWidget::paintSearchShortcuts(Painter &p, QRect clip) {
 			+ st().searchPacksTop
 			+ st().searchPackHeight
 			+ st().searchPacksBottom;
-		p.setFont(st::emojiPanHeaderFont);
+		p.setFont(st::classicSettingsFont);
 		p.setPen(st().headerFg);
 		p.drawTextLeft(
 			st().headerLeft - st().margin.left(),
@@ -1558,9 +1570,11 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 
 	auto &sets = shownSets();
 	const auto selectedSticker = std::get_if<OverSticker>(&_selected);
+	const auto selectedSet = std::get_if<OverSet>(&_selected);
 	const auto selectedButton = std::get_if<OverButton>(!v::is_null(_pressed)
 		? &_pressed
 		: &_selected);
+	const auto pressedButton = std::get_if<OverButton>(&_pressed);
 
 	const auto now = crl::now();
 	const auto paused = On(PowerSaving::kStickersPanel)
@@ -1601,12 +1615,16 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 				const auto selected = selectedButton
 					? (selectedButton->section == info.section)
 					: false;
-				(installedSet
-					? _inactiveButtonBg
-					: selected
-					? _trendingAddBgOver
-					: _trendingAddBg).paint(p, myrtlrect(add));
-				if (set.ripple) {
+				if (installedSet) {
+					_inactiveButtonBg.paint(p, myrtlrect(add));
+				} else {
+					Ui::PaintClassicButton(
+						p,
+						myrtlrect(add),
+						this,
+						pressedButton && (pressedButton->section == info.section));
+				}
+				if (installedSet && set.ripple) {
 					set.ripple->paint(p, add.x(), add.y(), width());
 					if (set.ripple->empty()) {
 						set.ripple.reset();
@@ -1619,11 +1637,14 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 				const auto &st = installedSet
 					? st::stickersTrendingInstalled
 					: st::stickersTrendingAdd;
+				const auto offset = installedSet
+					? QPoint()
+					: Ui::ClassicButtonContentOffset(this, pressedButton && (pressedButton->section == info.section));
 				p.setFont(st.style.font);
-				p.setPen(selected ? st.textFgOver : st.textFg);
+				p.setPen(installedSet ? (selected ? st.textFgOver : st.textFg) : st::classicMenuText);
 				p.drawTextLeft(
-					add.x() - (st.width / 2),
-					add.y() + st.textTop,
+					add.x() + (add.width() - textWidth) / 2 + offset.x(),
+					add.y() + st.textTop + offset.y(),
 					width(),
 					text,
 					textWidth);
@@ -1716,9 +1737,11 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 			return true;
 		}
 		if (setHasTitle(set) && clip.top() < info.rowsTop) {
+			const auto titleIsLink = (set.id != Data::Stickers::RecentSetId);
+			const auto titleOver = titleIsLink && selectedSet && (selectedSet->section == info.section);
+			const auto &titleFont = titleOver ? st::emojiPanHeaderFontOver : st::emojiPanHeaderFont;
 			auto titleText = set.title;
-			auto titleWidth = st::stickersTrendingHeaderFont->width(
-				titleText);
+			auto titleWidth = titleFont->width(titleText);
 			auto widthForTitle = stickersRight()
 				- (st().headerLeft - st().margin.left());
 			if (hasRemoveButton(info.section)) {
@@ -1756,13 +1779,11 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 					+ st::stickersHeaderBadgeFontSkip;
 			}
 			if (titleWidth > widthForTitle) {
-				titleText = st::stickersTrendingHeaderFont->elided(
-					titleText,
-					widthForTitle);
-				titleWidth = st::stickersTrendingHeaderFont->width(titleText);
+				titleText = titleFont->elided(titleText, widthForTitle);
+				titleWidth = titleFont->width(titleText);
 			}
-			p.setFont(st::emojiPanHeaderFont);
-			p.setPen(st().headerFg);
+			p.setFont(titleFont);
+			p.setPen(titleIsLink ? st::windowActiveTextFg : st::classicMenuText);
 			p.drawTextLeft(
 				st().headerLeft - st().margin.left(),
 				info.top + st().headerTop,
@@ -1787,8 +1808,8 @@ void StickersListWidget::paintStickers(Painter &p, QRect clip) {
 							badgeWidth + badgeFont->height,
 							badgeFont->height,
 							width()),
-						badgeFont->height / 2.,
-						badgeFont->height / 2.);
+						style::CornerRadius(badgeFont->height / 2.),
+						style::CornerRadius(badgeFont->height / 2.));
 				}
 				p.setPen(st().headerFg);
 				p.setBrush(Qt::NoBrush);
@@ -1952,22 +1973,14 @@ void StickersListWidget::paintMegagroupEmptySet(
 	_megagroupSetAbout.drawLeft(p, infoLeft, y, width() - infoLeft, width());
 
 	auto button = _megagroupSetButtonRect.translated(0, y);
-	(buttonSelected ? _groupCategoryAddBgOver : _groupCategoryAddBg).paint(
-		p,
-		myrtlrect(button));
-	if (_megagroupSetButtonRipple) {
-		_megagroupSetButtonRipple->paint(p, button.x(), button.y(), width());
-		if (_megagroupSetButtonRipple->empty()) {
-			_megagroupSetButtonRipple.reset();
-		}
-	}
+	const auto pressed = buttonSelected && (std::get_if<OverGroupAdd>(&_pressed) != nullptr);
+	Ui::PaintClassicButton(p, myrtlrect(button), this, pressed);
+	const auto offset = Ui::ClassicButtonContentOffset(this, pressed);
 	p.setFont(st::stickerGroupCategoryAdd.style.font);
-	p.setPen(buttonSelected
-		? st::stickerGroupCategoryAdd.textFgOver
-		: st::stickerGroupCategoryAdd.textFg);
+	p.setPen(st::classicMenuText);
 	p.drawTextLeft(
-		button.x() - (st::stickerGroupCategoryAdd.width / 2),
-		button.y() + st::stickerGroupCategoryAdd.textTop,
+		button.x() + (button.width() - _megagroupSetButtonTextWidth) / 2 + offset.x(),
+		button.y() + st::stickerGroupCategoryAdd.textTop + offset.y(),
 		width(),
 		_megagroupSetButtonText,
 		_megagroupSetButtonTextWidth);
@@ -3646,6 +3659,11 @@ void StickersListWidget::setSelected(OverState newSelected) {
 		auto updateSelected = [&]() {
 			if (auto sticker = std::get_if<OverSticker>(&_selected)) {
 				rtlupdate(stickerRect(sticker->section, sticker->index));
+			} else if (auto set = std::get_if<OverSet>(&_selected)) {
+				if (set->section >= 0 && set->section < sets.size()) {
+					const auto info = sectionInfo(set->section);
+					rtlupdate(QRect(0, info.top, width(), info.rowsTop - info.top));
+				}
 			} else if (auto button = std::get_if<OverButton>(&_selected)) {
 				if (button->section >= 0
 					&& button->section < sets.size()
@@ -3828,6 +3846,12 @@ void StickersListWidget::setupSearch() {
 	_search = MakeSearch(this, st(), [=](std::vector<QString> &&query) {
 		applySearchQuery(std::move(query));
 	}, session, type);
+}
+
+void StickersListWidget::focusSearch() {
+	if (_search) {
+		_search->stealFocus();
+	}
 }
 
 void StickersListWidget::applySearchQuery(std::vector<QString> &&query) {

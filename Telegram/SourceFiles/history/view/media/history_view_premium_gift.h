@@ -32,6 +32,11 @@ public:
 	TextWithEntities author() override;
 	TextWithEntities subtitle() override;
 	rpl::producer<QString> button() override;
+	const style::TextStyle &titleStyle() const override;
+	const style::TextStyle &subtitleStyle() const override;
+	const style::TextStyle &buttonStyle() const override;
+	bool whiteText() const override;
+	bool classicButton() const override;
 	std::optional<Ui::Premium::MiniStarsType> buttonMinistars() override;
 	QImage cornerTag(const PaintContext &context) override;
 	int buttonSkip() override;

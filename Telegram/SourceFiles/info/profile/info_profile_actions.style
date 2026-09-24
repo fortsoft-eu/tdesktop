@@ -25,18 +25,20 @@ infoChannelAdminsIconPosition: point(24px, 7px);
 infoEarnCreditsIconPosition: point(24px, 7px);
 infoEarnCurrencyIconPosition: point(20px, 3px);
 infoOpenAppMargin: margins(16px, 12px, 16px, 12px);
+infoOpenAppAbout: FlatLabel(boxDividerLabel) {
+	textFg: classicMenuText;
+	style: infoApplicationText;
+}
 infoPersonalChannelIconPosition: point(25px, 12px);
 infoPersonalChannelNameLabel: FlatLabel(infoProfileStatus) {
-	textFg: windowBoldFg;
+	textFg: classicMenuText;
 	style: semiboldTextStyle;
 	maxHeight: 20px;
 }
 infoPersonalChannelDateSkip: 20px;
 infoPersonalChannelDateLabel: FlatLabel(infoProfileStatus) {
 	textFg: dialogsDateFg;
-	style: TextStyle(semiboldTextStyle) {
-		font: dialogsDateFont;
-	}
+	style: infoApplicationText;
 	maxHeight: 20px;
 }
 infoPersonalChannelUserpicSkip: -5px;
@@ -51,14 +53,32 @@ infoSharedMediaCountButton: SettingsCountButton(managePeerButton) {
 	label: defaultSettingsRightLabel;
 	labelPosition: point(24px, 10px);
 }
+infoApplicationLabel: FlatLabel(infoLabel) {
+	textFg: classicMenuText;
+	style: infoApplicationText;
+}
+infoApplicationValue: FlatLabel(infoLabeled) {
+	style: infoApplicationText;
+}
+infoBirthdayValue: FlatLabel(birthdayLabeled) {
+	style: infoApplicationText;
+}
+infoBirthdayLabel: FlatLabel(birthdayLabel) {
+	textFg: classicMenuText;
+	style: infoApplicationText;
+}
 infoHoursState: FlatLabel(infoLabeled) {
+	style: infoApplicationButtonText;
 	minWidth: 0px;
 }
 infoHoursValue: FlatLabel(infoHoursState) {
-	textFg: windowSubTextFg;
+	style: infoApplicationText;
+	textFg: classicMenuText;
 	align: align(topright);
 }
-infoHoursDayLabel: infoHoursState;
+infoHoursDayLabel: FlatLabel(infoHoursState) {
+	style: infoApplicationText;
+}
 infoHoursOuter: RoundButton(defaultActiveButton) {
 	textBg: transparent;
 	textBgOver: transparent;
@@ -67,3 +87,22 @@ infoHoursOuter: RoundButton(defaultActiveButton) {
 infoHoursOuterMargin: margins(8px, 4px, 8px, 4px);
 infoHoursDaySkip: 6px;
 infoHoursArrowSize: 4px;
+
+infoClassicDetailsPadding: margins(56px, 0px, 10px, 0px);
+infoClassicInformationIconPosition: point(25px, 12px);
+infoClassicNotificationsIconPosition: point(25px, 3px);
+infoClassicIconNotifications: icon {{ "info/info_notifications", infoIconFg }};
+infoClassicNotificationsButton: SettingsButton(infoProfileButton) {
+	height: 14px;
+	style: infoApplicationText;
+	padding: margins(98px, 10px, 8px, 8px);
+	toggleSkip: 79px;
+}
+infoClassicSeparatorPadding: margins(77px, infoProfileSkip, 0px, infoProfileSkip);
+
+infoClassicPersonalLeft: 6px;
+infoClassicActionMargin: margins(12px, 2px, 12px, 2px);
+infoClassicActionWidth: 160px;
+infoClassicActionHeight: 28px;
+infoClassicActionIconSize: size(28px, 28px);
+infoClassicMusicBottom: 8px;

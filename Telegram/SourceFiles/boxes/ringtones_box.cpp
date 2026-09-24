@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "platform/platform_notifications_manager.h"
 #include "settings/settings_common.h"
 #include "ui/boxes/confirm_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/format_values.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/popup_menu.h"
@@ -119,6 +120,7 @@ void RingtonesBox(
 		Data::NotifySound selected,
 		Fn<void(Data::NotifySound)> save,
 		Data::VolumeController volumeController) {
+	Ui::SetClassicSettingsStyle(box);
 	box->setTitle(tr::lng_ringtones_box_title());
 
 	const auto container = box->verticalLayout();

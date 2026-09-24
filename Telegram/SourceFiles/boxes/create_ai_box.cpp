@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/create_ai_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/object_ptr.h"
 #include "base/weak_ptr.h"
 #include "boxes/create_ai_tone_box.h"
@@ -330,8 +331,8 @@ void ResponseIsland::paintEvent(QPaintEvent *e) {
 		p.setBrush(st::aiComposeCardBg);
 		p.drawRoundedRect(
 			rect(),
-			st::aiComposeCardRadius,
-			st::aiComposeCardRadius);
+			style::CornerRadius(st::aiComposeCardRadius),
+			style::CornerRadius(st::aiComposeCardRadius));
 	}
 	paintArticle(p, e->rect());
 }

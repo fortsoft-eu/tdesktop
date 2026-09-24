@@ -4134,7 +4134,7 @@ bool HistoryItem::updateRepliesText(not_null<HistoryMessageViews*> views) {
 			lt_count_short,
 			views->replies.count)
 		: tr::lng_comments_open_none(tr::now);
-	views->replies.textWidth = st::semiboldFont->width(
+	views->replies.textWidth = st::classicSettingsFont->width(
 		views->replies.text);
 	views->repliesSmall.text = (views->replies.count > 0)
 		? Lang::FormatCountToShort(views->replies.count).string

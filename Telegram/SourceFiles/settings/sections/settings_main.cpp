@@ -162,9 +162,13 @@ Cover::Cover(
 	Ui::UserpicButton::Role::OpenPhoto,
 	Ui::UserpicButton::Source::PeerPhoto,
 	st::infoProfileCover.photo)
-, _name(this, st::infoProfileCover.name)
 , _phone(this, st::defaultFlatLabel, st::popupMenuWithIcons)
 , _username(this, st::infoProfileMegagroupCover.status) {
+	const auto classicStyle = property("classicSettingsStyle");
+	setProperty("classicSettingsStyle", false);
+	_name.create(this, st::settingsCoverName);
+	setProperty("classicSettingsStyle", classicStyle);
+
 	_user->updateFull();
 
 	_name->setSelectable(true);
@@ -656,13 +660,10 @@ rpl::producer<QString> Main::title() {
 }
 
 void Main::fillTopBarMenu(const Ui::Menu::MenuCallback &addAction) {
-	const auto &list = Core::App().domain().accounts();
-	if (list.size() < Core::App().domain().maxAccounts()) {
-		addAction(tr::lng_menu_add_account(tr::now), [=] {
-			Core::App().setActivePrimaryWindow(&controller()->window());
-			Core::App().domain().addActivated(MTP::Environment{});
-		}, &st::menuIconAddAccount);
-	}
+	addAction(tr::lng_menu_add_account(tr::now), [=] {
+		Core::App().setActivePrimaryWindow(&controller()->window());
+		Core::App().domain().addActivated(MTP::Environment{});
+	}, &st::menuIconAddAccount);
 	if (!controller()->session().supportMode()) {
 		addAction(
 			tr::lng_settings_information(tr::now),
@@ -877,13 +878,12 @@ void SetupValidatePhoneNumberSuggestion(
 	const auto wrap = content->add(
 		object_ptr<Ui::FixedHeightWidget>(
 			content,
-			st::inviteLinkButton.height),
+			st::defaultBoxButton.height),
 		st::inviteLinkButtonsPadding);
 	const auto yes = Ui::CreateChild<Ui::RoundButton>(
 		wrap,
 		tr::lng_box_yes(),
-		st::inviteLinkButton);
-	yes->setFullRadius(true);
+		st::defaultBoxButton);
 	yes->setClickedCallback([=] {
 		controller->session().promoSuggestions().dismiss(
 			kSugValidatePhone.utf8());
@@ -892,8 +892,7 @@ void SetupValidatePhoneNumberSuggestion(
 	const auto no = Ui::CreateChild<Ui::RoundButton>(
 		wrap,
 		tr::lng_box_no(),
-		st::inviteLinkButton);
-	no->setFullRadius(true);
+		st::defaultBoxButton);
 	no->setClickedCallback([=] {
 		const auto sharedLabel = std::make_shared<base::weak_qptr<Ui::FlatLabel>>();
 		const auto height = st::boxLabel.style.font->height;
@@ -929,12 +928,27 @@ void SetupValidatePhoneNumberSuggestion(
 		}));
 	});
 
-	wrap->widthValue() | rpl::on_next([=](int width) {
-		const auto buttonWidth = (width - st::inviteLinkButtonsSkip) / 2;
-		yes->setFullWidth(buttonWidth);
-		no->setFullWidth(buttonWidth);
-		yes->moveToLeft(0, 0, width);
-		no->moveToRight(0, 0, width);
+	rpl::combine(
+		wrap->widthValue(),
+		yes->naturalWidthValue(),
+		no->naturalWidthValue(),
+		tr::lng_box_yes(),
+		tr::lng_box_no()
+	) | rpl::on_next([=](
+			int width,
+			int yesWidth,
+			int noWidth,
+			const QString &,
+			const QString &) {
+		const auto skip = st::defaultBox.buttonPadding.left();
+		const auto buttonWidth = std::min(
+			std::max(yesWidth, noWidth),
+			std::max((width - skip) / 2, 0));
+		yes->resizeToWidth(buttonWidth);
+		no->resizeToWidth(buttonWidth);
+		const auto left = (width - 2 * buttonWidth - skip) / 2;
+		yes->moveToLeft(left, 0, width);
+		no->moveToLeft(left + buttonWidth + skip, 0, width);
 	}, wrap->lifetime());
 	Ui::AddSkip(content);
 	Ui::AddSkip(content);
@@ -1029,12 +1043,18 @@ void SetupInterfaceScale(
 		container.get());
 
 	const auto switched = (cConfigScale() == style::kScaleAuto);
+	auto buttonStyle = st::settingsButtonNoIcon;
+	buttonStyle.toggleSkip = buttonStyle.padding.left();
+	buttonStyle.padding.setLeft(buttonStyle.toggleSkip
+		+ st::classicCheckSize
+		+ st::settingsExperimentalButton.padding.right());
 	const auto button = AddButtonWithIcon(
 		container,
 		tr::lng_settings_default_scale(),
-		icon ? st::settingsButton : st::settingsButtonNoIcon,
-		{ icon ? &st::menuIconShowInChat : nullptr }
-	)->toggleOn(toggled->events_starting_with_copy(switched));
+		buttonStyle,
+		{});
+	button->setProperty("classicCheckOnLeft", true);
+	button->toggleOn(toggled->events_starting_with_copy(switched));
 
 	const auto ratio = style::DevicePixelRatio();
 	const auto scaleMin = style::kScaleMin;
@@ -1068,7 +1088,7 @@ void SetupInterfaceScale(
 		container,
 		st::settingsScale,
 		st::settingsScaleLabel,
-		st::normalFont->spacew * 2,
+		st::classicSettingsFont->spacew * 2,
 		st::settingsScaleLabel.style.font->width("300%"),
 		true);
 	container->add(

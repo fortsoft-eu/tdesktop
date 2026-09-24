@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_peer.h"
+#include "data/components/profile_details.h"
 
 #include "api/api_sensitive_content.h"
 #include "data/data_user.h"
@@ -881,6 +882,9 @@ void PeerData::saveTranslationDisabled(bool disabled) {
 
 void PeerData::setBarSettings(const MTPPeerSettings &data) {
 	data.match([&](const MTPDpeerSettings &data) {
+		if (const auto user = asUser()) {
+			session().profileDetails().observeSettings(peerToUser(user->id), data);
+		}
 		const auto wasPaysPerMessage = paysPerMessage();
 		if (!data.vbusiness_bot_id()
 			&& !data.vrequest_chat_title()

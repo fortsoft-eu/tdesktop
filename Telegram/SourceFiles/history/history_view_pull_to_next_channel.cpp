@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_view_pull_to_next_channel.h"
 
+#include "ui/style/style_radius.h"
 #include "apiwrap.h"
 #include "base/call_delayed.h"
 #include "base/platform/base_platform_haptic.h"
@@ -428,7 +429,9 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 	const auto release = _releaseProgress.value(_ready ? 1. : 0.);
 	const auto alpha = std::clamp(progress, 0., 1.);
 	const auto h = float64(height());
-	const auto cx = (width() - st::historyScroll.width) / 2.;
+	const auto contentWidth = std::max(width() - st::classicScrollBarWidth, 0);
+	const auto contentLeft = style::RightToLeft() ? width() - contentWidth : 0;
+	const auto cx = contentLeft + contentWidth / 2.;
 	const auto avatar = float64(st::historyPullNextAvatar);
 	const auto circleRadius = avatar / 2.;
 	const auto bg = _st->msgServiceBg()->c;
@@ -468,7 +471,10 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 		}
 		if (rect.width() > 0. && rect.height() > 0.) {
 			auto capsule = QPainterPath();
-			capsule.addRoundedRect(rect, widthRadius, widthRadius);
+			capsule.addRoundedRect(
+				rect,
+				style::CornerRadius(widthRadius),
+				style::CornerRadius(widthRadius));
 
 			p.setOpacity(bgAlpha);
 			p.setPen(Qt::NoPen);
@@ -501,7 +507,7 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 		: QString();
 	if (release > 0. && !name.isEmpty()) {
 		const auto nameFont = st::historyPullNextNameFont;
-		const auto centerWidth = width() - st::historyScroll.width;
+		const auto centerWidth = contentWidth;
 		const auto avail = centerWidth - 4 * st::historyPullNextSkip;
 		const auto elName = nameFont->elided(name, avail);
 		const auto nameW = float64(nameFont->width(elName));
@@ -510,7 +516,7 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 				- st::historyPullNextRise * release)
 			+ bounceOffset;
 		const auto pill = QRectF(
-			(centerWidth - nameW) / 2. - st::historyPullNextSkip,
+			contentLeft + (centerWidth - nameW) / 2. - st::historyPullNextSkip,
 			y - st::historyPullNextPadding,
 			nameW + 2 * st::historyPullNextSkip,
 			nameFont->height + st::historyPullNextSkip);
@@ -519,8 +525,8 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 		p.setBrush(bg);
 		p.drawRoundedRect(
 			pill,
-			st::historyPullNextNameRadius,
-			st::historyPullNextNameRadius);
+			style::CornerRadius(st::historyPullNextNameRadius),
+			style::CornerRadius(st::historyPullNextNameRadius));
 		p.setPen(fg);
 		p.setFont(nameFont);
 		p.drawText(
@@ -603,8 +609,8 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 					q.setBrush(st::dialogsUnreadBg->c);
 					q.drawRoundedRect(
 						badge,
-						badgeHeight / 2.,
-						badgeHeight / 2.);
+						style::CornerRadius(badgeHeight / 2.),
+						style::CornerRadius(badgeHeight / 2.));
 					q.setPen(st::dialogsUnreadFg->c);
 					q.setFont(font);
 					q.drawText(badge, string, QTextOption(Qt::AlignCenter));
@@ -617,8 +623,8 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 					q.setBrush(Qt::NoBrush);
 					q.drawRoundedRect(
 						ring,
-						ring.height() / 2.,
-						ring.height() / 2.);
+						style::CornerRadius(ring.height() / 2.),
+						style::CornerRadius(ring.height() / 2.));
 				}
 			}
 			p.setOpacity(alpha);

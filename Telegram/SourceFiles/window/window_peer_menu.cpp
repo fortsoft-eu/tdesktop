@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_peer_menu.h"
+#include "ui/boxes/peer_qr_box.h"
+#include "ui/style/style_classic.h"
 
 #include "base/call_delayed.h"
 #include "menu/menu_check_item.h"
@@ -144,6 +146,12 @@ namespace {
 
 constexpr auto kTopicsSearchMinCount = 1;
 
+[[nodiscard]] TextWithEntities WithBoldFirstLine(const QString &text) {
+	const auto newline = text.indexOf('\n');
+	const auto length = (newline >= 0) ? newline : text.size();
+	return tr::bold(text.left(length)).append(text.mid(length));
+}
+
 void ShareBotGame(
 		not_null<UserData*> bot,
 		not_null<Data::Thread*> thread,
@@ -228,6 +236,7 @@ base::options::toggle ViewProfileInChatsListContextMenu({
 	.id = kOptionViewProfileInChatsListContextMenu,
 	.name = "Add \"View Profile\"",
 	.description = "Add \"View Profile\" to context menu in chat list",
+	.defaultValue = true,
 });
 
 void SetActionText(not_null<QAction*> action, rpl::producer<QString> &&text) {
@@ -1489,7 +1498,8 @@ void ShowDisableSharingBox(
 		not_null<PeerData*> peer,
 		Fn<void(bool)> toggleNoForwards) {
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
-		box->setStyle(st::showOrBox);
+		box->setStyle(st::disableSharingBox);
+		Ui::SetClassicSettingsStyle(box);
 		box->setWidth(st::boxWideWidth);
 		box->addTopButton(st::boxTitleClose, [=] {
 			box->closeBox();
@@ -1541,14 +1551,19 @@ void ShowDisableSharingBox(
 				st::boxRowPadding);
 		}
 
-		const auto button = box->addButton(rpl::single(QString()), [=] {
-			if (peer->session().premium()) {
-				toggleNoForwards(true);
-				box->closeBox();
-			} else {
-				ShowPremiumPreviewBox(controller, PremiumFeature::NoForwards);
-			}
-		});
+		const auto button = box->addButton(
+			rpl::single(QString()),
+			[=] {
+				if (peer->session().premium()) {
+					toggleNoForwards(true);
+					box->closeBox();
+				} else {
+					ShowPremiumPreviewBox(
+						controller,
+						PremiumFeature::NoForwards);
+				}
+			},
+			st::disableSharingButton);
 		button->setText(
 			Data::AmPremiumValue(&peer->session())
 			| rpl::map([](bool premium) {
@@ -1943,6 +1958,13 @@ void Filler::fillHistoryActions() {
 }
 
 void Filler::fillProfileActions() {
+	if (_peer && !_peer->username().isEmpty()) {
+		const auto peer = _peer;
+		const auto show = _controller->uiShow();
+		_addAction(tr::lng_group_invite_context_qr(tr::now), [=] {
+			Ui::DefaultShowFillPeerQrBoxCallback(show, peer);
+		}, &st::menuIconQrCode);
+	}
 	addTTLSubmenu(true);
 	addSupportInfo();
 	addNewContact();
@@ -2047,9 +2069,8 @@ void Filler::fillArchiveActions() {
 			_addAction(text, [=] {
 				if (!inmenu) {
 					controller->showToast({
-						.text = {
-							tr::lng_context_archive_to_menu_info(tr::now)
-						},
+						.text = WithBoldFirstLine(
+							tr::lng_context_archive_to_menu_info(tr::now)),
 						.st = &st::windowArchiveToast,
 						.duration = kArchivedToastDuration,
 					});
@@ -2221,12 +2242,15 @@ void PeerMenuDeleteContact(
 			Ui::CreateChild<Ui::FlatLabel>(
 				box,
 				tr::lng_info_delete_contact(tr::bold),
-				box->getDelegate()->style().title));
+				Ui::ClassicSettingsStyle(box->getDelegate()->style().title)));
+		const auto labelStyle = box->lifetime().make_state<style::FlatLabel>(
+			Ui::ClassicSettingsStyle(st::boxLabel));
 		Ui::ConfirmBox(box, {
 			.text = text,
 			.confirmed = deleteSure,
 			.confirmText = tr::lng_box_delete(),
 			.confirmStyle = &st::attentionBoxButton,
+			.labelStyle = labelStyle,
 		});
 	});
 	controller->show(std::move(box), Ui::LayerOption::CloseOther);
@@ -2703,6 +2727,12 @@ void PeerMenuBlockUserBox(
 		not_null<PeerData*> peer,
 		std::variant<v::null_t, bool> suggestReport,
 		std::variant<v::null_t, ClearChat, ClearReply> suggestClear) {
+	box->setProperty("classicSettingsStyle", false);
+	box->setProperty("classicFormFrame", true);
+	const auto style = box->lifetime().make_state<style::Box>(st::defaultBox);
+	style->title.style.font = st::classicActionFont;
+	style->title.textFg = st::classicMenuText;
+	box->setStyle(*style);
 	const auto settings = peer->barSettings().value_or(PeerBarSettings(0));
 	const auto reportNeeded = v::is_null(suggestReport)
 		? ((settings & PeerBarSetting::ReportSpam) != 0)
@@ -2726,7 +2756,7 @@ void PeerMenuBlockUserBox(
 			box,
 			tr::lng_report_spam(tr::now),
 			true,
-			st::defaultBoxCheckbox))
+			Ui::ClassicSettingsStyle(st::defaultBoxCheckbox)))
 		: nullptr;
 
 	if (report) {
@@ -2738,13 +2768,13 @@ void PeerMenuBlockUserBox(
 			box,
 			tr::lng_blocked_list_confirm_clear(tr::now),
 			true,
-			st::defaultBoxCheckbox))
+			Ui::ClassicSettingsStyle(st::defaultBoxCheckbox)))
 		: v::is<ClearReply>(suggestClear)
 		? box->addRow(object_ptr<Ui::Checkbox>(
 			box,
 			tr::lng_blocked_list_confirm_reply(tr::now),
 			true,
-			st::defaultBoxCheckbox))
+			Ui::ClassicSettingsStyle(st::defaultBoxCheckbox)))
 		: nullptr;
 	if (clear) {
 		box->addSkip(st::boxMediumSkip);
@@ -2758,7 +2788,7 @@ void PeerMenuBlockUserBox(
 				tr::bold(peer->name()),
 				tr::marked),
 			true,
-			st::defaultBoxCheckbox))
+			Ui::ClassicSettingsStyle(st::defaultBoxCheckbox)))
 		: nullptr;
 
 	if (allFromUser) {
@@ -3227,6 +3257,7 @@ base::weak_qptr<Ui::BoxContent> ShowForwardMessagesBox(
 			.moneyRestrictionError = WriteMoneyRestrictionError,
 		})
 		, _suggestedChannel(suggestedChannel) {
+			setStyleOverrides(&st::forwardMessagesList);
 		}
 
 		std::unique_ptr<PeerListRow> createRestoredRow(
@@ -3457,18 +3488,14 @@ base::weak_qptr<Ui::BoxContent> ShowForwardMessagesBox(
 			controllerRaw->setSearchNoResultsText(
 				tr::lng_bot_chats_not_found(tr::now));
 			const auto lastFilterId = box->lifetime().make_state<FilterId>(0);
-			const auto chatsFilters = Ui::AddChatFiltersTabsStrip(
+			const auto chatsFilters = Ui::AddClassicChatFiltersTabsStrip(
 				box,
 				session,
 				[=](FilterId id) {
 					*lastFilterId = id;
 					applyFilter(box, id);
 					controllerRaw->setSuggestionShown(!id);
-				},
-				Window::GifPauseReason::Layer,
-				nullptr,
-				false,
-				true);
+				});
 			chatsFilters->lower();
 			rpl::combine(
 				chatsFilters->heightValue(),
@@ -4249,9 +4276,9 @@ void ToggleHistoryArchived(
 		bool archived) {
 	const auto callback = [=] {
 		show->showToast(Ui::Toast::Config{
-			.text = { (archived
-				? tr::lng_archived_added(tr::now)
-				: tr::lng_archived_removed(tr::now)) },
+			.text = archived
+				? WithBoldFirstLine(tr::lng_archived_added(tr::now))
+				: tr::lng_archived_removed(tr::now, tr::marked),
 			.iconLottie = (archived
 				? u"toast/chats_archived"_q
 				: QString()),
@@ -4539,11 +4566,11 @@ void AddSenderUserpicModerateAction(
 
 void AddSeparatorAndShiftUp(const PeerMenuCallback &addAction) {
 	addAction({
-		.separatorSt = &st::popupMenuExpandedSeparator.menu.separator,
+		.isSeparator = true,
 	});
 
-	const auto &st = st::popupMenuExpandedSeparator.menu;
-	const auto shift = st::popupMenuExpandedSeparator.scrollPadding.top()
+	const auto &st = st::popupMenuWithIcons.menu;
+	const auto shift = st::popupMenuWithIcons.scrollPadding.top()
 		+ st.itemPadding.top()
 		+ st.itemStyle.font->height
 		+ st.itemPadding.bottom()

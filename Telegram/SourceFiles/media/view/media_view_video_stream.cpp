@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/view/media_view_video_stream.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_message_reactions.h"
 #include "calls/group/calls_group_call.h"
 #include "calls/group/calls_group_common.h"
@@ -189,7 +190,7 @@ void VideoStream::Loading::setup(not_null<QWidget*> parent) {
 			const auto remove = QMarginsF(half, half, half, half);
 			const auto rect = QRectF(_bg->rect()).marginsRemoved(remove);
 			const auto radius = st::storiesRadius - half;
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 			return true;
 		});
 	}, _bg->lifetime());

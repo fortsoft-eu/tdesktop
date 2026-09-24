@@ -141,6 +141,7 @@ private:
 	bool _volumeHidden = false;
 
 	object_ptr<Ui::FlatLabel> _nameLabel;
+	object_ptr<Ui::FlatLabel> _voiceDateLabel;
 	object_ptr<Ui::FadeWrap<Ui::RpWidget>> _rightControls;
 	object_ptr<Ui::LabelSimple> _timeLabel;
 	object_ptr<Ui::IconButton> _previousTrack = { nullptr };

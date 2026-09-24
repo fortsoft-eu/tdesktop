@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/sub_tabs.h"
 
+#include "ui/style/style_radius.h"
+#include "ui/style/style_classic.h"
+
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
 #include "ui/effects/animation_value_f.h"
@@ -16,6 +19,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h"
 
 #include <QApplication>
+#include <QStyleOption>
+#include <QTabBar>
 
 namespace Ui {
 
@@ -45,6 +50,7 @@ void SubTabs::setTabs(
 	setSelected(-1);
 	_buttons.resize(tabs.size());
 	const auto padding = st::giftBoxTabPadding;
+	const auto skip = _st.classic ? 0 : st::giftBoxTabSkip;
 	auto activeId = (_active >= 0
 		&& ranges::contains(tabs, _buttons[_active].tab.id, &Tab::id))
 		? _buttons[_active].tab.id
@@ -60,7 +66,7 @@ void SubTabs::setTabs(
 		if (button.tab != tab) {
 			button.text = Text::String();
 			button.text.setMarkedText(
-				st::semiboldTextStyle,
+				(tab.action ? st::infoApplicationButtonText : _st.style),
 				tab.text,
 				kMarkupTextOptions,
 				context);
@@ -70,13 +76,23 @@ void SubTabs::setTabs(
 			_active = i;
 		}
 		const auto width = button.text.maxWidth();
-		const auto height = st::giftBoxTabStyle.font->height;
-		const auto r = QRect(0, 0, width, height).marginsAdded(padding);
+		const auto height = button.tab.action
+			? st::classicActionFont->height
+			: _st.style.font->height;
+		auto r = QRect(0, 0, width, height).marginsAdded(padding);
+		if (button.tab.action || _st.classic) {
+			r.setHeight(std::max(
+				r.height(),
+				(button.tab.action
+					? st::classicActionFont->height
+					: _st.style.font->height)
+					+ 2 * st::classicButtonMinimumPadding));
+		}
 		button.geometry = QRect(QPoint(x, y), r.size());
-		x += r.width() + st::giftBoxTabSkip;
+		x += r.width() + skip;
 	}
 	const auto width = x
-		- st::giftBoxTabSkip
+		- skip
 		+ st::giftBoxTabsMargin.right();
 	_fullWidth = width;
 	resizeToWidth(this->width());
@@ -141,12 +157,13 @@ bool SubTabs::isIndexPinned(int index) const {
 }
 
 void SubTabs::setSelected(int index) {
-	const auto was = (_selected >= 0);
 	const auto now = (index >= 0);
 	_selected = index;
-	if (was != now) {
-		setCursor(now ? style::cur_pointer : style::cur_default);
-	}
+	update();
+	const auto action = now && _buttons[index].tab.action;
+	setCursor((now && !action && !_st.classic)
+		? style::cur_pointer
+		: style::cur_default);
 }
 
 void SubTabs::setActive(int index) {
@@ -191,11 +208,12 @@ int SubTabs::resizeGetHeight(int newWidth) {
 		_fullShift = (fullWidth < newWidth) ? (newWidth - fullWidth) / 2 : 0;
 	}
 	_scrollMax = (_fullWidth > newWidth) ? (_fullWidth - newWidth) : 0;
-	return _buttons.empty()
-		? 0
-		: (st::giftBoxTabsMargin.top()
-			+ _buttons.back().geometry.height()
-			+ st::giftBoxTabsMargin.bottom());
+	auto rowHeight = 0;
+	for (const auto &button : _buttons) {
+		accumulate_max(rowHeight, button.geometry.height());
+	}
+	return _buttons.empty() ? 0 : rowHeight
+		+ st::giftBoxTabsMargin.top() + st::giftBoxTabsMargin.bottom();
 }
 
 bool SubTabs::eventHook(QEvent *e) {
@@ -293,6 +311,7 @@ void SubTabs::mousePressEvent(QMouseEvent *e) {
 		return;
 	}
 	_pressed = _selected;
+	update();
 	_pressx = e->pos().x();
 
 	if (_reorderEnable && _selected >= 0 && !isIndexPinned(_selected)) {
@@ -312,6 +331,7 @@ void SubTabs::mouseReleaseEvent(QMouseEvent *e) {
 
 	const auto dragx = std::exchange(_dragx, 0);
 	const auto pressed = std::exchange(_pressed, -1);
+	update();
 	_pressx = 0;
 	if (!dragx
 		&& pressed >= 0
@@ -345,17 +365,66 @@ void SubTabs::paintEvent(QPaintEvent *e) {
 		const auto shiftedGeometry = geometry.translated(
 			base::SafeRound(button.shift),
 			0);
-		if (button.active) {
+		if (button.tab.action) {
+			PaintClassicButton(p, shiftedGeometry, this, _pressed == i && _selected == i);
+			p.setPen(st::classicMenuText);
+		} else if (_st.classic) {
+			auto option = QStyleOptionTab();
+			option.initFrom(this);
+			option.rect = shiftedGeometry;
+			option.shape = QTabBar::RoundedNorth;
+			option.position = (_buttons.size() == 1)
+				? QStyleOptionTab::OnlyOneTab
+				: (i == 0)
+				? QStyleOptionTab::Beginning
+				: (i + 1 == _buttons.size())
+				? QStyleOptionTab::End
+				: QStyleOptionTab::Middle;
+			if (button.active) {
+				option.state |= QStyle::State_Selected;
+			}
+			if (_selected == i) {
+				option.state |= QStyle::State_MouseOver;
+			}
+			if (_pressed == i && _selected == i) {
+				option.state |= QStyle::State_Sunken;
+			}
+			QApplication::style()->drawControl(
+				QStyle::CE_TabBarTabShape,
+				&option,
+				&p,
+				this);
+			p.setPen(st::classicMenuText);
+		} else if (button.active) {
 			p.setBrush(st::giftBoxTabBgActive);
 			p.setPen(Qt::NoPen);
 			const auto radius = shiftedGeometry.height() / 2.;
-			p.drawRoundedRect(shiftedGeometry, radius, radius);
+			p.drawRoundedRect(
+				shiftedGeometry,
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 			p.setPen(st::giftBoxTabFgActive);
 		} else {
 			p.setPen(st::giftBoxTabFg);
 		}
+		const auto content = shiftedGeometry.marginsRemoved(padding);
+		const auto position = button.tab.action
+			? QPoint(
+				content.x(),
+				shiftedGeometry.y()
+					+ (shiftedGeometry.height()
+						- st::classicActionFont->height) / 2)
+				+ ClassicButtonContentOffset(
+					this,
+					_pressed == i && _selected == i)
+			: _st.classic
+			? QPoint(
+				content.x(),
+				shiftedGeometry.y()
+					+ (shiftedGeometry.height() - _st.style.font->height) / 2)
+			: content.topLeft();
 		button.text.draw(p, {
-			.position = shiftedGeometry.marginsRemoved(padding).topLeft(),
+			.position = position,
 			.availableWidth = button.text.maxWidth(),
 		});
 
@@ -503,13 +572,24 @@ void SubTabs::finishReorder() {
 	auto x = st::giftBoxTabsMargin.left();
 	const auto y = st::giftBoxTabsMargin.top();
 	const auto padding = st::giftBoxTabPadding;
+	const auto skip = _st.classic ? 0 : st::giftBoxTabSkip;
 	for (auto i = 0; i < _buttons.size(); ++i) {
 		auto &button = _buttons[i];
 		const auto width = button.text.maxWidth();
-		const auto height = st::giftBoxTabStyle.font->height;
-		const auto r = QRect(0, 0, width, height).marginsAdded(padding);
+		const auto height = button.tab.action
+			? st::classicActionFont->height
+			: _st.style.font->height;
+		auto r = QRect(0, 0, width, height).marginsAdded(padding);
+		if (button.tab.action || _st.classic) {
+			r.setHeight(std::max(
+				r.height(),
+				(button.tab.action
+					? st::classicActionFont->height
+					: _st.style.font->height)
+					+ 2 * st::classicButtonMinimumPadding));
+		}
 		button.geometry = QRect(QPoint(x, y), r.size());
-		x += r.width() + st::giftBoxTabSkip;
+		x += r.width() + skip;
 	}
 
 	for (auto i = 0; i < _buttons.size(); ++i) {

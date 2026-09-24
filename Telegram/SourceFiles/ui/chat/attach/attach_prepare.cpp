@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/attach/attach_prepare.h"
 
+#include "ui/style/style_radius.h"
 #include "editor/scene/scene.h"
 #include "ui/rp_widget.h"
 #include "ui/widgets/popup_menu.h"
@@ -91,8 +92,8 @@ struct MediaBadgeCache {
 				0,
 				width + 2 * xpadding + stroke,
 				height + 2 * ypadding + stroke),
-			height / 3.,
-			height / 3.);
+			style::CornerRadius(height / 3.),
+			style::CornerRadius(height / 3.));
 		painter.setPen(st::roundedFg);
 		painter.drawText(
 			QPointF(
@@ -613,7 +614,7 @@ void PaintVideoQualityBadge(QPainter &p, QRect preview, int quality) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::msgDateImgBg);
 	const auto radius = rect.height() / 2.;
-	p.drawRoundedRect(rect, radius, radius);
+	p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setFont(st::normalFont);
 	p.setPen(st::msgDateImgFg);
 	p.drawText(rect, Qt::AlignCenter, text);
@@ -648,7 +649,7 @@ void PaintMediaTtlBadge(QPainter &p, QRect preview, crl::time ttlSeconds) {
 		st::historyVideoMessageTtlIcon.paintInCenter(p, rect);
 	} else {
 		const auto radius = rect.height() / 2.;
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		p.setFont(st::normalFont);
 		p.setPen(st::msgDateImgFg);
 		p.drawText(

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/editor/iv_editor_math_box.h"
 
+#include "ui/style/style_radius.h"
 #include "base/random.h"
 #include "base/weak_qptr.h"
 #include "iv/markdown/iv_markdown_microtex.h"
@@ -167,7 +168,7 @@ void MathPreview::paintEvent(QPaintEvent *e) {
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::ivFormulaPreviewBg);
 	const auto radius = st::ivFormulaPreviewRadius;
-	p.drawRoundedRect(rect(), radius, radius);
+	p.drawRoundedRect(rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	if (_image.isNull()) {
 		return;
 	}

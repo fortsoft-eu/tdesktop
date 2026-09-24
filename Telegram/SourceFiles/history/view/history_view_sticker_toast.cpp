@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_premium.h"
 #include "apiwrap.h"
 #include "styles/style_chat.h"
+#include "styles/style_chat_helpers.h"
 
 namespace HistoryView {
 namespace {
@@ -161,8 +162,9 @@ void StickerToast::showWithTitle(const QString &title) {
 		? tr::lng_animated_emoji_saved_open(tr::now)
 		: tr::lng_sticker_premium_view(tr::now);
 	_st.padding.setLeft(skip + size + skip);
-	_st.padding.setRight(st::historyPremiumViewSet.style.font->width(view)
-		- st::historyPremiumViewSet.width);
+	_st.padding.setRight(st::richPasteToastButton.style.font->width(view)
+		- st::richPasteToastButton.width
+		+ 2 * st::richPasteToastButtonRightSkip);
 
 	clearHiddenHiding();
 	if (_weak.get()) {
@@ -173,6 +175,7 @@ void StickerToast::showWithTitle(const QString &title) {
 		.text = text,
 		.st = &_st,
 		.attach = RectPart::Bottom,
+		.adaptive = true,
 		.acceptinput = true,
 		.duration = kPremiumToastDuration,
 	});
@@ -201,14 +204,14 @@ void StickerToast::showWithTitle(const QString &title) {
 	const auto button = Ui::CreateChild<Ui::RoundButton>(
 		widget.get(),
 		rpl::single(view),
-		st::historyPremiumViewSet);
+		st::richPasteToastButton);
 	button->show();
 	rpl::combine(
 		widget->sizeValue(),
 		button->sizeValue()
 	) | rpl::on_next([=](QSize outer, QSize inner) {
 		button->moveToRight(
-			0,
+			st::richPasteToastButtonRightSkip,
 			(outer.height() - inner.height()) / 2,
 			outer.width());
 		clickableBackground->resize(outer);
@@ -314,7 +317,7 @@ void StickerToast::setupEmojiPreview(
 		const auto size = Ui::Emoji::GetSizeLarge()
 			/ style::DevicePixelRatio();
 		instance->object.paint(p, Ui::Text::CustomEmoji::Context{
-			.textColor = st::toastFg->c,
+			.textColor = st::classicMenuText->c,
 			.now = crl::now(),
 			.position = QPoint(
 				(widget->width() - size) / 2,

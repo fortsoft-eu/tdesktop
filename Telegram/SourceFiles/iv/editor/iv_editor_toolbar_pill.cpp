@@ -7,13 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/editor/iv_editor_toolbar_pill.h"
 
-#include "dialogs/ui/dialogs_pill.h"
 #include "iv/editor/iv_editor_box.h"
-#include "ui/painter.h"
 #include "ui/rect.h"
 #include "ui/widgets/buttons.h"
 
-#include "styles/palette.h"
 #include "styles/style_iv.h"
 
 namespace Iv::Editor {
@@ -43,6 +40,8 @@ void ToolbarPill::addButton(
 		object_ptr<Ui::RippleButton> button,
 		const style::IconButton &buttonSt) {
 	const auto raw = button.data();
+	raw->setProperty("classicButton", true);
+	raw->setPointerCursor(false);
 	raw->show();
 	if (_buttons.empty()) {
 		_buttonSt = &buttonSt;
@@ -92,25 +91,6 @@ QSize ToolbarPill::naturalSize() const {
 
 QMargins ToolbarPill::shadowMargins() const {
 	return _shadowMargins;
-}
-
-void ToolbarPill::paintEvent(QPaintEvent *e) {
-	if (_buttons.empty() || width() <= 0 || height() <= 0) {
-		return;
-	}
-	auto p = QPainter(this);
-	auto hq = PainterHighQualityEnabler(p);
-
-	const auto pill = rect() - _shadowMargins;
-	const auto radius = pill.height() / 2;
-
-	_shadow.paint(p, pill, radius);
-
-	p.setBrush(st::dialogsBg);
-	p.setPen(Qt::NoPen);
-	p.drawRoundedRect(pill, radius, radius);
-
-	Dialogs::PaintPillOutline(p, pill, radius);
 }
 
 } // namespace Iv::Editor

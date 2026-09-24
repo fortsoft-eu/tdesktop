@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/tabs/info_profile_tab_skeleton.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/effects/animations.h"
 #include "ui/effects/glare.h"
 #include "ui/painter.h"
@@ -47,8 +48,8 @@ void PaintRowsSkeleton(
 		} else {
 			p.drawRoundedRect(
 				QRect(padding, thumbTop, thumbSize, thumbSize),
-				st::roundRadiusSmall,
-				st::roundRadiusSmall);
+				style::CornerRadius(st::roundRadiusSmall),
+				style::CornerRadius(st::roundRadiusSmall));
 		}
 		const auto left = padding + thumbSize + padding;
 		const auto available = width - left - padding;
@@ -63,8 +64,8 @@ void PaintRowsSkeleton(
 				barTop,
 				available * widths[line % widths.size()] / 5,
 				bar,
-				bar / 2.,
-				bar / 2.);
+				style::CornerRadius(bar / 2.),
+				style::CornerRadius(bar / 2.));
 			barTop += bar + (bar / 2);
 		}
 	}

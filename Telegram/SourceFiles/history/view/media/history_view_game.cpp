@@ -318,7 +318,7 @@ void Game::draw(Painter &p, const PaintContext &context) const {
 		auto gameX = pixwidth - st::msgDateImgDelta - gameW;
 		auto gameY = pixheight - st::msgDateImgDelta - gameH;
 
-		Ui::FillRoundRect(p, style::rtlrect(gameX, gameY, gameW, gameH, pixwidth), sti->msgDateImgBg, sti->msgDateImgBgCorners);
+		p.fillRect(style::rtlrect(gameX, gameY, gameW, gameH, pixwidth), sti->msgDateImgBg);
 
 		p.setFont(st::msgDateFont);
 		p.setPen(st->msgDateImgFg());

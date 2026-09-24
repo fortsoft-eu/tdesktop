@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
+#include "styles/style_boxes.h"
 #include "styles/style_info.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
@@ -128,7 +129,7 @@ void RenameBox(not_null<Ui::GenericBox*> box) {
 		object_ptr<Ui::FlatLabel>(
 			box,
 			tr::lng_settings_device_name(),
-			st::defaultSubsectionTitle),
+			st::settingsDeviceNameLabel),
 		st::boxRowPadding + style::margins(0, skip, 0, 0));
 	const auto name = box->addRow(
 		object_ptr<Ui::InputField>(
@@ -491,7 +492,7 @@ void SessionInfoBox(
 Row::Row(not_null<RowDelegate*> delegate, const EntryData &data)
 : PeerListRow(data.hash)
 , _delegate(delegate)
-, _location(st::defaultTextStyle, LocationAndDate(data))
+, _location(st::settingsExperimentalTextStyle, LocationAndDate(data))
 , _type(TypeFromEntry(data))
 , _data(data)
 , _userpic(GenerateUserpic(_type)) {
@@ -502,7 +503,7 @@ void Row::update(const EntryData &data) {
 	_data = data;
 	setCustomStatus(_data.info);
 	refreshName(st::sessionListItem);
-	_location.setText(st::defaultTextStyle, LocationAndDate(_data));
+	_location.setText(st::settingsExperimentalTextStyle, LocationAndDate(_data));
 	_type = TypeFromEntry(_data);
 	_userpic = GenerateUserpic(_type);
 	_delegate->rowUpdateRow(this);
@@ -542,7 +543,7 @@ QRect Row::elementGeometry(int element, int outerWidth) const {
 			st::sessionListItem.namePosition.x(),
 			st::sessionLocationTop,
 			outerWidth,
-			st::normalFont->height);
+			st::classicSettingsFont->height);
 	} break;
 	case 2: {
 		const auto size = QSize(
@@ -588,7 +589,7 @@ void Row::elementsPaint(
 			: st::sessionTerminate.icon;
 		icon.paint(p, position.x(), position.y(), outerWidth);
 	}
-	p.setFont(st::normalFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(st::sessionInfoFg);
 	const auto locationLeft = st::sessionListItem.namePosition.x();
 	const auto available = outerWidth - locationLeft;
@@ -701,7 +702,7 @@ private:
 
 	const not_null<Window::SessionController*> _controller;
 	std::unique_ptr<ListController> _current;
-	QPointer<Ui::SettingsButton> _terminateAll;
+	QPointer<Ui::RoundButton> _terminateAll;
 	QPointer<Ui::SettingsButton> _autoTerminate;
 	QPointer<Ui::RpWidget> _currentHeader;
 	QPointer<Ui::RpWidget> _incompleteHeader;
@@ -923,11 +924,13 @@ void SessionsContent::Inner::setupContent() {
 
 	_currentHeader = AddSubsectionTitle(
 		content,
-		tr::lng_sessions_header());
+		tr::lng_sessions_header(),
+		{},
+		&st::sessionHeader);
 	const auto rename = Ui::CreateChild<Ui::LinkButton>(
 		content,
 		tr::lng_settings_rename_device(tr::now),
-		st::defaultLinkButton);
+		st::sessionRename);
 	rpl::combine(
 		content->sizeValue(),
 		_currentHeader->positionValue()
@@ -935,8 +938,8 @@ void SessionsContent::Inner::setupContent() {
 		const auto x = st::sessionTerminateSkip
 			+ st::sessionTerminate.iconPosition.x();
 		const auto y = st::defaultSubsectionTitlePadding.top()
-			+ st::defaultSubsectionTitle.style.font->ascent
-			- st::defaultLinkButton.font->ascent;
+			+ st::sessionHeader.style.font->ascent
+			- st::sessionRename.font->ascent;
 		rename->moveToRight(x, y, outer.width());
 	}, rename->lifetime());
 	rename->setClickedCallback([=] {
@@ -954,13 +957,14 @@ void SessionsContent::Inner::setupContent() {
 			object_ptr<Ui::VerticalLayout>(content)))->setDuration(0);
 	const auto terminateInner = terminateWrap->entity();
 	_terminateAll = terminateInner->add(
-		CreateButtonWithIcon(
+		object_ptr<Ui::RoundButton>(
 			terminateInner,
 			tr::lng_sessions_terminate_all(),
-			st::infoBlockButton,
-			{ .icon = &st::infoIconBlock }));
+			st::settingsTerminateSessionsButton),
+		st::boxRowPadding,
+		style::al_top);
 	AddSkip(terminateInner);
-	AddDividerText(terminateInner, tr::lng_sessions_terminate_all_about());
+	AddDividerText(terminateInner, tr::lng_sessions_terminate_all_about(), st::defaultBoxDividerLabelPadding, st::sessionTerminateAbout);
 
 	const auto incompleteWrap = content->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -979,10 +983,10 @@ void SessionsContent::Inner::setupContent() {
 			object_ptr<Ui::VerticalLayout>(content)))->setDuration(0);
 	const auto listInner = listWrap->entity();
 	AddSkip(listInner, st::sessionSubtitleSkip);
-	_otherHeader = AddSubsectionTitle(listInner, tr::lng_sessions_other_header());
+	_otherHeader = AddSubsectionTitle(listInner, tr::lng_sessions_other_header(), {}, &st::sessionHeader);
 	_list = ListController::Add(listInner, session);
 	AddSkip(listInner);
-	AddDividerText(listInner, tr::lng_sessions_about_apps());
+	AddDividerText(listInner, tr::lng_sessions_about_apps(), st::defaultBoxDividerLabelPadding, st::sessionTerminateAbout);
 
 	const auto ttlWrap = content->add(
 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
@@ -990,13 +994,13 @@ void SessionsContent::Inner::setupContent() {
 			object_ptr<Ui::VerticalLayout>(content)))->setDuration(0);
 	const auto ttlInner = ttlWrap->entity();
 	AddSkip(ttlInner, st::sessionSubtitleSkip);
-	AddSubsectionTitle(ttlInner, tr::lng_settings_terminate_title());
+	AddSubsectionTitle(ttlInner, tr::lng_settings_terminate_title(), {}, &st::sessionHeader);
 
 	_autoTerminate = AddButtonWithLabel(
 		ttlInner,
 		tr::lng_settings_terminate_if(),
 		_ttlDays.value() | rpl::map(SelfDestructionBox::DaysLabel),
-		st::settingsButtonNoIcon);
+		st::sessionAutoTerminateButton);
 	_autoTerminate->addClickHandler([=] {
 		_controller->show(Box<SelfDestructionBox>(
 			&_controller->session(),

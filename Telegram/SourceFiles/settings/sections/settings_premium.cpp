@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_premium.h"
 
+#include "ui/style/style_classic.h"
 #include "boxes/premium_preview_box.h"
 #include "boxes/sticker_set_box.h"
 #include "chat_helpers/stickers_lottie.h" // LottiePlayerFromDocument.
@@ -730,11 +731,11 @@ TopBarWithSticker::TopBarWithSticker(
 	not_null<Window::SessionController*> controller,
 	TopBarWithStickerArgs args,
 	rpl::producer<> showFinished)
-: TopBarAbstract(parent, st::userPremiumCover)
+: TopBarAbstract(parent, st::settingsPremiumClassicUserCover)
 , _type(args.type)
 , _content(this)
 , _title(_content, st::settingsPremiumUserTitle)
-, _about(_content, st::userPremiumCover.about)
+, _about(_content, st::settingsPremiumClassicUserCover.about)
 , _ministars(_content, true)
 , _smallTop({
 	.widget = object_ptr<Ui::RpWidget>(this),
@@ -1559,11 +1560,12 @@ base::weak_qptr<Ui::RpWidget> Premium::createPinnedToTop(
 		};
 		return Ui::CreateChild<Ui::Premium::TopBar>(
 			parent.get(),
-			st::defaultPremiumCover,
+			st::settingsPremiumClassicCover,
 			Ui::Premium::TopBarDescriptor{
 				.clickContextOther = clickContextOther,
 				.title = std::move(title),
 				.about = std::move(about),
+				.light = true,
 				.use3dStar = true,
 				.showFinished = _showFinished.events(),
 			});
@@ -1744,8 +1746,19 @@ base::weak_qptr<Ui::RpWidget> Premium::createPinnedToBottom(
 
 	content->widthValue(
 	) | rpl::on_next([=](int width) {
-		const auto padding = st::settingsPremiumButtonPadding;
-		_subscribe->resizeToWidth(width - padding.left() - padding.right());
+		const auto padding = st::premiumPreviewBox.buttonPadding;
+		_subscribe->resizeToWidth(std::clamp(
+			width - padding.left() - padding.right(),
+			0,
+			st::settingsTerminateSessionsButton.width));
+	}, _subscribe->lifetime());
+	rpl::combine(
+		content->widthValue(),
+		_subscribe->widthValue()
+	) | rpl::on_next([=](int width, int buttonWidth) {
+		_subscribe->moveToLeft(
+			(width - buttonWidth) / 2,
+			_subscribe->y());
 	}, _subscribe->lifetime());
 
 	rpl::combine(
@@ -1763,7 +1776,7 @@ base::weak_qptr<Ui::RpWidget> Premium::createPinnedToBottom(
 			? (padding.top() + buttonHeight + padding.bottom())
 			: 0;
 		content->resize(content->width(), finalHeight);
-		_subscribe->moveToLeft(padding.left(), padding.top());
+		_subscribe->moveToLeft(_subscribe->x(), padding.top());
 		_subscribe->setVisible(!premium && premiumPossible);
 	}, _subscribe->lifetime());
 
@@ -1947,7 +1960,8 @@ not_null<Ui::RoundButton*> CreateLockedButton(
 		not_null<QWidget*> parent,
 		rpl::producer<QString> text,
 		const style::RoundButton &st,
-		rpl::producer<bool> locked) {
+		rpl::producer<bool> locked,
+		const style::icon *lockIcon) {
 	const auto result = Ui::CreateChild<Ui::RoundButton>(
 		parent.get(),
 		rpl::single(QString()),
@@ -1955,8 +1969,9 @@ not_null<Ui::RoundButton*> CreateLockedButton(
 
 	const auto labelSt = result->lifetime().make_state<style::FlatLabel>(
 		st::defaultFlatLabel);
-	labelSt->style.font = st.style.font;
-	labelSt->textFg = st.textFg;
+	labelSt->style = result->st().style;
+	labelSt->maxHeight = labelSt->style.font->height;
+	labelSt->textFg = st::classicMenuText;
 
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(
 		result,
@@ -1966,33 +1981,39 @@ not_null<Ui::RoundButton*> CreateLockedButton(
 
 	const auto icon = Ui::CreateChild<Ui::RpWidget>(result);
 	icon->setAttribute(Qt::WA_TransparentForMouseEvents);
-	icon->resize(st::stickersPremiumLock.size());
+	const auto paintIcon = lockIcon ? lockIcon : &st::stickersPremiumLock;
+	icon->resize(paintIcon->size());
+	icon->showOn(std::move(locked));
 	icon->paintRequest() | rpl::on_next([=] {
 		auto p = QPainter(icon);
-		st::stickersPremiumLock.paint(p, 0, 0, icon->width());
+		paintIcon->paint(p, 0, 0, icon->width(), st::classicMenuText->c);
 	}, icon->lifetime());
 
+	const auto updateGeometry = [=] {
+		const auto &actual = result->st();
+		const auto face = result->rect().marginsRemoved(actual.padding);
+		const auto content = Ui::ClassicButtonContentRect(face, result);
+		const auto shift = Ui::ClassicButtonContentOffset(
+			result,
+			result->isDown());
+		label->resizeToWidth(std::min(label->naturalWidth(), content.width()));
+		label->moveToLeft(
+			face.x() + (face.width() - label->width()) / 2 + shift.x(),
+			face.y() + actual.textTop + shift.y(),
+			result->width());
+		icon->moveToLeft(
+			face.x() + Ui::ClassicButtonIconLeft(face.height(), icon->size())
+				+ shift.x(),
+			face.y() + (face.height() - icon->height()) / 2 + shift.y(),
+			result->width());
+	};
 	rpl::combine(
-		result->widthValue(),
-		label->widthValue(),
-		std::move(locked)
-	) | rpl::on_next([=](int outer, int inner, bool locked) {
-		if (locked) {
-			icon->show();
-			inner += icon->width();
-			label->move(
-				(outer - inner) / 2 + icon->width(),
-				st::similarChannelsLock.textTop);
-			icon->move(
-				(outer - inner) / 2,
-				st::similarChannelsLock.textTop);
-		} else {
-			icon->hide();
-			label->move(
-				(outer - inner) / 2,
-				st::similarChannelsLock.textTop);
-		}
-	}, result->lifetime());
+		result->sizeValue(),
+		label->naturalWidthValue()
+	) | rpl::on_next(updateGeometry, result->lifetime());
+	result->paintRequest() | rpl::on_next(
+		updateGeometry,
+		result->lifetime());
 
 	return result;
 }
@@ -2058,6 +2079,7 @@ not_null<Ui::GradientButton*> CreateSubscribeButton(
 	});
 
 	const auto &st = st::premiumPreviewBox.button;
+	result->setClassic(true);
 	result->resize(args.parent->width(), st.height);
 
 	const auto premium = &show->session().api().premium();
@@ -2071,6 +2093,8 @@ not_null<Ui::GradientButton*> CreateSubscribeButton(
 			valid ? currency : "USD");
 	};
 
+	auto labelStyle = st::premiumPreviewButtonLabel;
+	labelStyle.maxHeight = labelStyle.style.font->height;
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(
 		result,
 		args.text
@@ -2078,15 +2102,24 @@ not_null<Ui::GradientButton*> CreateSubscribeButton(
 			: tr::lng_premium_summary_button(
 				lt_cost,
 				premium->statusTextValue() | rpl::map(computeCost)),
-		st::premiumPreviewButtonLabel);
+		labelStyle);
 	label->setAttribute(Qt::WA_TransparentForMouseEvents);
+	label->naturalWidthValue(
+	) | rpl::on_next([=](int width) {
+		result->setNaturalWidth(
+			width + 2 * st::classicButtonMinimumPadding);
+	}, result->lifetime());
 	rpl::combine(
 		result->widthValue(),
-		label->widthValue()
-	) | rpl::on_next([=](int outer, int width) {
+		label->naturalWidthValue(),
+		result->contentOffsetValue()
+	) | rpl::on_next([=](int outer, int natural, QPoint offset) {
+		const auto width = std::min(natural,
+			Ui::ClassicButtonContentRect(result->rect(), result).width());
+		label->resizeToWidth(width);
 		label->moveToLeft(
-			(outer - width) / 2,
-			st::premiumPreviewBox.button.textTop,
+			(outer - width) / 2 + offset.x(),
+			st::premiumPreviewBox.button.textTop + offset.y(),
 			outer);
 	}, label->lifetime());
 

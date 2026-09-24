@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/fade_wrap.h"
 #include "lang/lang_keys.h"
 #include "styles/style_payments.h"
+#include "styles/style_layers.h"
 #include "styles/style_passport.h"
 
 namespace Payments::Ui {
@@ -206,7 +207,8 @@ not_null<RpWidget*> EditInformation::setupContent() {
 		object_ptr<Ui::Checkbox>(
 			inner,
 			tr::lng_payments_save_information(tr::now),
-			true),
+			true,
+			st::paymentsSaveCheckbox),
 		st::paymentsSaveCheckboxPadding);
 
 	if (last) {
@@ -230,7 +232,7 @@ void EditInformation::focusInEvent(QFocusEvent *e) {
 }
 
 void EditInformation::updateControlsGeometry() {
-	const auto &padding = st::paymentsPanelPadding;
+	const auto &padding = st::defaultBox.buttonPadding;
 	const auto buttonsHeight = padding.top()
 		+ _cancel->height()
 		+ padding.bottom();

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_photo.h"
 
+#include "ui/style/style_radius.h"
 #include "boxes/send_credits_box.h"
 #include "history/history_item_components.h"
 #include "history/history_item.h"
@@ -86,6 +87,13 @@ using Data::PhotoSize;
 	return hostedInstantView
 		? NonEmptySize(style::ConvertScale(dimensions))
 		: CountDesiredMediaSize(dimensions);
+}
+
+[[nodiscard]] QSize LimitPhotoSizeToOriginal(QSize requested, QSize original) {
+	const auto limit = NonEmptySize(style::ConvertScale(original));
+	return requested.width() <= limit.width() && requested.height() <= limit.height()
+		? requested
+		: NonEmptySize(requested.scaled(limit, Qt::KeepAspectRatio));
 }
 
 } // namespace
@@ -472,7 +480,7 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
 		auto hq = PainterHighQualityEnabler(p);
 		const auto rect = enlargeRect();
 		const auto radius = st::historyPageEnlargeRadius;
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		sti->historyPageEnlarge.paintInCenter(p, rect);
 	}
 	if (_purchasedPriceTag) {
@@ -622,9 +630,18 @@ QImage Photo::prepareImageCacheWithLarge(QSize outer, Image *large) const {
 		} else {
 			blurred = large;
 	}
-	const auto resize = large
+	auto resize = large
 		? ::Media::Streaming::DecideFrameResize(outer, large->size())
 		: ::Media::Streaming::ExpandDecision();
+	if (large && !IsHostedInstantViewMedia(_parent)) {
+		const auto limited = LimitPhotoSizeToOriginal(
+			resize.result,
+			photoSize());
+		if (limited != resize.result) {
+			resize.result = limited;
+			resize.expanding = false;
+		}
+	}
 	return PrepareWithBlurredBackground(outer, resize, large, blurred);
 }
 
@@ -1035,9 +1052,12 @@ void Photo::validateGroupedCache(
 	const auto unscaled = photoSize();
 	const auto originalWidth = style::ConvertScale(unscaled.width());
 	const auto originalHeight = style::ConvertScale(unscaled.height());
-	const auto pixSize = Ui::GetImageScaleSizeForGeometry(
+	auto pixSize = Ui::GetImageScaleSizeForGeometry(
 		{ originalWidth, originalHeight },
 		{ width, height });
+	if (!IsHostedInstantViewMedia(_parent)) {
+		pixSize = LimitPhotoSizeToOriginal(pixSize, unscaled);
+	}
 	const auto ratio = style::DevicePixelRatio();
 	const auto image = _dataMedia->image(PhotoSize::Large)
 		? _dataMedia->image(PhotoSize::Large)

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_save_document_action.h"
+#include "history/view/media/history_view_local_copy.h"
 
 #include "base/call_delayed.h"
 #include "data/data_document.h"
@@ -22,7 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/toast/toast.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
-#include "ui/widgets/menu/menu_multiline_action.h"
+#include "ui/widgets/menu/menu_action.h"
 #include "ui/widgets/popup_menu.h"
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
@@ -30,6 +31,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_widgets.h"
+
+#include <QAction>
 
 namespace HistoryView {
 
@@ -45,7 +48,12 @@ void AddSaveDocumentAction(
 	const auto inProfile = savedMusic->has(document);
 	const auto &ripple = st::defaultDropdownMenu.menu.ripple;
 	const auto duration = ripple.hideDuration;
+	const auto localCopy = ReadLocalMediaCopy(document);
 	const auto saveAs = base::fn_delayed(duration, controller, [=] {
+		if (localCopy) {
+			SaveLocalMediaCopy(*localCopy, &document->session(), show);
+			return;
+		}
 		DocumentSaveClickHandler::SaveAndTrack(
 			contextId,
 			document,
@@ -92,18 +100,9 @@ void AddSaveDocumentAction(
 
 		menu->addSeparator(&st::expandedMenuSeparator);
 
-		auto item = base::make_unique_q<Ui::Menu::MultilineAction>(
-			menu->menu(),
-			st::saveMusicInfoMenu,
-			st::historyHasCustomEmoji,
-			QPoint(
-				st::saveMusicInfoMenu.itemPadding.left(),
-				st::saveMusicInfoMenu.itemPadding.top()),
-			TextWithEntities{ tr::lng_context_save_music_about(tr::now) });
-		item->setAttribute(Qt::WA_TransparentForMouseEvents);
-
-		item->setPointerCursor(false);
-		menu->addAction(std::move(item));
+		const auto action = new QAction(tr::lng_context_save_music_about(tr::now), menu->menu());
+		action->setEnabled(false);
+		menu->addAction(base::make_unique_q<Ui::Menu::Action>(menu->menu(), st::saveMusicInfoMenu, action, nullptr, nullptr));
 	};
 	addAction(Ui::Menu::MenuCallback::Args{
 		.text = tr::lng_context_save_music_to(tr::now),
@@ -120,6 +119,12 @@ void AddSaveDocumentAction(
 		not_null<DocumentData*> document,
 		not_null<ListWidget*> list) {
 	if (!item || list->hasCopyMediaRestriction(item) || ItemHasTtl(item)) {
+		if (const auto copy = ReadLocalMediaCopy(document)) {
+			const auto show = list->controller()->uiShow();
+			menu->addAction(tr::lng_context_save_file(tr::now), [=] {
+				SaveLocalMediaCopy(*copy, &document->session(), show);
+			}, &st::menuIconDownload);
+		}
 		return;
 	}
 	AddSaveDocumentAction(

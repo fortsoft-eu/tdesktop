@@ -50,6 +50,7 @@ struct FlatLabel;
 struct PopupMenu;
 struct IconButton;
 struct PeerListItem;
+struct TextStyle;
 } // namespace style
 
 namespace Ui {
@@ -89,6 +90,14 @@ void FillCreditOptions(
 	bool rightAlign,
 	rpl::producer<float64> opacityValue = nullptr,
 	bool dark = false);
+[[nodiscard]] not_null<Ui::RpWidget*> AddBalanceWidget(
+	not_null<Ui::RpWidget*> parent,
+	not_null<::Main::Session*> session,
+	rpl::producer<CreditsAmount> balanceValue,
+	bool rightAlign,
+	rpl::producer<float64> opacityValue,
+	bool dark,
+	const style::TextStyle *labelStyle);
 
 void AddWithdrawalWidget(
 	not_null<Ui::VerticalLayout*> container,

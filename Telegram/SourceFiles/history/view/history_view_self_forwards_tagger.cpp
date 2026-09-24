@@ -12,18 +12,21 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer_rpl.h"
 #include "boxes/choose_filter_box.h"
 #include "chat_helpers/share_message_phrase_factory.h"
+#include "chat_helpers/tabbed_panel.h"
+#include "chat_helpers/tabbed_selector.h"
 #include "core/ui_integration.h"
 #include "data/data_chat_filters.h"
+#include "data/data_document.h"
+#include "data/data_message_reaction_id.h"
+#include "data/data_message_reactions.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "data/stickers/data_custom_emoji.h"
 #include "history/history.h"
 #include "history/history_item.h"
-#include "history/view/reactions/history_view_reactions_selector.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "ui/rect.h"
-#include "ui/effects/show_animation.h"
 #include "ui/text/text_utilities.h"
 #include "ui/toast/toast_widget.h"
 #include "ui/toast/toast.h"
@@ -41,18 +44,17 @@ namespace {
 
 constexpr auto kInitTimer = crl::time(3000);
 constexpr auto kTimerOnLeave = crl::time(2000);
+const auto kAddTagLink = u"internal:add_tag"_q;
 
 } // namespace
 
 SelfForwardsTagger::SelfForwardsTagger(
 	not_null<Window::SessionController*> controller,
 	not_null<Ui::RpWidget*> parent,
-	Fn<Ui::RpWidget*()> listWidget,
 	not_null<QWidget*> scroll,
 	Fn<History*()> history)
 : _controller(controller)
 , _parent(parent)
-, _listWidget(std::move(listWidget))
 , _scroll(scroll)
 , _history(std::move(history)) {
 	setup();
@@ -95,136 +97,74 @@ void SelfForwardsTagger::showSelectorForMessages(
 	if (!item) {
 		return;
 	}
-	using namespace Reactions;
 	const auto reactions = Data::LookupPossibleReactions(item, true);
 	if (reactions.recent.empty()) {
 		return;
 	}
 
-	showToast(
-		rpl::variable<TextWithEntities>(
-			ChatHelpers::ForwardedMessagePhrase({
+	auto text = rpl::variable<TextWithEntities>(
+		ChatHelpers::ForwardedMessagePhrase({
 			.toCount = 1,
 			.singleMessage = (ids.size() == 1),
 			.to1 = _controller->session().user(),
 			.toSelfWithPremiumIsEmpty = false,
-		})).current(),
-		nullptr);
-
-	const auto toastWidget = [&]() -> Ui::RpWidget* {
-		if (const auto toast = _toast.get()) {
-			return toast->widget();
-		}
-		return nullptr;
-	}();
-	if (!toastWidget) {
-		return;
+		})).current();
+	text.append('\n').append(tr::link(
+		tr::bold(tr::lng_add_tag_button(tr::now)),
+		kAddTagLink));
+	showToast(text, [=] { showTagPanel(ids); });
+	if (const auto toast = _toast.get()) {
+		const auto widget = toast->widget();
+		const auto state = widget->lifetime().make_state<ToastTimerState>();
+		setupToastTimer(widget, state, [=] { hideToast(); });
 	}
+}
 
-	const auto toastWidth = toastWidget->width();
-	const auto selector = Ui::CreateChild<Selector>(
-		toastWidget->parentWidget(),
-		st::reactPanelEmojiPan,
+void SelfForwardsTagger::showTagPanel(const MessageIdsList &ids) {
+	using Selector = ChatHelpers::TabbedSelector;
+	auto selector = object_ptr<Selector>(
+		nullptr,
 		_controller->uiShow(),
-		reactions,
-		tr::lng_add_tag_selector(
-			tr::now,
-			lt_count,
-			float64(ids.size()),
-			TextWithEntities::Simple),
-		[](bool) {},
-		IconFactory(),
-		[] { return false; },
-		false);
-	selector->setBubbleUp(true);
-	selector->setExpandDown(true);
+		Window::GifPauseReason::Layer,
+		Selector::Mode::FullReactions);
+	_tagPanel = base::make_unique_q<ChatHelpers::TabbedPanel>(
+		_parent,
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = _controller,
+			.ownedSelector = std::move(selector),
+			.separateWindow = true,
+			.windowTitle = tr::lng_add_tag_button(tr::now),
+		});
+	_tagPanel->setDesiredHeightValues(
+		1.,
+		st::emojiPanMinHeight / 2,
+		st::emojiPanMinHeight);
+	_tagPanel->hide();
+	_tagPanel->selector()->setCurrentPeer(_controller->session().user());
 
-	const auto destroyFast = [
-			selectorWeak = base::make_weak(selector),
-			toastWidgetWeak = _toast] {
-		if (const auto toast = toastWidgetWeak.get()) {
-			delete toast->widget();
-		}
-		if (const auto selector = selectorWeak.get()) {
-			delete selector;
-		}
-	};
-	const auto hideAndDestroy = [
-			selectorWeak = base::make_weak(selector),
-			toastWidgetWeak = _toast] {
-		const auto selector = selectorWeak.get();
-		const auto toastWidget = toastWidgetWeak.get();
-		if (!selector || !toastWidget) {
-			return;
-		}
-		Ui::Animations::HideWidgets({ toastWidget->widget(), selector });
-		selector->shownValue(
-		) | rpl::on_next([toastWidgetWeak](bool shown) {
-			if (!shown) {
-				if (const auto toast = toastWidgetWeak.get()) {
-					delete toast->widget();
-				}
-			}
-		}, selector->lifetime());
-	};
-
-	selector->chosen(
-	) | rpl::on_next([=](ChosenReaction reaction) {
-		selector->setAttribute(Qt::WA_TransparentForMouseEvents);
+	const auto apply = [=](Data::ReactionId reaction) {
 		for (const auto &id : ids) {
 			if (const auto item = _controller->session().data().message(id)) {
 				item->toggleReaction(
-					reaction.id,
+					reaction,
 					HistoryReactionSource::Selector);
 			}
 		}
-		hideAndDestroy();
+		_tagPanel->hideAnimated();
+		hideToast();
 		base::call_delayed(st::defaultToggle.duration, _parent, [=] {
-			showTaggedToast(reaction.id.custom());
+			showTaggedToast(reaction);
 		});
-	}, selector->lifetime());
-
-	const auto eventFilterCallback = [=](not_null<QEvent*> event) {
-		if (event->type() == QEvent::MouseButtonPress) {
-			hideAndDestroy();
-			return base::EventFilterResult::Cancel;
-		}
-		return base::EventFilterResult::Continue;
 	};
-	base::install_event_filter(selector, _parent, eventFilterCallback);
-	if (const auto list = _listWidget()) {
-		list->lifetime().add(destroyFast);
-		base::install_event_filter(selector, list, eventFilterCallback);
-	}
-
-	const auto state = selector->lifetime().make_state<ToastTimerState>();
-
-	selector->willExpand() | rpl::on_next([=] {
-		state->expanded = true;
-	}, selector->lifetime());
-
-	setupToastTimer(selector, state, hideAndDestroy);
-
-	QObject::connect(
-		_toast->widget(),
-		&QObject::destroyed,
-		selector,
-		[=] { delete selector; });
-
-	const auto selectorWidth = toastWidth;
-	selector->countWidth(selectorWidth, selectorWidth);
-	selector->initGeometry(_parent->height() / 2);
-
-	_toast->widget()->geometryValue(
-	) | rpl::on_next([=](const QRect &rect) {
-		if (rect.isEmpty()) {
-			return;
-		}
-		selector->moveToLeft(
-			rect.x() + (rect.width() - selector->width()) / 2,
-			rect::bottom(rect) - st::selfForwardsTaggerStripSkip);
-	}, selector->lifetime());
-	selector->show();
+	_tagPanel->selector()->emojiChosen(
+	) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
+		apply(Data::ReactionId{ data.emoji->text() });
+	}, _tagPanel->lifetime());
+	_tagPanel->selector()->customEmojiChosen(
+	) | rpl::on_next([=](ChatHelpers::FileChosen data) {
+		apply(Data::ReactionId{ data.document->id });
+	}, _tagPanel->lifetime());
+	_tagPanel->showAnimated();
 }
 
 void SelfForwardsTagger::showToast(
@@ -236,35 +176,42 @@ void SelfForwardsTagger::showToast(
 		.textContext = Core::TextContext({
 			.session = &_controller->session(),
 		}),
-		.filter = ChatHelpers::ForwardedToSavedMessagesFilter(
-			&_controller->session()),
+		.filter = [
+				fallback = ChatHelpers::ForwardedToSavedMessagesFilter(
+					&_controller->session()),
+				callback = std::move(callback)](
+					const ClickHandlerPtr &handler,
+					Qt::MouseButton button) {
+			if (handler && handler->url() == kAddTagLink) {
+				callback();
+				return false;
+			}
+			return fallback(handler, button);
+		},
 		.iconLottie = u"toast/saved_messages"_q,
 		.iconPadding = st::selfForwardsTaggerIconPadding,
 		.st = &st::selfForwardsTaggerToast,
 		.attach = RectPart::Top,
+		.acceptinput = true,
 		.infinite = true,
 	});
-	if (const auto strong = _toast.get()) {
-		if (callback) {
-			QObject::connect(strong->widget(), &QObject::destroyed, callback);
-		}
-	} else if (callback) {
-		callback();
-	}
 }
 
 
-void SelfForwardsTagger::showTaggedToast(DocumentId reaction) {
+void SelfForwardsTagger::showTaggedToast(
+		const Data::ReactionId &reaction) {
 	auto text = tr::lng_message_tagged_with(
 		tr::now,
 		lt_emoji,
-		Data::SingleCustomEmoji(reaction),
+		(reaction.custom()
+			? Data::SingleCustomEmoji(reaction.custom())
+			: TextWithEntities{ reaction.emoji() }),
 		tr::marked);
 	hideToast();
 
 	const auto &st = st::selfForwardsTaggerToast;
 	const auto viewText = tr::lng_tagged_view_saved(tr::now);
-	const auto viewFont = st::historyPremiumViewSet.style.font;
+	const auto viewFont = st::classicActionFont;
 	const auto rightSkip = viewFont->width(viewText)
 		+ st::toastUndoSpace;
 
@@ -285,6 +232,7 @@ void SelfForwardsTagger::showTaggedToast(DocumentId reaction) {
 		const auto widget = strong->widget();
 
 		const auto button = Ui::CreateChild<Ui::AbstractButton>(widget.get());
+		button->setPointerCursor(true);
 		button->setClickedCallback([=] {
 			_controller->showPeerHistory(_controller->session().user());
 			hideToast();
@@ -292,7 +240,7 @@ void SelfForwardsTagger::showTaggedToast(DocumentId reaction) {
 
 		button->paintRequest() | rpl::on_next([=] {
 			auto p = QPainter(button);
-			const auto font = st::historyPremiumViewSet.style.font;
+			const auto font = viewFont->underline(button->isOver());
 			const auto top = (button->height() - font->height) / 2;
 			p.setPen(st::historyPremiumViewSet.textFg);
 			p.setFont(font);

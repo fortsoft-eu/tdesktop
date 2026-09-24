@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/premium_top_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "lottie/lottie_icon.h"
 #include "ui/color_contrast.h"
 #include "ui/painter.h"
@@ -72,8 +73,8 @@ void TopBarAbstract::paintEdges(QPainter &p, const QBrush &brush) const {
 		p.setBrush(brush);
 		p.drawRoundedRect(
 			r + QMargins{ 0, 0, 0, radius + 1 },
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 	} else {
 		p.fillRect(r, brush);
 	}

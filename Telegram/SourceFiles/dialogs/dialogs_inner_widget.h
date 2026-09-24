@@ -48,7 +48,7 @@ class IconButton;
 class PopupMenu;
 class FlatLabel;
 class VerticalLayout;
-class RoundButton;
+class FlatButton;
 struct ScrollToRequest;
 namespace Controls {
 enum class QuickDialogAction;
@@ -756,7 +756,7 @@ private:
 	SearchState _searchEmptyState;
 	object_ptr<Ui::FlatLabel> _empty = { nullptr };
 	object_ptr<Ui::VerticalLayout> _emptyList = { nullptr };
-	object_ptr<Ui::RoundButton> _emptyButton = { nullptr };
+	object_ptr<Ui::FlatButton> _emptyButton = { nullptr };
 
 	Ui::DraggingScrollManager _draggingScroll;
 

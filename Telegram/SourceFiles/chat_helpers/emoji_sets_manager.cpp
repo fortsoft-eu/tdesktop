@@ -15,11 +15,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/animations.h"
 #include "ui/effects/radial_animation.h"
 #include "ui/emoji_config.h"
+#include "ui/style/style_classic.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
 #include "core/application.h"
 #include "lang/lang_keys.h"
 #include "main/main_account.h"
+#include "main/main_session.h"
+#include "base/call_delayed.h"
 #include "storage/storage_cloud_blob.h"
 #include "styles/style_layers.h"
 #include "styles/style_boxes.h"
@@ -63,6 +66,7 @@ public:
 
 private:
 	void fail() override;
+	const base::weak_ptr<Main::Session> _session;
 
 };
 
@@ -141,7 +145,7 @@ MTP::DedicatedLoader::Location GetDownloadLocation(int id) {
 }
 
 SetState ComputeState(int id) {
-	if (id == CurrentSetId()) {
+	if (id == CurrentSetId() && !NeedToSwitchBackToId()) {
 		return Active();
 	} else if (SetIsReady(id)) {
 		return Ready();
@@ -171,27 +175,32 @@ Loader::Loader(
 	MTP::DedicatedLoader::Location location,
 	const QString &folder,
 	int size)
-: BlobLoader(nullptr, session, id, location, folder, size) {
+: BlobLoader(nullptr, session, id, location, folder, size)
+, _session(session) {
 }
 
 void Loader::unpack(const QString &path) {
-	const auto folder = internal::SetDataPath(id());
+	const auto setId = id();
+	const auto folder = internal::SetDataPath(setId);
 	const auto weak = base::make_weak(this);
 	crl::async([=] {
-		if (UnpackSet(path, folder)) {
+		const auto unpacked = UnpackSet(path, folder);
+		if (unpacked) {
 			QFile(path).remove();
-			SwitchToSet(id(), crl::guard(weak, [=](bool success) {
+		}
+		crl::on_main(weak, [=] {
+			if (!unpacked) {
+				fail();
+				return;
+			}
+			SwitchToSet(setId, crl::guard(weak, [=](bool success) {
 				if (success) {
 					destroy();
 				} else {
 					fail();
 				}
 			}));
-		} else {
-			crl::on_main(weak, [=] {
-				fail();
-			});
-		}
+		});
 	});
 }
 
@@ -202,8 +211,15 @@ void Loader::destroy() {
 }
 
 void Loader::fail() {
-	ClearNeedSwitchToId();
 	BlobLoader::fail();
+	constexpr auto kRetryDelay = crl::time(120 * 1000);
+	base::call_delayed(kRetryDelay, this, [=] {
+		if (GlobalLoader == this
+			&& _session
+			&& NeedToSwitchBackToId() == id()) {
+			LoadAndSwitchTo(_session.get(), id());
+		}
+	});
 }
 
 Inner::Inner(QWidget *parent, not_null<Main::Session*> session)
@@ -260,75 +276,14 @@ void Row::paintPreview(QPainter &p) const {
 }
 
 void Row::paintRadio(QPainter &p) {
-	if (_loading && !_loading->animating()) {
-		_loading = nullptr;
-	}
-	const auto loading = _loading
-		? _loading->computeState()
-		: Ui::RadialState{ 0., 0, arc::kFullLength };
-	const auto isToggledSet = v::is<Active>(_state.current());
-	const auto isActiveSet = isToggledSet || v::is<Loading>(_state.current());
-	const auto toggled = _toggled.value(isToggledSet ? 1. : 0.);
-	const auto active = _active.value(isActiveSet ? 1. : 0.);
-	const auto _st = &st::defaultRadio;
-
-	PainterHighQualityEnabler hq(p);
-
-	const auto left = width()
-		- st::manageEmojiMarginRight
-		- _st->diameter
-		- _st->thickness;
-	const auto top = (height() - _st->diameter - _st->thickness) / 2;
-	const auto outerWidth = width();
-
-	auto pen = anim::pen(_st->untoggledFg, _st->toggledFg, active);
-	pen.setWidth(_st->thickness);
-	pen.setCapStyle(Qt::RoundCap);
-	p.setPen(pen);
-	p.setBrush(_st->bg);
-	const auto rect = style::rtlrect(QRectF(
-		left,
-		top,
-		_st->diameter,
-		_st->diameter
-	).marginsRemoved(QMarginsF(
-		_st->thickness / 2.,
-		_st->thickness / 2.,
-		_st->thickness / 2.,
-		_st->thickness / 2.
-	)), outerWidth);
-	if (loading.shown > 0 && anim::Disabled()) {
-		anim::DrawStaticLoading(
-			p,
-			rect,
-			_st->thickness,
-			pen.color(),
-			_st->bg);
-	} else if (loading.arcLength < arc::kFullLength) {
-		p.drawArc(rect, loading.arcFrom, loading.arcLength);
-	} else {
-		p.drawEllipse(rect);
-	}
-
-	if (toggled > 0 && (!_loading || !anim::Disabled())) {
-		p.setPen(Qt::NoPen);
-		p.setBrush(anim::brush(_st->untoggledFg, _st->toggledFg, toggled));
-
-		const auto skip0 = _st->diameter / 2.;
-		const auto skip1 = _st->skip / 10.;
-		const auto checkSkip = skip0 * (1. - toggled) + skip1 * toggled;
-		p.drawEllipse(style::rtlrect(QRectF(
-			left,
-			top,
-			_st->diameter,
-			_st->diameter
-		).marginsRemoved(QMarginsF(
-			checkSkip,
-			checkSkip,
-			checkSkip,
-			checkSkip
-		)), outerWidth));
-	}
+	const auto size = st::classicCheckSize;
+	PaintClassicRadio(p, style::rtlrect(
+		QRect(
+			width() - st::manageEmojiMarginRight - size,
+			(height() - size) / 2,
+			size,
+			size),
+		width()), v::is<Active>(_state.current()));
 }
 
 bool Row::showOver(State state) const {
@@ -395,6 +350,9 @@ void Row::setupHandler() {
 		return !_switching && (v::is<Ready>(state)
 			|| v::is<Available>(state));
 	}) | rpl::on_next([=] {
+		if (GlobalLoader && GlobalLoader->id() != _id) {
+			GlobalLoader->destroy();
+		}
 		if (v::is<Available>(_state.current())) {
 			load();
 			return;
@@ -541,6 +499,7 @@ void Row::setupAnimation() {
 
 ManageSetsBox::ManageSetsBox(QWidget*, not_null<Main::Session*> session)
 : _session(session) {
+	SetClassicSettingsStyle(this);
 }
 
 void ManageSetsBox::prepare() {
@@ -556,6 +515,10 @@ void ManageSetsBox::prepare() {
 void LoadAndSwitchTo(not_null<Main::Session*> session, int id) {
 	if (!ranges::contains(kSets, id, &Set::id)) {
 		ClearNeedSwitchToId();
+		return;
+	}
+	if (!id) {
+		SwitchToSet(id, [](bool) {});
 		return;
 	}
 	SetGlobalLoader(base::make_unique_q<Loader>(

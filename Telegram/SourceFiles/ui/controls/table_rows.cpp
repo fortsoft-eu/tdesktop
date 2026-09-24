@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "ui/controls/userpic_button.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/fields/masked_input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/tooltip.h"
 #include "ui/wrap/table_layout.h"
@@ -35,6 +36,59 @@ namespace Ui {
 namespace {
 
 constexpr auto kTooltipDuration = 6 * crl::time(1000);
+
+class TableValueWithControl final : public RpWidget {
+public:
+	using RpWidget::RpWidget;
+
+	QMargins getMargins() const override {
+		return { 0, _textTop, 0, st::giveawayGiftCodePeerMargin.bottom() };
+	}
+
+	void setTextTop(int top) {
+		_textTop = top;
+	}
+
+private:
+	int _textTop = 0;
+
+};
+
+template <typename Control>
+void LayoutTableValueControl(
+		not_null<TableLayout*> table,
+		not_null<TableValueWithControl*> container,
+		not_null<RpWidget*> value,
+		Control *control,
+		int controlBaseline,
+		int valueTextTop = 0) {
+	value->setParent(container);
+	value->show();
+
+	rpl::combine(
+		container->widthValue(),
+		control->widthValue(),
+		value->naturalWidthValue()
+	) | rpl::on_next([=](int width, int controlWidth, int) {
+		const auto space = table->st().defaultValue.style.font->spacew;
+		value->resizeToNaturalWidth(std::max(0, width - space - controlWidth));
+		value->moveToLeft(0, value->y(), width);
+		control->moveToLeft(value->width() + space, control->y(), width);
+	}, value->lifetime());
+
+	rpl::combine(
+		value->heightValue(),
+		control->heightValue()
+	) | rpl::on_next([=](int valueHeight, int controlHeight) {
+		const auto controlTop = valueTextTop + table->st().defaultValue.style.font->ascent - controlBaseline;
+		const auto valueTop = std::max(0, -controlTop);
+		container->setTextTop(valueTop);
+		value->moveToLeft(0, valueTop, container->width());
+		control->move(control->x(), controlTop + valueTop);
+		const auto bottom = st::giveawayGiftCodePeerMargin.bottom();
+		container->resize(container->width(), std::max(valueTop + valueHeight, control->y() + controlHeight) + bottom);
+	}, container->lifetime());
+}
 
 } // namespace
 
@@ -92,18 +146,8 @@ ValueWithSmallButton MakeValueWithSmallButton(
 		rpl::producer<QString> buttonText,
 		Fn<void(not_null<RpWidget*> button)> handler,
 		int topSkip) {
-	class MarginedWidget final : public RpWidget {
-	public:
-		using RpWidget::RpWidget;
-		QMargins getMargins() const override {
-			return { 0, 0, 0, st::giveawayGiftCodePeerMargin.bottom() };
-		}
-	};
-	auto result = object_ptr<MarginedWidget>(table);
+	auto result = object_ptr<TableValueWithControl>(table);
 	const auto raw = result.data();
-
-	value->setParent(raw);
-	value->show();
 
 	const auto button = CreateChild<RoundButton>(
 		raw,
@@ -116,31 +160,30 @@ ValueWithSmallButton MakeValueWithSmallButton(
 	} else {
 		button->setAttribute(Qt::WA_TransparentForMouseEvents);
 	}
-	rpl::combine(
-		raw->widthValue(),
-		button->widthValue(),
-		value->naturalWidthValue()
-	) | rpl::on_next([=](int width, int buttonWidth, int) {
-		const auto buttonSkip = st::normalFont->spacew + buttonWidth;
-		value->resizeToNaturalWidth(width - buttonSkip);
-		value->moveToLeft(0, 0, width);
-		button->moveToLeft(
-			rect::right(value) + st::normalFont->spacew,
-			(topSkip
-				+ (table->st().defaultValue.style.font->ascent
-					- table->st().smallButton.style.font->ascent)),
-			width);
-	}, value->lifetime());
-
-	value->heightValue() | rpl::on_next([=](int height) {
-		const auto bottom = st::giveawayGiftCodePeerMargin.bottom();
-		raw->resize(raw->width(), height + bottom);
-	}, raw->lifetime());
+	const auto &buttonStyle = button->st();
+	LayoutTableValueControl(table, raw, value, button,
+		buttonStyle.padding.top() + buttonStyle.textTop + buttonStyle.style.font->ascent,
+		topSkip);
 
 	return {
 		.widget = std::move(result),
 		.button = button,
 	};
+}
+
+object_ptr<RpWidget> MakeValueWithReadOnlyField(not_null<TableLayout*> table, not_null<RpWidget*> value, const QString &text) {
+	auto result = object_ptr<TableValueWithControl>(table);
+	const auto raw = result.data();
+	const auto &st = st::giveawayGiftValueReadOnly;
+	const auto field = CreateChild<MaskedInputField>(raw, st, nullptr, text);
+	field->setReadOnly(true);
+	field->setCursor(style::cur_text);
+	const auto metrics = field->fontMetrics();
+	field->resize(
+		metrics.horizontalAdvance(text) + st.textMargins.left() + st.textMargins.right(),
+		metrics.height() + st.textMargins.top() + st.textMargins.bottom());
+	LayoutTableValueControl(table, raw, value, field, (field->height() - metrics.height()) / 2 + metrics.ascent());
+	return result;
 }
 
 object_ptr<RpWidget> MakePeerTableValue(
@@ -160,7 +203,7 @@ object_ptr<RpWidget> MakePeerTableValue(
 	const auto label = CreateChild<FlatLabel>(
 		raw,
 		(button && handler) ? peer->shortName() : peer->name(),
-		table->st().defaultValue);
+		st::giveawayGiftDetailsPeerName);
 
 	raw->widthValue() | rpl::on_next([=](int width) {
 		const auto position = st::giveawayGiftCodeNamePosition;
@@ -317,10 +360,10 @@ void ShowTableRowTooltip(
 	const auto tooltip = CreateChild<ImportantTooltip>(
 		parent,
 		MakeNiceTooltipLabel(
-			parent,
+			nullptr,
 			std::move(text),
 			st::boxWideWidth,
-			st::defaultImportantTooltipLabel,
+			st::giftTableTooltipLabel,
 			st::defaultPopupMenu,
 			context),
 		st::defaultImportantTooltip);

@@ -86,6 +86,7 @@ public:
 	void clearListenState();
 
 	void orderControls();
+	void disablePointerCursor();
 
 	[[nodiscard]] rpl::producer<SendActionUpdate> sendActionUpdates() const;
 	[[nodiscard]] rpl::producer<VoiceToSend> sendVoiceRequests() const;

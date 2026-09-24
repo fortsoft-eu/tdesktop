@@ -14,10 +14,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/basic_click_handlers.h"
 #include "ui/wrap/fade_wrap.h"
 #include "ui/wrap/vertical_layout.h"
-#include "ui/widgets/shadow.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/scroll_area.h"
-#include "ui/cached_round_corners.h"
+#include "ui/style/style_classic.h"
 #include "ui/vertical_list.h"
 #include "lang/lang_keys.h"
 #include "boxes/abstract_box.h"
@@ -61,13 +60,11 @@ object_ptr<Ui::RpWidget> CreateIntroSettings(
 		not_null<Window::Controller*> window) {
 	auto result = object_ptr<Ui::VerticalLayout>(parent);
 
-	Ui::AddDivider(result);
 	Ui::AddSkip(result);
 	SetupLanguageButton(window, result);
 	SetupConnectionType(window, &window->account(), result);
 	Ui::AddSkip(result);
 	if (HasUpdate()) {
-		Ui::AddDivider(result);
 		Ui::AddSkip(result);
 		SetupUpdate(result);
 		Ui::AddSkip(result);
@@ -81,7 +78,6 @@ object_ptr<Ui::RpWidget> CreateIntroSettings(
 			window->sessionController(),
 			wrap.data());
 		if (wrap->count() > 0) {
-			Ui::AddDivider(result);
 			Ui::AddSkip(result);
 			result->add(object_ptr<Ui::OverrideMargins>(
 				result,
@@ -89,20 +85,17 @@ object_ptr<Ui::RpWidget> CreateIntroSettings(
 			Ui::AddSkip(result);
 		}
 	}
-	Ui::AddDivider(result);
 	Ui::AddSkip(result);
 	SetupInterfaceScale(window, result, false);
 	SetupDefaultThemes(window, result);
 	Ui::AddSkip(result);
 
 	if (anim::Disabled()) {
-		Ui::AddDivider(result);
 		Ui::AddSkip(result);
 		SetupAnimations(window, result);
 		Ui::AddSkip(result);
 	}
 
-	Ui::AddDivider(result);
 	Ui::AddSkip(result);
 
 	AddButtonWithIcon(
@@ -128,7 +121,7 @@ void TopBar::setTitle(rpl::producer<QString> &&title) {
 	_title = Ui::CreateChild<Ui::FlatLabel>(
 		this,
 		std::move(title),
-		_st.title);
+		st::infoApplicationTitle);
 	updateControlsGeometry(width());
 }
 
@@ -164,10 +157,8 @@ void TopBar::updateControlsGeometry(int newWidth) {
 }
 
 void TopBar::paintEvent(QPaintEvent *e) {
-	const auto radius = st::boxRadius;
-	QPainter(this).fillRect(
-		e->rect().intersected({ 0, radius, width(), height() - radius }),
-		_st.bg);
+	auto p = QPainter(this);
+	p.fillRect(e->rect(), st::classicControlBg);
 }
 
 } // namespace
@@ -204,7 +195,6 @@ private:
 	QRect contentGeometry() const;
 	void setInnerWidget(object_ptr<Ui::RpWidget> content);
 	void showContent(not_null<Window::Controller*> window);
-	rpl::producer<bool> topShadowToggledValue() const;
 	void createTopBar(not_null<Window::Controller*> window);
 	void applyAdditionalScroll(int additionalScroll);
 
@@ -218,8 +208,6 @@ private:
 	int _additionalScroll = 0;
 	object_ptr<TopBar> _topBar = { nullptr };
 
-	object_ptr<Ui::FadeShadow> _topShadow;
-
 };
 
 IntroWidget::IntroWidget(
@@ -227,13 +215,15 @@ IntroWidget::IntroWidget(
 	not_null<Window::Controller*> window)
 : RpWidget(parent)
 , _wrap(this)
-, _scroll(Ui::CreateChild<Ui::ScrollArea>(_wrap.data()))
-, _topShadow(this) {
+, _scroll(Ui::CreateChild<Ui::ScrollArea>(
+	_wrap.data(),
+	st::settingsIntroScroll)) {
+	Ui::SetClassicSettingsStyle(this);
 	_wrap->setAttribute(Qt::WA_OpaquePaintEvent);
 	_wrap->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(_wrap.data());
-		p.fillRect(clip, st::boxBg);
+		p.fillRect(clip, st::classicControlBg);
 	}, _wrap->lifetime());
 
 	_scrollTopSkip.changes(
@@ -243,11 +233,6 @@ IntroWidget::IntroWidget(
 
 	createTopBar(window);
 	showContent(window);
-	_topShadow->toggleOn(
-		topShadowToggledValue(
-		) | rpl::filter([](bool shown) {
-			return true;
-		}));
 }
 
 QString IntroWidget::accessibilityName() {
@@ -260,8 +245,6 @@ void IntroWidget::updateControlsGeometry() {
 	}
 
 	_topBar->resizeToWidth(width());
-	_topShadow->resizeToWidth(width());
-	_topShadow->moveToLeft(0, _topBar->height());
 	_wrap->setGeometry(contentGeometry());
 
 	auto scrollGeometry = _wrap->rect().marginsRemoved(
@@ -333,21 +316,11 @@ void IntroWidget::setInnerWidget(object_ptr<Ui::RpWidget> content) {
 	}, _innerWrap->lifetime());
 }
 
-rpl::producer<bool> IntroWidget::topShadowToggledValue() const {
-	using namespace rpl::mappers;
-	return rpl::combine(
-		_scroll->scrollTopValue(),
-		_scrollTopSkip.value()
-	) | rpl::map((_1 > 0) || (_2 > 0));
-}
-
 void IntroWidget::showContent(not_null<Window::Controller*> window) {
 	setInnerWidget(CreateIntroSettings(_scroll, window));
 
 	_additionalScroll = 0;
 	updateControlsGeometry();
-	_topShadow->raise();
-	_topShadow->finishAnimating();
 }
 
 void IntroWidget::setInnerFocus() {
@@ -479,8 +452,14 @@ int LayerWidget::resizeGetHeight(int newWidth) {
 	auto windowWidth = parentSize.width();
 	auto windowHeight = parentSize.height();
 	auto newLeft = (windowWidth - newWidth) / 2;
+	const auto border = 2 * st::lineWidth;
 	if (!newLeft) {
-		_content->updateGeometry({ 0, 0, windowWidth, windowHeight }, 0);
+		_content->updateGeometry({
+			border,
+			border,
+			windowWidth - 2 * border,
+			windowHeight - 2 * border,
+		}, 0);
 		auto newGeometry = QRect(0, 0, windowWidth, windowHeight);
 		if (newGeometry != geometry()) {
 			_content->forceContentRepaint();
@@ -488,7 +467,6 @@ int LayerWidget::resizeGetHeight(int newWidth) {
 		if (newGeometry.topLeft() != geometry().topLeft()) {
 			move(newGeometry.topLeft());
 		}
-		_tillTop = _tillBottom = true;
 		return windowHeight;
 	}
 	auto newTop = std::clamp(
@@ -496,23 +474,20 @@ int LayerWidget::resizeGetHeight(int newWidth) {
 		st::infoLayerTopMinimal,
 		st::infoLayerTopMaximal);
 	auto newBottom = newTop;
-	auto desiredHeight = _desiredHeight + st::boxRadius;
-	accumulate_min(desiredHeight, windowHeight - newTop - newBottom);
+	const auto bottomRadius = border ? border : st::boxRadius;
+	const auto maxVisibleHeight = windowHeight - newTop;
+	auto desiredHeight = _desiredHeight + border + bottomRadius;
+	accumulate_min(desiredHeight, maxVisibleHeight - newBottom);
 
 	// First resize content to new width and get the new desired height.
-	auto contentLeft = 0;
-	auto contentTop = 0;
-	auto contentBottom = st::boxRadius;
-	auto contentWidth = newWidth;
+	auto contentLeft = border;
+	auto contentTop = border;
+	auto contentBottom = bottomRadius;
+	auto contentWidth = newWidth - 2 * border;
 	auto contentHeight = desiredHeight - contentTop - contentBottom;
-	auto scrollTillBottom = _content->scrollTillBottom(contentHeight);
-	auto additionalScroll = std::min(scrollTillBottom, newBottom);
-
-	desiredHeight += additionalScroll;
-	contentHeight += additionalScroll;
-	_tillTop = false;
-	_tillBottom = (newTop + desiredHeight >= windowHeight);
-	if (_tillBottom) {
+	auto additionalScroll = 0;
+	const auto tillBottom = (desiredHeight >= maxVisibleHeight);
+	if (tillBottom && !border) {
 		contentHeight += contentBottom;
 		additionalScroll += contentBottom;
 	}
@@ -539,23 +514,8 @@ void LayerWidget::doSetInnerFocus() {
 
 void LayerWidget::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-
-	auto clip = e->rect();
-	auto r = st::boxRadius;
-	const auto &pixmaps = Ui::CachedCornerPixmaps(Ui::BoxCorners);
-	if (!_tillTop && clip.intersects({ 0, 0, width(), r })) {
-		Ui::FillRoundRect(p, 0, 0, width(), r, st::boxBg, {
-			.p = { pixmaps.p[0], pixmaps.p[1], QPixmap(), QPixmap() },
-		});
-	}
-	if (!_tillBottom && clip.intersects({ 0, height() - r, width(), r })) {
-		Ui::FillRoundRect(p, 0, height() - r, width(), r, st::boxBg, {
-			.p = { QPixmap(), QPixmap(), pixmaps.p[2], pixmaps.p[3] },
-		});
-	}
-	if (_tillTop) {
-		p.fillRect(0, 0, width(), r, st::boxBg);
-	}
+	p.setClipRect(e->rect());
+	Ui::PaintClassicButton(p, rect(), this, false);
 }
 
 } // namespace Settings

@@ -134,6 +134,7 @@ public:
 	void windowShown();
 
 	void dialogsToUp();
+	void restoreDefaultDialogsWidth();
 	void checkActivation();
 
 	[[nodiscard]] PeerData *peer() const;

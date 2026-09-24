@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/create_ai_tone_box.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/compose/compose_show.h"
 #include "chat_helpers/emoji_list_widget.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -190,7 +191,7 @@ not_null<Ui::FlatLabel*> AddAiComposeFieldDecor(
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::aiToneFieldBg);
 		const auto r = st::aiToneFieldRadius;
-		p.drawRoundedRect(bg->rect(), r, r);
+		p.drawRoundedRect(bg->rect(), style::CornerRadius(r), style::CornerRadius(r));
 	}, decor->bg->lifetime());
 	decor->bg->lower();
 	decor->placeholder->raise();

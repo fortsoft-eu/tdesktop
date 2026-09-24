@@ -143,7 +143,7 @@ CountrySelectBox::CountrySelectBox(QWidget*)
 }
 
 CountrySelectBox::CountrySelectBox(QWidget*, const QString &iso, Type type)
-: _select(this, st::defaultMultiSelect, tr::lng_country_ph())
+: _select(this, st::countrySelectSearch, tr::lng_country_ph())
 , _ownedInner(this, iso, type) {
 }
 
@@ -166,6 +166,7 @@ rpl::producer<CountrySelectBox::Entry> CountrySelectBox::entryChosen() const {
 }
 
 void CountrySelectBox::prepare() {
+	setStyle(st::countrySelectBox);
 	setTitle(tr::lng_country_select());
 
 	_select->resizeToWidth(st::boxWidth);
@@ -357,7 +358,7 @@ void CountrySelectBox::Inner::paintEvent(QPaintEvent *e) {
 	const auto &list = current();
 	if (list.empty()) {
 		p.fillRect(r, st::boxBg);
-		p.setFont(st::noContactsFont);
+		p.setFont(st::classicSettingsFont);
 		p.setPen(st::noContactsColor);
 		p.drawText(QRect(0, 0, width(), st::noContactsHeight), tr::lng_country_none(tr::now), style::al_center);
 		return;
@@ -385,7 +386,10 @@ void CountrySelectBox::Inner::paintEvent(QPaintEvent *e) {
 
 		auto name = list[i].country;
 		auto nameWidth = st::countryRowNameFont->width(name);
-		auto availWidth = width() - st::countryRowPadding.left() - st::countryRowPadding.right() - codeWidth - st::boxScroll.width;
+		auto availWidth = width()
+			- st::countryRowPadding.left()
+			- st::countryRowPadding.right()
+			- codeWidth;
 		if (nameWidth > availWidth) {
 			name = st::countryRowNameFont->elided(name, availWidth);
 			nameWidth = st::countryRowNameFont->width(name);

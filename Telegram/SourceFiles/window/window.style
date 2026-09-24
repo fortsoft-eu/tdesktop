@@ -102,7 +102,7 @@ titleSubWidgetLeft: icon {{ "fade_horizontal", titleBgActive }};
 titleSubWidgetRight: icon {{ "fade_horizontal-flip_horizontal", titleBgActive }};
 titleSubWidgetStyle: TextStyle(defaultTextStyle) {
 	font: font(10px semibold);
-	linkUnderline: kLinkUnderlineNever;
+	linkUnderline: kLinkUnderlineActive;
 }
 
 mainMenuUserpic: UserpicButton(defaultUserpicButton) {
@@ -110,32 +110,47 @@ mainMenuUserpic: UserpicButton(defaultUserpicButton) {
 	photoSize: 48px;
 }
 mainMenuButton: SettingsButton(defaultSettingsButton) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
 	padding: margins(61px, 11px, 20px, 9px);
 	toggleSkip: 19px;
 	iconLeft: 21px;
 }
+mainMenuArchiveButton: SettingsButton(mainMenuButton) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+}
 mainMenuAddAccountButton: SettingsButton(mainMenuButton) {
 	iconLeft: 23px;
+}
+mainMenuAccountNameStyle: TextStyle(defaultTextStyle) {
+	font: font(16px "Unifont");
+}
+mainMenuAccountButton: SettingsButton(mainMenuAddAccountButton) {
+	style: mainMenuAccountNameStyle;
 }
 
 mainMenuAccountSize: 26px;
 mainMenuAccountLine: 2px;
-mainMenuBadgeFont: font(11px bold);
-mainMenuBadgeSize: 18px;
+mainMenuBadgeFont: classicActionFont;
+mainMenuBadgeSize: classicUnreadBadgeHeight;
 
 mainMenuTelegramLabel: FlatLabel(defaultFlatLabel) {
 	align: align(left);
-	textFg: windowSubTextFg;
+	textFg: classicMenuText;
 	style: TextStyle(defaultTextStyle) {
-		font: semiboldFont;
+		font: classicActionFont;
 	}
 	palette: TextPalette(defaultTextPalette) {
-		linkFg: windowSubTextFg;
+		linkFg: windowActiveTextFg;
 	}
 }
 mainMenuVersionLabel: FlatLabel(mainMenuTelegramLabel) {
-	style: defaultTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 
 mainMenuToggleFourStrokes: 3px;
@@ -187,16 +202,16 @@ windowOutdatedClose: IconButton(defaultIconButton) {
 windowScreenReaderLabel: FlatLabel(defaultFlatLabel) {
 	align: align(left);
 	textFg: activeButtonFg;
-	style: semiboldTextStyle;
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
 }
 windowScreenReaderPadding: margins(12px, 4px, 4px, 4px);
-windowScreenReaderDisableTextStyle: semiboldTextStyle;
-windowScreenReaderButtonPadding: margins(12px, 0px, 12px, 0px);
-windowScreenReaderButtonHeight: 28px;
-windowScreenReaderButtonBorderWidth: 2px;
-windowScreenReaderButtonRadius: 14px;
-windowScreenReaderButtonRipple: RippleAnimation(defaultRippleAnimation) {
-	color: activeButtonBgRipple;
+windowScreenReaderButton: FlatButton(historyCompactComposeButton) {
+	width: -24px;
+	height: 28px;
+	font: classicActionFont;
+	overFont: classicActionFont;
 }
 
 createThemeImportButton: SettingsButton(defaultSettingsButton) {
@@ -233,10 +248,10 @@ windowFiltersButton: SideBarButton(defaultSideBarButton) {
 	minHeight: 62px;
 	minTextWidth: 48px;
 	style: TextStyle(defaultTextStyle) {
-		font: font(11px semibold);
+		font: classicActionFont;
 	}
 	badgeStyle: TextStyle(defaultTextStyle) {
-		font: font(12px semibold);
+		font: classicActionFont;
 	}
 	badgeSkip: 4px;
 	badgeHeight: 17px;
@@ -267,9 +282,9 @@ windowFiltersMainMenuUnreadMuted: icon {
 	{ "dialogs/dialogs_menu_unread_dot", sideBarBadgeBgMuted },
 };
 windowFilterSmallItem: PeerListItem(defaultPeerListItem) {
-	height: 44px;
-	photoPosition: point(13px, 5px);
-	namePosition: point(59px, 14px);
+	height: 40px;
+	photoPosition: point(13px, 3px);
+	namePosition: point(59px, 12px);
 	photoSize: 34px;
 	checkbox: RoundImageCheckbox(defaultPeerListCheckbox) {
 		imageRadius: 17px;
@@ -284,9 +299,13 @@ windowFilterSmallRemove: IconButton(notifyClose) {
 windowFilterSmallRemoveRight: 10px;
 windowFilterNameInput: InputField(defaultInputField) {
 	textMargins: margins(0px, 26px, 52px, 4px);
+	placeholderFont: classicActionFont;
+	placeholderFg: placeholderFg;
+	placeholderFgActive: placeholderFgActive;
+	heightMin: 42px;
 }
-windowFilterNameInputPadding: margins(86px, 0px, 22px, 10px);
-windowFilterNameEmojiPosition: point(-30px, 22px);
+windowFilterNameInputPadding: margins(86px, -1px, 22px, 9px);
+windowFilterNameEmojiPosition: point(-30px, 14px);
 windowFilterNameCharsLimitRightPosition: point(40px, 27px);
 windowFilterStaticTitlePosition: point(0px, 5px);
 windowFilterIconUserpicSize: 44px;
@@ -316,7 +335,7 @@ windowFilterTypeExistingChats: icon {{ "folders/folder_existing_chats", historyP
 windowFilterChatsSectionSubtitleHeight: 28px;
 windowFilterChatsSectionSubtitle: FlatLabel(defaultFlatLabel) {
 	style: TextStyle(defaultTextStyle) {
-		font: semiboldFont;
+		font: classicSettingsFont;
 	}
 	textFg: searchedBarFg;
 }

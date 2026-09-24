@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/info_top_bar.h"
 
+#include "ui/style/style_radius.h"
 #include "dialogs/ui/dialogs_stories_list.h"
 #include "lang/lang_keys.h"
 #include "info/info_wrap_widget.h"
@@ -77,6 +78,8 @@ void TopBar::registerToggleControlCallback(
 }
 
 void TopBar::setTitle(TitleDescriptor descriptor) {
+	_classicSettings = descriptor.classicSettings;
+	update();
 	if (_title) {
 		delete _title;
 	}
@@ -105,7 +108,7 @@ void TopBar::setTitle(TitleDescriptor descriptor) {
 		object_ptr<Ui::FlatLabel>(
 			this,
 			std::move(descriptor.title),
-			withSubtitle ? _st.titleWithSubtitle : _st.title),
+			descriptor.titleStyle ? *descriptor.titleStyle : withSubtitle ? _st.titleWithSubtitle : _st.title),
 		st::infoTopBarScale);
 	_title->setDuration(st::infoTopBarDuration);
 	_title->toggle(
@@ -279,6 +282,8 @@ void TopBar::createSearchView(
 	auto cancel = Ui::CreateChild<Ui::CrossButton>(
 		wrap,
 		_st.searchRow.fieldCancel);
+	cancel->setClassic(true);
+	cancel->setCursor(style::cur_default);
 	cancel->setAccessibleName(tr::lng_sr_cancel_search(tr::now));
 	registerToggleControlCallback(cancel, [=] {
 		return !selectionMode() && searchMode();
@@ -303,15 +308,14 @@ void TopBar::createSearchView(
 		}
 	});
 
-	wrap->widthValue(
-	) | rpl::on_next([=](int newWidth) {
-		auto availableWidth = newWidth
-			- _st.searchRow.fieldCancelSkip;
+	wrap->sizeValue(
+	) | rpl::on_next([=](QSize size) {
+		const auto availableWidth = std::max(size.width() - _st.searchRow.padding.left() - _st.searchRow.fieldCancelSkip, 0);
 		fieldWrap->resizeToWidth(availableWidth);
 		fieldWrap->moveToLeft(
 			_st.searchRow.padding.left(),
-			_st.searchRow.padding.top());
-		cancel->moveToRight(0, 0);
+			(size.height() - field->height()) / 2);
+		cancel->moveToRight(_st.searchRow.padding.right(), (size.height() - cancel->height()) / 2);
 	}, wrap->lifetime());
 
 	widthValue(
@@ -478,7 +482,9 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		_highlight = false;
 		startHighlightAnimation();
 	}
-	if (!_roundRect) {
+	if (_classicSettings) {
+		p.fillRect(e->rect(), st::classicControlBg);
+	} else if (!_roundRect) {
 		const auto brush = anim::brush(_st.bg, _st.highlightBg, highlight);
 		p.fillRect(e->rect(), brush);
 	} else if (highlight > 0.) {
@@ -486,8 +492,8 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		p.setBrush(anim::brush(_st.bg, _st.highlightBg, highlight));
 		p.drawRoundedRect(
 			rect() + style::margins(0, 0, 0, _st.radius * 2),
-			_st.radius,
-			_st.radius);
+			style::CornerRadius(_st.radius),
+			style::CornerRadius(_st.radius));
 	} else {
 		_roundRect->paintSomeRounded(
 			p,

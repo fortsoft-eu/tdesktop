@@ -834,16 +834,17 @@ void FileLoadTask::process(ProcessArgs &&args) {
 			filename = filedialogDefaultName(u"round"_q, u".mp4"_q, QString(), true);
 			filemime = "video/mp4";
 		} else {
-			if (_information) {
-				if (auto image = std::get_if<Ui::PreparedFileInformation::Image>(
-						&_information->media)) {
-					fullimage = base::take(image->data);
-					fullimagebytes = base::take(image->bytes);
-					fullimageformat = base::take(image->format);
-				}
-			}
 			const auto mimeType = Core::MimeTypeForData(_content);
 			filemime = mimeType.name();
+			if (!_information) {
+				_information = readMediaInformation(filemime);
+			}
+			if (auto image = std::get_if<Ui::PreparedFileInformation::Image>(&_information->media)) {
+				fullimage = base::take(image->data);
+				fullimagebytes = base::take(image->bytes);
+				fullimageformat = base::take(image->format);
+				isAnimation = image->animated;
+			}
 			if (!Core::IsMimeSticker(filemime)
 				&& fullimageformat != u"jpeg"_q) {
 				fullimage = Images::Opaque(std::move(fullimage));

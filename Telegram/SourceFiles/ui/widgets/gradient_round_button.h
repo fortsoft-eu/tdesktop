@@ -18,12 +18,15 @@ public:
 
 	void setStops(QGradientStops stops);
 	void setFullRadius(bool enabled);
+	void setClassic(bool enabled);
+	[[nodiscard]] rpl::producer<QPoint> contentOffsetValue() const;
 
 	void startGlareAnimation();
 	void setGlarePaused(bool paused);
 
 private:
 	void paintEvent(QPaintEvent *e) override;
+	void onStateChanged(State was, StateChangeSource source) override;
 	void paintGlare(QPainter &p);
 	void validateBg();
 	void validateGlare();
@@ -35,6 +38,8 @@ private:
 
 	GlareEffect _glare;
 	bool _fullRadius = false;
+	bool _classic = false;
+	rpl::variable<QPoint> _contentOffset;
 
 };
 

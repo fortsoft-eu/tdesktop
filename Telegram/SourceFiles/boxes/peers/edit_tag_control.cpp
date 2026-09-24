@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/edit_tag_control.h"
 
+#include "ui/style/style_radius.h"
 #include "base/unixtime.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
@@ -93,8 +94,8 @@ void TextLinesPart::draw(
 		const auto w = available * fraction;
 		p.drawRoundedRect(
 			QRectF(_margins.left(), y, w, lineHeight),
-			radius,
-			radius);
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 		y += lineHeight + st::tagPreviewLineSpacing;
 	}
 }

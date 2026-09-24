@@ -16,6 +16,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/platform/base_platform_info.h"
 #include "base/qthelp_regex.h"
 
+#include <QtCore/QRegularExpression>
+#include <array>
+#include <utility>
+
 #include "lang_auto_counts.h" // kKeysCount, kTagsCount.
 
 namespace Lang {
@@ -27,11 +31,81 @@ constexpr auto kCloudLangPackName = "tdesktop"_cs;
 constexpr auto kCustomLanguage = "#custom"_cs;
 constexpr auto kLangValuesLimit = 20000;
 
+bool AreInterfaceQuotes(QChar left, QChar right) {
+	constexpr auto pairs = std::array{
+		std::pair{ u'"', u'"' },
+		std::pair{ u'“', u'”' },
+		std::pair{ u'„', u'“' },
+		std::pair{ u'„', u'”' },
+		std::pair{ u'«', u'»' },
+	};
+	for (const auto &[open, close] : pairs) {
+		if (left == open && right == close) {
+			return true;
+		}
+	}
+	return false;
+}
+
+QString PrepareInterfaceText(QString value) {
+	return value.replace(u"..."_q, u"…"_q);
+}
+
+QString ReplaceInterfaceTerms(QString value) {
+	if (!value.contains(u"archive"_q, Qt::CaseInsensitive)
+		&& !value.contains(u"gif"_q, Qt::CaseInsensitive)) {
+		return value;
+	}
+	static const auto expression = QRegularExpression(
+		uR"((?<unchanged>)"
+		uR"((?:[a-zA-Z][a-zA-Z0-9+.-]*://|www\.|mailto:|tg:)[^\s<>"“”]+)"
+		uR"(|(?:image|video|application)/[a-zA-Z0-9.+-]+)"
+		uR"(|(?:[\p{L}\p{N}_*-]+\.)+[\p{L}\p{N}_*-]+(?:/[^\s<>"“”]*)?)"
+		uR"(|[Qq]uasi[Aa]rchive))"
+		uR"(|(?<![\p{L}\p{N}_.@#])(?<gif>[Gg][Ii][Ff][sS]?))"
+		uR"((?![\p{L}\p{N}_])|(?<archive>[Aa]rchive))"_q);
+	auto matches = expression.globalMatch(value);
+	auto result = QString();
+	auto offset = 0;
+	while (matches.hasNext()) {
+		const auto match = matches.next();
+		if (!match.captured(u"unchanged"_q).isEmpty()) {
+			continue;
+		}
+		auto from = match.capturedStart();
+		auto till = match.capturedEnd();
+		const auto gif = match.captured(u"gif"_q);
+		auto replacement = QString();
+		if (!gif.isEmpty()) {
+			replacement = (gif.front() == u'G') ? u"Animation"_q : u"animation"_q;
+			if (gif.size() > 3) {
+				replacement += u's';
+			}
+			if (from > offset && till < value.size() && AreInterfaceQuotes(value[from - 1], value[till])) {
+				--from;
+				++till;
+			}
+		} else {
+			replacement = match.captured(u"archive"_q);
+			replacement.replace(u"archive"_q, u"quasiarchive"_q);
+			replacement.replace(u"Archive"_q, u"Quasiarchive"_q);
+		}
+		result += value.mid(offset, from - offset);
+		result += replacement;
+		offset = till;
+	}
+	if (!offset) {
+		return value;
+	}
+	result += value.mid(offset);
+	return result;
+}
+
 std::vector<QString> PrepareDefaultValues() {
 	auto result = std::vector<QString>();
 	result.reserve(kKeysCount);
 	for (auto i = 0; i != kKeysCount; ++i) {
-		result.emplace_back(GetOriginalValue(ushort(i)));
+		result.emplace_back(PrepareInterfaceText(GetOriginalValue(ushort(i))));
 	}
 	return result;
 }
@@ -206,7 +280,7 @@ void ParseKeyValue(
 	if (index != kKeysCount) {
 		ValueParser parser(key, index, value);
 		if (parser.parse()) {
-			save(index, parser.takeResult());
+			save(index, PrepareInterfaceText(parser.takeResult()));
 		}
 	} else if (!key.startsWith("cloud_")) {
 		DEBUG_LOG(("Lang Warning: Unknown key '%1'"
@@ -296,7 +370,7 @@ void Instance::reset(const Language &data) {
 	_version = 0;
 	_nonDefaultValues.clear();
 	for (auto i = 0, count = int(_values.size()); i != count; ++i) {
-		_values[i] = GetOriginalValue(ushort(i));
+		_values[i] = PrepareInterfaceText(GetOriginalValue(ushort(i)));
 	}
 	ranges::fill(_nonDefaultSet, 0);
 	updateChoosingStickerReplacement();
@@ -769,11 +843,15 @@ void Instance::resetValue(const QByteArray &key) {
 			const auto base = _base
 				? _base->getNonDefaultValue(key)
 				: QString();
-			_values[keyIndex] = !base.isEmpty()
-				? base
-				: GetOriginalValue(keyIndex);
+			_values[keyIndex] = PrepareInterfaceText(
+				GetOriginalValue(keyIndex));
+			if (!base.isEmpty()) {
+				ParseKeyValue(key, base.toUtf8(), [&](ushort, QString &&value) {
+					_values[keyIndex] = std::move(value);
+				});
+			}
 		} else if (!_derived->_nonDefaultSet[keyIndex]) {
-			_derived->_values[keyIndex] = GetOriginalValue(keyIndex);
+			_derived->_values[keyIndex] = PrepareInterfaceText(GetOriginalValue(keyIndex));
 		}
 		if (keyIndex == tr::lng_send_action_choose_sticker.base
 			|| keyIndex == tr::lng_user_action_choose_sticker.base) {
@@ -805,7 +883,26 @@ QString GetNonDefaultValue(const QByteArray &key) {
 namespace details {
 
 QString Current(ushort key) {
-	return GetInstance().getValue(key);
+	auto &instance = GetInstance();
+	if (key == tr::lng_intro_qr_title.base
+		|| key == tr::lng_intro_qr_step1.base
+		|| key == tr::lng_info_mobile_label.base
+		|| key == tr::lng_contact_mobile_hidden.base) {
+		const auto id = instance.id();
+		if (id.isEmpty() || id == u"en"_q || id == u"honesttelegram"_q) {
+			switch (key) {
+			case tr::lng_intro_qr_title.base:
+				return u"Scan from Telegram for Portable Multifunction Devices"_q;
+			case tr::lng_intro_qr_step1.base:
+				return u"Open Telegram on your portable multifunction device"_q;
+			case tr::lng_info_mobile_label.base:
+				return u"Cell phone"_q;
+			case tr::lng_contact_mobile_hidden.base:
+				return u"Cell phone hidden"_q;
+			}
+		}
+	}
+	return ReplaceInterfaceTerms(instance.getValue(key));
 }
 
 rpl::producer<QString> Value(ushort key) {

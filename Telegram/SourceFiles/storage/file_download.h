@@ -149,6 +149,9 @@ protected:
 	virtual std::optional<MediaKey> fileLocationKey() const = 0;
 	virtual void cancelHook() = 0;
 	virtual void startLoading() = 0;
+	[[nodiscard]] virtual bool supportsLocalOnlyParts() const {
+		return false;
+	}
 	virtual void startLoadingWithPartial(const QByteArray &data) {
 		startLoading();
 	}

@@ -118,6 +118,14 @@ QByteArray StreamedFileDownloader::readLoadedPart(int64 offset) {
 		: QByteArray();
 }
 
+bool StreamedFileDownloader::cacheOnly() const {
+	return _fromCloud == LoadFromLocalOnly;
+}
+
+bool StreamedFileDownloader::supportsLocalOnlyParts() const {
+	return true;
+}
+
 Storage::Cache::Key StreamedFileDownloader::cacheKey() const {
 	return _cacheKey;
 }

@@ -21,11 +21,12 @@ struct PeerListItem;
 namespace Ui {
 class PlainShadow;
 class RippleAnimation;
-class SettingsSlider;
 class SlideAnimation;
 class CrossButton;
 class BoxContentDivider;
 } // namespace Ui
+
+class QTabBar;
 
 namespace ChatHelpers {
 class Show;
@@ -147,7 +148,7 @@ private:
 	const not_null<Main::Session*> _session;
 	MTP::Sender _api;
 
-	object_ptr<Ui::SettingsSlider> _tabs = { nullptr };
+	object_ptr<QTabBar> _tabs = { nullptr };
 	QList<Section> _tabIndices;
 	bool _ignoreTabActivation = false;
 

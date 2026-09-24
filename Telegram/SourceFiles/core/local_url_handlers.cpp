@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/background_preview_box.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/boxes/edit_birthday_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/integration.h"
 #include "payments/payments_non_panel_process.h"
 #include "boxes/peers/edit_peer_info_box.h"
@@ -76,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "iv/iv_instance.h"
 #include "apiwrap.h"
 
+#include "styles/style_boxes.h"
 #include "styles/style_chat_helpers.h"
 
 #include <QtGui/QGuiApplication>
@@ -106,6 +108,7 @@ private:
 PersonalChannelController::PersonalChannelController(
 	not_null<Window::SessionController*> window)
 : _window(window) {
+	setStyleOverrides(&st::personalChannelList);
 }
 
 PersonalChannelController::~PersonalChannelController() {
@@ -1045,16 +1048,22 @@ bool ShowEditBirthday(
 			}) | rpl::distinct_until_changed();
 			Ui::AddSkip(container);
 			const auto link = u"internal:edit_privacy_birthday:from_box"_q;
-			Ui::AddDividerText(container, rpl::conditional(
-				std::move(isExactlyContacts),
-				tr::lng_settings_birthday_contacts(
-					lt_link,
-					tr::lng_settings_birthday_contacts_link(tr::url(link)),
-					tr::marked),
-				tr::lng_settings_birthday_about(
-					lt_link,
-					tr::lng_settings_birthday_about_link(tr::url(link)),
-					tr::marked)));
+			Ui::AddDividerText(
+				container,
+				rpl::conditional(
+					std::move(isExactlyContacts),
+					tr::lng_settings_birthday_contacts(
+						lt_link,
+						tr::lng_settings_birthday_contacts_link(
+							tr::url(link)),
+						tr::marked),
+					tr::lng_settings_birthday_about(
+						lt_link,
+						tr::lng_settings_birthday_about_link(
+							tr::url(link)),
+						tr::marked)),
+				st::defaultBoxDividerLabelPadding,
+				st::birthdayAboutDividerLabel);
 		}));
 
 	}
@@ -1129,6 +1138,7 @@ bool ShowEditPersonalChannel(
 		controller);
 	const auto rawController = listController.get();
 	auto initBox = [=](not_null<PeerListBox*> box) {
+		Ui::SetClassicSettingsStyle(box);
 		box->setTitle(tr::lng_settings_channel_label());
 		box->addButton(tr::lng_box_done(), [=] {
 			box->closeBox();

@@ -18,7 +18,7 @@ EmojiButton::EmojiButton(QWidget *parent, const style::EmojiButton &st)
 : RippleButton(parent, st.inner.ripple)
 , _st(st) {
 	resize(_st.inner.width, _st.inner.height);
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 }
 
 void EmojiButton::paintEvent(QPaintEvent *e) {

@@ -192,7 +192,7 @@ void PeerListRowWithLink::setActionLink(const QString &action) {
 
 void PeerListRowWithLink::refreshActionLink() {
 	if (!isInitialized()) return;
-	_actionWidth = _action.isEmpty() ? 0 : st::normalFont->width(_action);
+	_actionWidth = _action.isEmpty() ? 0 : st::classicSettingsFont->width(_action);
 }
 
 void PeerListRowWithLink::lazyInitialize(const style::PeerListItem &st) {
@@ -201,13 +201,13 @@ void PeerListRowWithLink::lazyInitialize(const style::PeerListItem &st) {
 }
 
 QSize PeerListRowWithLink::rightActionSize() const {
-	return QSize(_actionWidth, st::normalFont->height);
+	return QSize(_actionWidth, st::classicSettingsFont->height);
 }
 
 QMargins PeerListRowWithLink::rightActionMargins() const {
 	return QMargins(
 		st::contactsCheckPosition.x(),
-		(st::contactsPadding.top() + st::contactsPhotoSize + st::contactsPadding.bottom() - st::normalFont->height) / 2,
+		(st::contactsPadding.top() + st::contactsPhotoSize + st::contactsPadding.bottom() - st::classicSettingsFont->height) / 2,
 		st::defaultPeerListItem.photoPosition.x() + st::contactsCheckPosition.x(),
 		0);
 }
@@ -219,7 +219,7 @@ void PeerListRowWithLink::rightActionPaint(
 		int outerWidth,
 		bool selected,
 		bool actionSelected) {
-	p.setFont(actionSelected ? st::linkFontOver : st::linkFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(actionSelected ? st::defaultLinkButton.overColor : st::defaultLinkButton.color);
 	p.drawTextLeft(x, y, outerWidth, _action, _actionWidth);
 }

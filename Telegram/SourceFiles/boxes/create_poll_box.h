@@ -89,6 +89,7 @@ private:
 	const Api::SendType _sendType = Api::SendType();
 	const Fn<SendMenu::Details()> _sendMenuDetails;
 	rpl::variable<int> _starsRequired;
+	QPointer<Ui::InputField> _emojiField;
 	base::unique_qptr<ChatHelpers::TabbedPanel> _emojiPanel;
 	Fn<void()> _setInnerFocus;
 	Fn<void()> _refreshExpiredMedia;

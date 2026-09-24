@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/markdown/iv_markdown_slideshow_chrome.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/image/image_prepare.h"
 #include "styles/palette.h"
 #include "styles/style_iv.h"
@@ -71,7 +72,7 @@ int MediaHeightForWidth(
 
 QPainterPath RoundedRectPath(QRect rect, int radius) {
 	auto path = QPainterPath();
-	path.addRoundedRect(QRectF(rect), radius, radius);
+	path.addRoundedRect(QRectF(rect), style::CornerRadius(radius), style::CornerRadius(radius));
 	return path;
 }
 

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_media_preview.h"
 
+#include "ui/style/style_radius.h"
 #include "chat_helpers/stickers_emoji_pack.h"
 #include "chat_helpers/stickers_lottie.h"
 #include "data/data_document_media.h"
@@ -82,7 +83,7 @@ void MediaPreviewWidget::paintEvent(QPaintEvent *e) {
 		auto hq = PainterHighQualityEnabler(p);
 		const auto r = rect() - _backgroundMargins;
 		auto path = QPainterPath();
-		path.addRoundedRect(r, _customRadius, _customRadius);
+		path.addRoundedRect(r, style::CornerRadius(_customRadius), style::CornerRadius(_customRadius));
 		p.setClipPath(path);
 	}
 

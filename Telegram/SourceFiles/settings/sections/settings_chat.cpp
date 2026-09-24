@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/sections/settings_chat.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
 #include "settings/settings_common_session.h"
 
 #include "base/timer_rpl.h"
@@ -83,6 +85,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwidget.h"
 #include "styles/style_chat_helpers.h" // stickersRemove
 #include "styles/style_settings.h"
+#include "styles/style_info_profile_actions.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_window.h"
@@ -1432,23 +1435,6 @@ void SetupStickersEmoji(
 			inner->lifetime());
 		return result;
 	};
-	const auto addSliding = [&](
-			const QString &label,
-			bool checked,
-			auto &&handle,
-			rpl::producer<bool> shown) {
-		const auto wrap = inner->add(
-			object_ptr<Ui::SlideWrap<Ui::Checkbox>>(
-				inner,
-				checkbox(label, checked),
-				st::settingsCheckboxPadding));
-		wrap->setDuration(0)->toggleOn(std::move(shown))->entity()->checkedChanges(
-		) | rpl::on_next(
-			std::move(handle),
-			inner->lifetime());
-		return wrap->entity();
-	};
-
 	const auto largeEmoji = addWithReturn(
 		tr::lng_settings_large_emoji(tr::now),
 		Core::App().settings().largeEmoji(),
@@ -1496,17 +1482,49 @@ void SetupStickersEmoji(
 	}
 
 	using namespace rpl::mappers;
-	const auto suggestAnimated = addSliding(
+	const auto suggestAnimated = addWithReturn(
 		tr::lng_settings_suggest_animated_emoji(tr::now),
 		Core::App().settings().suggestAnimatedEmoji(),
 		[=](bool checked) {
 			Core::App().settings().setSuggestAnimatedEmoji(checked);
 			Core::App().saveSettingsDelayed();
-		},
-		rpl::combine(
+		});
+	struct SuggestAnimatedState {
+		bool initialized = false;
+		bool enabled = false;
+		bool restoreChecked = false;
+	};
+	const auto suggestAnimatedState = suggestAnimated->lifetime().make_state<
+		SuggestAnimatedState>();
+	rpl::combine(
 			Data::AmPremiumValue(session),
 			suggestEmoji->value(),
-			_1 && _2));
+			_1 && _2
+	) | rpl::on_next([=](bool enabled) {
+		if (!suggestAnimatedState->initialized) {
+			suggestAnimatedState->initialized = true;
+			suggestAnimatedState->enabled = enabled;
+			if (!enabled) {
+				suggestAnimated->setChecked(
+					false,
+					Ui::Checkbox::NotifyAboutChange::DontNotify);
+			}
+		} else if (suggestAnimatedState->enabled != enabled) {
+			if (!enabled) {
+				suggestAnimatedState->restoreChecked
+					= suggestAnimated->checked();
+				suggestAnimated->setChecked(
+					false,
+					Ui::Checkbox::NotifyAboutChange::DontNotify);
+			} else {
+				suggestAnimated->setChecked(
+					suggestAnimatedState->restoreChecked,
+					Ui::Checkbox::NotifyAboutChange::DontNotify);
+			}
+			suggestAnimatedState->enabled = enabled;
+		}
+		suggestAnimated->setDisabled(!enabled);
+	}, suggestAnimated->lifetime());
 	if (highlights) {
 		highlights->push_back({ u"chat/suggest-animated-emoji"_q, {
 			suggestAnimated,
@@ -1548,9 +1566,11 @@ void SetupStickersEmoji(
 		st::settingsButton,
 		{ &st::menuIconStickers });
 	stickersButton->addClickHandler([=] {
-		controller->show(Box<StickersBox>(
-			controller->uiShow(),
-			StickersBox::Section::Installed));
+		controller->showToolBox(
+			Box<StickersBox>(
+				controller->uiShow(),
+				StickersBox::Section::Installed),
+			tr::lng_switch_stickers(tr::now));
 	});
 	if (highlights) {
 		highlights->push_back({ u"chat/my-stickers"_q, {
@@ -2025,6 +2045,35 @@ void SetupChatBackground(
 		object_ptr<BackgroundRow>(container, controller),
 		st::settingsBackgroundPadding);
 
+	AddButtonWithIcon(
+		container,
+		tr::lng_settings_solid_color(),
+		st::settingsButton,
+		{ &st::menuIconPalette }
+	)->addClickHandler([=] {
+		controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+			box->setTitle(tr::lng_settings_solid_color());
+			const auto buttonStyle = box->lifetime().make_state<style::RoundButton>(st::compactBoxButton);
+			buttonStyle->width = st::infoClassicActionWidth;
+			const auto add = [&](rpl::producer<QString> name, QString slug) {
+				const auto button = box->addRow(object_ptr<Ui::RoundButton>(box, std::move(name), *buttonStyle),
+				st::infoClassicActionMargin,
+				style::al_center);
+				button->setClickedCallback([=] {
+					const auto paper = Data::WallPaper::FromColorsSlug(slug);
+					Assert(paper.has_value());
+					Window::Theme::Background()->set(*paper);
+					Window::Theme::Background()->setTile(false);
+					box->closeBox();
+				});
+			};
+			add(tr::lng_settings_solid_white(), u"ffffff"_q);
+			add(tr::lng_settings_solid_windows(), u"d4d0c8"_q);
+			add(tr::lng_settings_solid_workspace(), u"808080"_q);
+			box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+		}));
+	});
+
 	if (highlights) {
 		highlights->push_back({ u"chat/wallpapers"_q, {
 			title.get(),
@@ -2188,8 +2237,8 @@ void SetupChatListQuickAction(
 	        		0,
 	        		rect::right(rect) + actionWidth,
 	        		height),
-	        	st::roundRadiusLarge,
-	        	st::roundRadiusLarge);
+				style::CornerRadius(st::roundRadiusLarge),
+				style::CornerRadius(st::roundRadiusLarge));
 	        p.setClipPath(path);
 
 			const auto label = actionToLabel(group->current());
@@ -2220,26 +2269,27 @@ void SetupChatListQuickAction(
 			p.setBrush(st::windowBgOver);
 			p.drawEllipse(Rect(Size(height)) - Margins(height / 6));
 
-			const auto h = st::normalFont->ascent / 1.5;
+			const auto h = st::classicSettingsFont->ascent / 1.5;
 			p.drawRoundedRect(
 				height,
 				height / 2 - h * 1.5,
 				st::dialogsQuickActionRippleSize * 0.6,
 				h,
-				h / 2,
-				h / 2);
+				style::CornerRadius(h / 2),
+				style::CornerRadius(h / 2));
 			p.drawRoundedRect(
 				height,
 				height / 2 + h,
 				st::dialogsQuickActionRippleSize * 1.0,
 				h,
-				h / 2,
-				h / 2);
+				style::CornerRadius(h / 2),
+				style::CornerRadius(h / 2));
 
 			p.setClipping(false);
 			p.resetTransform();
 			p.setFont(st::settingsQuickDialogActionsTriggerFont);
-			p.setPen(st::windowSubTextFg);
+			p.setPen(Ui::ClassicTextColor(
+				widget, st::windowSubTextFg));
 			p.drawText(
 				QRect(
 					widget->width()

@@ -99,7 +99,7 @@ Action::Action(
 , _height(st::dialogsSearchInHeight)
 , _icon(std::move(icon))
 , _checked(chosen) {
-	_text.setText(st::semiboldTextStyle, label);
+	_text.setText(_st.itemStyle, label);
 	_icon->subscribeToUpdates([=] { update(); });
 
 	fitToMenuWidth();
@@ -160,7 +160,7 @@ void Action::paint(Painter &p) {
 	_text.drawLeftElided(
 		p,
 		x,
-		st::dialogsSearchInNameTop,
+		(height() - _st.itemStyle.font->height) / 2,
 		available,
 		width());
 	x += available;
@@ -287,7 +287,7 @@ void ChatSearchIn::apply(
 	updateSection(
 		&_in,
 		i->icon->clone(),
-		tr::semibold(TabLabel(active, peerTabType)));
+		tr::marked(TabLabel(active, peerTabType)));
 
 	auto text = tr::lng_dlg_search_from(
 		tr::now,
@@ -441,7 +441,7 @@ void ChatSearchIn::updateSection(
 			st::dialogsSearchInDown.paint(p, iconx, icony, outer);
 			p.setPen(st::windowBoldFg);
 			section->text.draw(p, {
-				.position = QPoint(x, st::dialogsSearchInNameTop),
+				.position = QPoint(x, (raw->height() - st::dialogsSearchFromStyle.font->height) / 2),
 				.outerWidth = outer,
 				.availableWidth = available,
 				.elisionLines = 1,

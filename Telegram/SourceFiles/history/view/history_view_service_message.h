@@ -75,6 +75,12 @@ int WideChatWidth();
 
 class ServiceMessagePainter {
 public:
+	[[nodiscard]] static const style::TextPalette &WhiteTextPalette();
+	static void PaintWhiteText(
+		Painter &p,
+		const Ui::Text::String &text,
+		Ui::Text::PaintContext context);
+
 	static void PaintDate(
 		Painter &p,
 		not_null<const Ui::ChatStyle*> st,

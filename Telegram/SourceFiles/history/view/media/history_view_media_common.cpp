@@ -178,7 +178,7 @@ void PaintTtlLabel(
 		width,
 		height,
 		outerWidth);
-	Ui::FillRoundRect(p, around, sti->msgDateImgBg, sti->msgDateImgBgCorners);
+	p.fillRect(around, sti->msgDateImgBg);
 	p.setFont(st::normalFont);
 	p.setPen(context.st->msgDateImgFg());
 	p.drawTextLeft(left, top, outerWidth, text, width - 2 * padding.x());

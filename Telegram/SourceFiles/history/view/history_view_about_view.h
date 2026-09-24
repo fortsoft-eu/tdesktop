@@ -82,6 +82,7 @@ private:
 	std::vector<not_null<PeerData*>> _commonGroups;
 	rpl::event_stream<> _refreshRequests;
 	rpl::event_stream<> _destroyRequests;
+	rpl::lifetime _introLifetime;
 	rpl::lifetime _lifetime;
 
 };

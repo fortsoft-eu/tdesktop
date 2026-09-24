@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/round_checkbox.h"
 
+#include "ui/style/style_radius.h"
 #include "lang/lang_keys.h"
 #include "ui/rp_widget.h"
 #include "ui/ui_utility.h"
@@ -459,9 +460,9 @@ void RoundImageCheckbox::paintFrame(
 				segments ? _segments.front().width : _st.selectWidth);
 			p.setPen(pen);
 			if (!radius) {
-				p.drawEllipse(outline);
+				p.drawRect(outline);
 			} else {
-				p.drawRoundedRect(outline, *radius, *radius);
+				p.drawRoundedRect(outline, style::CornerRadius(*radius), style::CornerRadius(*radius));
 			}
 		} else {
 			PaintOutlineSegments(p, outline, _segments);
@@ -583,7 +584,7 @@ void PaintLiveBadge(
 	const auto r = st.radius + half;
 	const auto rect = QRectF(left, top, full.width(), full.height());
 	const auto sub = QMarginsF(half, half, half, half);
-	p.drawRoundedRect(rect.marginsAdded(sub), r, r);
+	p.drawRoundedRect(rect.marginsAdded(sub), style::CornerRadius(r), style::CornerRadius(r));
 
 	if (!outline) {
 		p.setCompositionMode(QPainter::CompositionMode_SourceOver);

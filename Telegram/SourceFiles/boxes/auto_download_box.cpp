@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peer_list_controllers.h"
 #include "history/history.h"
 #include "lang/lang_keys.h"
+#include "ui/style/style_classic.h"
 #include "main/main_session.h"
 #include "main/main_session_settings.h"
 #include "data/data_peer.h"
@@ -185,6 +186,7 @@ AutoDownloadBox::AutoDownloadBox(
 }
 
 void AutoDownloadBox::prepare() {
+	Ui::SetClassicSettingsStyle(this);
 	setupContent();
 }
 
@@ -210,11 +212,17 @@ void AutoDownloadBox::setupContent() {
 			Type type,
 			rpl::producer<QString> label) {
 		const auto value = settings->bytesLimit(_source, type);
-		content->add(object_ptr<Ui::SettingsButton>(
+		auto style = st::settingsButtonNoIcon;
+		style.toggleSkip = style.padding.left();
+		style.padding.setLeft(style.toggleSkip + st::classicCheckSize
+			+ st::settingsExperimentalButton.padding.right());
+		const auto button = content->add(object_ptr<Ui::SettingsButton>(
 			content,
 			std::move(label),
-			st::settingsButtonNoIcon
-		))->toggleOn(
+			style
+		));
+		button->setProperty("classicCheckOnLeft", true);
+		button->toggleOn(
 			rpl::single(value > 0)
 		)->toggledChanges(
 		) | rpl::on_next([=](bool enabled) {

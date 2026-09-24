@@ -43,9 +43,6 @@ public:
 	[[nodiscard]] QSize naturalSize() const;
 	[[nodiscard]] QMargins shadowMargins() const;
 
-protected:
-	void paintEvent(QPaintEvent *e) override;
-
 private:
 	void updateGeometryToContent();
 

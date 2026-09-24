@@ -36,9 +36,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "payments/payments_checkout_process.h"
 #include "settings/settings_common.h"
 #include "ui/boxes/confirm_box.h"
-#include "ui/controls/sub_tabs.h"
 #include "ui/controls/ton_common.h"
 #include "ui/layers/generic_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/format_values.h"
 #include "ui/text/text_utilities.h"
 #include "ui/toast/toast.h"
@@ -56,6 +56,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h" // defaultSubTabs.
 #include "styles/style_layers.h" // boxLabel.
 #include "styles/style_settings.h"
+
+#include <QtWidgets/QTabBar>
 
 namespace {
 
@@ -677,35 +679,24 @@ base::weak_qptr<Ui::GenericBox> ShowBuyResaleGiftConfirm(
 					st::resaleConfirmTonOnly),
 				st::boxRowPadding + st::resaleConfirmTonOnlyMargin);
 		} else {
-			const auto tabs = box->addRow(
-				object_ptr<Ui::SubTabs>(
-					box,
-					st::defaultSubTabs,
-					Ui::SubTabsOptions{
-						.selected = (state->ton.current()
-							? u"ton"_q
-							: u"stars"_q),
-						.centered = true,
-					},
-					std::vector<Ui::SubTabsTab>{
-						{
-							u"stars"_q,
-							tr::lng_gift_buy_resale_pay_stars(
-								tr::now,
-								tr::marked),
-						},
-						{
-							u"ton"_q,
-							tr::lng_gift_buy_resale_pay_ton(
-								tr::now,
-								tr::marked),
-						},
-					}),
-				st::boxRowPadding + st::resaleConfirmTonOnlyMargin);
-			tabs->activated() | rpl::on_next([=](QString id) {
-				tabs->setActiveTab(id);
-				state->ton = (id == u"ton"_q);
-			}, tabs->lifetime());
+			const auto wrap = box->addRow(
+				object_ptr<Ui::RpWidget>(box),
+				QMargins(0, st::resaleConfirmTonOnlyMargin.top(), 0, 0));
+			const auto tabs = Ui::CreateClassicTabBar(wrap);
+			tabs->addTab(tr::lng_gift_buy_resale_pay_stars(tr::now));
+			tabs->addTab(tr::lng_gift_buy_resale_pay_ton(tr::now));
+			tabs->setCurrentIndex(state->ton.current() ? 1 : 0);
+			tabs->show();
+			wrap->widthValue() | rpl::on_next([=](int width) {
+				const auto height = tabs->sizeHint().height();
+				tabs->resize(width, height);
+				wrap->resize(width, height);
+			}, wrap->lifetime());
+			QObject::connect(tabs, &QTabBar::currentChanged, wrap, [=](int index) {
+				if (index >= 0) {
+					state->ton = (index == 1);
+				}
+			});
 		}
 
 		auto transfer = state->ton.value() | rpl::map([=](bool ton) {
@@ -1171,7 +1162,7 @@ void ShowBuyResaleGiftBox(
 		state->hideName = to->isSelf();
 		state->attempt = attempt;
 
-		box->setStyle(st::giftBox);
+		box->setStyle(st::giftSendBox);
 		box->setWidth(st::boxWideWidth);
 		box->setNoContentMargin(true);
 		box->setTitle(tr::lng_gift_send_title());
@@ -1180,6 +1171,7 @@ void ShowBuyResaleGiftBox(
 		});
 
 		const auto container = box->verticalLayout();
+		Ui::SetClassicSettingsStyle(container);
 		const auto initiallyTon = gift->onlyAcceptTon || forceTon;
 		const auto initialCost = initiallyTon
 			? Data::FormatGiftResaleTon(*gift)
@@ -1203,7 +1195,11 @@ void ShowBuyResaleGiftBox(
 			container,
 			to,
 			gift,
-			initialCost,
+			(initiallyTon
+				? tr::marked(u"\U0001F48E "_q).append(
+					Lang::FormatCreditsAmountDecimal(Data::UniqueGiftResaleTon(*gift)))
+				: tr::marked(u"\u2B50 "_q).append(
+					Lang::FormatCountDecimal(gift->starsForResale))),
 			std::move(message)));
 
 		const auto field = Ui::AddStarGiftMessageField(
@@ -1225,12 +1221,13 @@ void ShowBuyResaleGiftBox(
 
 		Ui::AddDivider(container);
 		Ui::AddSkip(container);
-		container->add(
+		const auto anonymous = container->add(
 			object_ptr<Ui::SettingsButton>(
 				container,
 				tr::lng_gift_send_anonymous(),
-				st::settingsButtonNoIcon)
-		)->toggleOn(state->hideName.value())->toggledValue(
+				st::giftBoxAnonymousButton));
+		anonymous->setProperty("classicCheckOnLeft", true);
+		anonymous->toggleOn(state->hideName.value())->toggledValue(
 		) | rpl::on_next([=](bool toggled) {
 			state->hideName = toggled;
 		}, container->lifetime());
@@ -1243,7 +1240,9 @@ void ShowBuyResaleGiftBox(
 				lt_user,
 				rpl::single(to->shortName()),
 				lt_recipient,
-				rpl::single(to->shortName())));
+				rpl::single(to->shortName())),
+			st::defaultBoxDividerLabelPadding,
+			st::classicDividerLabel);
 
 		const auto button = box->addButton(rpl::single(QString()), [=] {
 			if (state->confirmationOpen || state->attempt->inFlight) {

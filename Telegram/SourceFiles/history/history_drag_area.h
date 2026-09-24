@@ -32,7 +32,8 @@ public:
 		Fn<void(bool)> &&setAcceptDropsField = nullptr,
 		Fn<void()> &&updateControlsGeometry = nullptr,
 		CallbackComputeState &&computeState = nullptr,
-		bool hideSubtext = false);
+		bool hideSubtext = false,
+		Fn<QRect()> geometry = nullptr);
 
 	static void SetupProxyDropArea(
 		not_null<Ui::RpWidget*> container,
@@ -46,6 +47,7 @@ public:
 	bool overlaps(const QRect &globalRect);
 
 	void hideFast();
+	void setWorkspaceBackground(bool enabled);
 
 	void setDroppedCallback(Fn<void(const QMimeData *data)> callback) {
 		_droppedCallback = std::move(callback);
@@ -61,6 +63,8 @@ protected:
 	void dropEvent(QDropEvent *e) override;
 
 private:
+	[[nodiscard]] QRect innerRect() const;
+
 	void hideStart();
 	void hideFinish();
 
@@ -71,6 +75,7 @@ private:
 
 	bool _hiding = false;
 	bool _in = false;
+	bool _workspaceBackground = false;
 	QPixmap _cache;
 	Fn<void(const QMimeData *data)> _droppedCallback;
 

@@ -87,7 +87,7 @@ GraphicButton::GraphicButton(
 : AbstractButton(parent)
 , _margins(selectWidth, selectWidth, selectWidth, selectWidth)
 , _renderer(u":/gui/recording/%1.svg"_q.arg(filename))
-, _roundRect(kRoundRadius, st::groupCallMembersBg)
+, _roundRect(kRoundRadius, st::classicControlBg)
 , _roundRectSelect(kRoundRadius, st::groupCallActiveFg) {
 	const auto size = style::ConvertScale(_renderer.defaultSize());
 	resize((QRect(QPoint(), size) + _margins).size());

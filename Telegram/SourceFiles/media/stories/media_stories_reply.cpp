@@ -171,6 +171,7 @@ ReplyArea::ReplyArea(not_null<Controller*> controller)
 	_controller->wrap(),
 	HistoryView::ComposeControlsDescriptor{
 		.stOverride = &st::storiesComposeControls,
+		.classicStyle = true,
 		.show = _controller->uiShow(),
 		.unavailableEmojiPasted = [=](not_null<DocumentData*> emoji) {
 			showPremiumToast(emoji);

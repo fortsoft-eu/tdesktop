@@ -560,6 +560,10 @@ PRIVATE
     core/core_screenshot_protection.h
     core/core_settings.cpp
     core/core_settings.h
+    core/personal_defaults.cpp
+    core/personal_defaults.h
+    core/personal_account_defaults.cpp
+    core/personal_experimental_defaults.cpp
     core/core_settings_proxy.cpp
     core/core_settings_proxy.h
     core/crash_report_window.cpp
@@ -631,6 +635,10 @@ PRIVATE
     data/components/promo_suggestions.h
     data/components/recent_inline_bots.cpp
     data/components/recent_inline_bots.h
+    data/components/profile_details.cpp
+    data/components/profile_details.h
+    data/components/profile_details_record.cpp
+    data/components/profile_details_record.h
     data/components/recent_peers.cpp
     data/components/recent_peers.h
     data/components/recent_shared_media_gifts.cpp
@@ -1003,6 +1011,8 @@ PRIVATE
     history/view/media/history_view_premium_gift.h
     history/view/media/history_view_save_document_action.cpp
     history/view/media/history_view_save_document_action.h
+    history/view/media/history_view_local_copy.cpp
+    history/view/media/history_view_local_copy.h
     history/view/media/history_view_service_box.cpp
     history/view/media/history_view_service_box.h
     history/view/media/history_view_similar_channels.cpp
@@ -1256,6 +1266,8 @@ PRIVATE
     info/polls/info_polls_results_inner_widget.h
     info/polls/info_polls_results_widget.cpp
     info/polls/info_polls_results_widget.h
+    info/profile/info_profile_details_box.cpp
+    info/profile/info_profile_details_box.h
     info/profile/info_profile_actions.cpp
     info/profile/info_profile_actions.h
     info/profile/info_profile_badge_tooltip.cpp
@@ -1266,6 +1278,8 @@ PRIVATE
     info/profile/info_profile_birthday_effect.h
     info/profile/info_profile_cover.cpp
     info/profile/info_profile_cover.h
+    info/profile/info_profile_cover_classic.cpp
+    info/profile/info_profile_cover_classic.h
     info/profile/info_profile_emoji_status_panel.cpp
     info/profile/info_profile_emoji_status_panel.h
     info/profile/info_profile_inner_widget.cpp

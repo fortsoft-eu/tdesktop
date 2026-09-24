@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/business/settings_chatbots.h"
 
+#include "ui/style/style_radius.h"
 #include "apiwrap.h"
 #include "boxes/peers/edit_peer_permissions_box.h"
 #include "boxes/peers/prepare_short_info_box.h"
@@ -206,7 +207,7 @@ void PreviewRow::rightActionPaint(
 		p.setPen(Qt::NoPen);
 		p.setBrush(actionSelected ? st.textBgOver : st.textBg);
 		const auto radius = size.height() / 2.;
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		if (_actionRipple) {
 			_actionRipple->paint(p, x, y, outerWidth);
 			if (_actionRipple->empty()) {
@@ -797,6 +798,7 @@ void Chatbots::setupContent() {
 		refreshDetails();
 	}, lifetime());
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 

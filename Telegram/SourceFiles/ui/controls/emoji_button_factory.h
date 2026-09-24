@@ -21,12 +21,18 @@ class BoxContent;
 class EmojiButton;
 class InputField;
 
+enum class EmojiToggleMode {
+	PlainText,
+	CustomEmoji,
+};
+
 [[nodiscard]] not_null<Ui::EmojiButton*> AddEmojiToggleToField(
 	not_null<Ui::InputField*> field,
 	not_null<Ui::BoxContent*> box,
 	not_null<Window::SessionController*> controller,
 	not_null<ChatHelpers::TabbedPanel*> emojiPanel,
 	QPoint shift,
-	bool fadeOnFocusChange = true);
+	bool fadeOnFocusChange = false,
+	EmojiToggleMode mode = EmojiToggleMode::CustomEmoji);
 
 } // namespace Ui

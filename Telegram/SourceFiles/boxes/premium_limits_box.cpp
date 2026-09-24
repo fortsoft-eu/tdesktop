@@ -14,10 +14,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/checkbox.h"
 #include "ui/wrap/padding_wrap.h"
 #include "ui/text/text_utilities.h"
+#include "ui/style/style_classic.h"
 #include "ui/vertical_list.h"
 #include "main/main_session.h"
-#include "main/main_account.h"
-#include "main/main_domain.h"
 #include "boxes/peer_list_controllers.h"
 #include "boxes/peers/prepare_short_info_box.h" // PrepareShortInfoBox
 #include "window/window_session_controller.h"
@@ -606,7 +605,9 @@ void ChannelsLimitBox(
 			for (const auto rowId : ids) {
 				const auto id = peerToChannel(PeerId(rowId));
 				if (const auto channel = session->data().channelLoaded(id)) {
-					session->api().leaveChannel(channel);
+					if (!session->api().leaveConversation(channel)) {
+						session->api().leaveChannel(channel);
+					}
 				}
 			}
 			box->showToast(tr::lng_channels_leave_done(tr::now));
@@ -1062,135 +1063,6 @@ void FileSizeLimitBox(
 			&st::premiumIconFiles,
 			tr::lng_file_size_limit
 		});
-}
-
-void AccountsLimitBox(
-		not_null<Ui::GenericBox*> box,
-		not_null<Main::Session*> session) {
-	const auto defaultLimit = Main::Domain::kMaxAccounts;
-	const auto premiumLimit = Main::Domain::kPremiumMaxAccounts;
-
-	using Args = Ui::Premium::AccountsRowArgs;
-	const auto accounts = session->domain().orderedAccounts();
-	auto promotePossible = ranges::views::all(
-		accounts
-	) | ranges::views::filter([&](not_null<Main::Account*> account) {
-		return account->sessionExists()
-			&& !account->session().premium()
-			&& account->session().premiumPossible();
-	}) | ranges::views::transform([&](not_null<Main::Account*> account) {
-		const auto user = account->session().user();
-		return Args::Entry{ user->name(), PaintUserpicCallback(user, false)};
-	}) | ranges::views::take(defaultLimit) | ranges::to_vector;
-
-	const auto premiumPossible = !promotePossible.empty();
-	const auto current = int(accounts.size());
-
-	auto text = rpl::combine(
-		tr::lng_accounts_limit1(
-			lt_count,
-			rpl::single<float64>(current),
-			tr::rich),
-		((!premiumPossible || current > premiumLimit)
-			? rpl::single(TextWithEntities())
-			: tr::lng_accounts_limit2(tr::rich))
-	) | rpl::map([](TextWithEntities &&a, TextWithEntities &&b) {
-		return b.text.isEmpty()
-			? a
-			: a.append(QChar(' ')).append(std::move(b));
-	});
-
-	box->setWidth(st::boxWideWidth);
-
-	const auto top = box->verticalLayout();
-	const auto group = std::make_shared<Ui::RadiobuttonGroup>(0);
-
-	Ui::AddSkip(top, st::premiumInfographicPadding.top());
-	Ui::Premium::AddBubbleRow(
-		top,
-		st::defaultPremiumBubble,
-		BoxShowFinishes(box),
-		0,
-		current,
-		(!premiumPossible
-			? (current * 2)
-			: (current > defaultLimit)
-			? std::min(current + 1, premiumLimit)
-			: (defaultLimit * 2)),
-		ChooseBubbleType(premiumPossible),
-		std::nullopt,
-		&st::premiumIconAccounts);
-	Ui::AddSkip(top, st::premiumLineTextSkip);
-	if (premiumPossible) {
-		const auto nextMax = std::max(current, defaultLimit) + 1;
-		Ui::Premium::AddLimitRow(
-			top,
-			st::defaultPremiumLimits,
-			((nextMax >= premiumLimit)
-				? QString::number(premiumLimit)
-				: (QString::number(nextMax) + QChar('+'))),
-			QString::number(defaultLimit));
-		Ui::AddSkip(top, st::premiumInfographicPadding.bottom());
-	}
-	box->setTitle(tr::lng_accounts_limit_title());
-
-	auto padding = st::boxPadding;
-	padding.setTop(padding.bottom());
-	top->add(
-		object_ptr<Ui::FlatLabel>(
-			box,
-			std::move(text),
-			st::aboutRevokePublicLabel),
-		padding);
-
-	if (!premiumPossible || current > premiumLimit) {
-		box->addButton(tr::lng_box_ok(), [=] {
-			box->closeBox();
-		});
-		return;
-	}
-	auto switchingLifetime = std::make_shared<rpl::lifetime>();
-	box->addButton(tr::lng_continue(), [=]() mutable {
-		const auto ref = QString();
-
-		const auto wasAccount = &session->account();
-		const auto nowAccount = accounts[group->current()];
-		if (wasAccount == nowAccount) {
-			Settings::ShowPremium(session, ref);
-			return;
-		}
-
-		if (*switchingLifetime) {
-			return;
-		}
-		*switchingLifetime = session->domain().activeSessionChanges(
-		) | rpl::on_next([=](Main::Session *session) mutable {
-			if (session) {
-				Settings::ShowPremium(session, ref);
-			}
-			if (switchingLifetime) {
-				base::take(switchingLifetime)->destroy();
-			}
-		});
-		session->domain().activate(nowAccount);
-	});
-
-	box->addButton(tr::lng_cancel(), [=] {
-		box->closeBox();
-	});
-
-	auto args = Args{
-		.group = group,
-		.st = st::premiumAccountsCheckbox,
-		.stName = st::shareBoxListItem.nameStyle,
-		.stNameFg = st::shareBoxListItem.nameFg,
-		.entries = std::move(promotePossible),
-	};
-	if (!args.entries.empty()) {
-		box->addSkip(st::premiumAccountsPadding.top());
-		Ui::Premium::AddAccountsRow(box->verticalLayout(), std::move(args));
-		box->addSkip(st::premiumAccountsPadding.bottom());
-	}
 }
 
 QString LimitsPremiumRef(const QString &addition) {

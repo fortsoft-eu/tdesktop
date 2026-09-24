@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_theme.h"
 #include "ui/effects/path_shift_gradient.h"
 #include "ui/layers/generic_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/discrete_sliders.h"
 #include "ui/painter.h"
@@ -703,7 +704,7 @@ void AddFilledSkip(not_null<Ui::VerticalLayout*> container) {
 		container,
 		st::settingsPrivacySkipTop));
 	skip->paintRequest() | rpl::on_next([=](QRect clip) {
-		QPainter(skip).fillRect(clip, st::boxBg);
+		QPainter(skip).fillRect(clip, st::classicControlBg);
 	}, skip->lifetime());
 };
 
@@ -816,6 +817,7 @@ void DraftOptionsBox(
 
 	const auto bottom = box->setPinnedToBottomContent(
 		object_ptr<Ui::VerticalLayout>(box));
+	Ui::SetClassicSettingsStyle(bottom);
 
 	const auto &done = args.done;
 	const auto &show = args.show;
@@ -893,7 +895,11 @@ void DraftOptionsBox(
 
 		if (!item->originalText().empty()) {
 			AddFilledSkip(bottom);
-			Ui::AddDividerText(bottom, tr::lng_reply_about_quote());
+			Ui::AddDividerText(
+				bottom,
+				tr::lng_reply_about_quote(),
+				st::defaultBoxDividerLabelPadding,
+				st::classicDividerLabel);
 		}
 	};
 	const auto setupLinkActions = [=] {
@@ -1073,9 +1079,13 @@ void DraftOptionsBox(
 
 		AddFilledSkip(bottom);
 		if (canDropNames) {
-			Ui::AddDividerText(bottom, (count == 1
-				? tr::lng_forward_about()
-				: tr::lng_forward_many_about()));
+			Ui::AddDividerText(
+				bottom,
+				(count == 1
+					? tr::lng_forward_about()
+					: tr::lng_forward_many_about()),
+				st::defaultBoxDividerLabelPadding,
+				st::classicDividerLabel);
 		} else {
 			Ui::AddDivider(bottom);
 		}

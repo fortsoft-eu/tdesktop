@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "settings/settings_common.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/timer.h"
 #include "lottie/lottie_icon.h"
 #include "menu/menu_send_details.h"
@@ -133,7 +136,10 @@ HighlightOverlay::HighlightOverlay(
 		case HighlightShape::Rect:
 			if (_args.radius > 0) {
 				PainterHighQualityEnabler hq(p);
-				p.drawRoundedRect(r, _args.radius, _args.radius);
+				p.drawRoundedRect(
+					r,
+					style::CornerRadius(_args.radius),
+					style::CornerRadius(_args.radius));
 			} else {
 				p.drawRect(r);
 			}
@@ -333,6 +339,7 @@ AbstractSection::AbstractSection(
 	QWidget *parent,
 	not_null<Window::SessionController*> controller)
 : _controller(controller) {
+	Ui::SetClassicSettingsStyle(this);
 }
 
 AbstractSection::~AbstractSection() = default;
@@ -404,8 +411,8 @@ void Icon::paint(QPainter &p, int x, int y) const {
 		p.setBrush(_backgroundBrush->second);
 		p.drawRoundedRect(
 			QRect(QPoint(x, y), _icon->size()),
-			_backgroundBrush->first,
-			_backgroundBrush->first);
+			style::CornerRadius(_backgroundBrush->first),
+			style::CornerRadius(_backgroundBrush->first));
 	}
 	_icon->paint(p, { x, y }, 2 * x + _icon->width());
 }
@@ -442,13 +449,24 @@ void AddButtonIcon(
 	icon->widget.setAttribute(Qt::WA_TransparentForMouseEvents);
 	icon->widget.resize(icon->icon.size());
 	icon->widget.show();
-	button->sizeValue(
-	) | rpl::on_next([=, left = st.iconLeft](QSize size) {
+	const auto positionIcon = [=, left = st.iconLeft] {
+		const auto classic = button->property("classicButton").toBool();
+		const auto shift = classic
+			? Ui::ClassicButtonContentOffset(button, button->isDown())
+			: QPoint();
 		icon->widget.moveToLeft(
-			left,
-			(size.height() - icon->widget.height()) / 2,
-			size.width());
+			(classic
+				? Ui::ClassicButtonIconLeft(button->height(), icon->widget.size())
+				: left) + shift.x(),
+			(button->height() - icon->widget.height()) / 2 + shift.y(),
+			button->width());
+	};
+	button->sizeValue() | rpl::on_next([=](QSize) {
+		positionIcon();
 	}, icon->widget.lifetime());
+	button->paintRequest() | rpl::on_next(
+		positionIcon,
+		icon->widget.lifetime());
 	icon->widget.paintRequest(
 	) | rpl::on_next([=] {
 		auto p = QPainter(&icon->widget);
@@ -714,6 +732,7 @@ SliderWithLabel MakeSliderWithLabel(
 		: Ui::CreateChild<Ui::MediaSlider>(raw, sliderSt);
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(raw, labelSt);
 	slider->resize(slider->width(), sliderSt.seekSize.height());
+	raw->resize(raw->width(), std::max(height, slider->height()));
 	rpl::combine(
 		raw->sizeValue(),
 		label->sizeValue()
@@ -843,7 +862,7 @@ SectionSearchRow CreateSectionSearchRow(
 	auto controller = std::make_unique<Ui::SearchFieldController>(query);
 	auto rowView = controller->createRowView(
 		parent,
-		st::infoLayerMediaSearch);
+		st::settingsSectionSearch);
 	const auto row = rowView.wrap.release();
 	const auto field = rowView.field.data();
 	row->show();

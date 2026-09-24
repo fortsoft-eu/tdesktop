@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/replace_boost_box.h"
 
+#include "ui/style/style_radius.h"
 #include "api/api_peer_colors.h"
 #include "apiwrap.h"
 #include "base/event_filter.h"
@@ -885,8 +886,8 @@ object_ptr<Ui::RpWidget> CreateUserpicsWithMoreBadge(
 			const auto radius = std::min(rect.width(), rect.height()) / 2.;
 			q.drawRoundedRect(
 				rectf.marginsAdded(QMarginsF{ half, half, half, half }),
-				radius,
-				radius);
+				style::CornerRadius(radius),
+				style::CornerRadius(radius));
 			q.setFont(font);
 			q.setPen(st::premiumButtonFg);
 			q.drawText(rect, Qt::AlignCenter, text);
@@ -948,7 +949,7 @@ public:
 			});
 			p.setBrush(gradient);
 			p.setPen(Qt::NoPen);
-			p.drawRoundedRect(inner, radius, radius);
+			p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 			_backroundPatterned = false;
 		}
 		if (!_backroundPatterned && _patternEmoji->ready()) {

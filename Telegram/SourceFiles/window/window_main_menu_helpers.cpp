@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_main_menu_helpers.h"
 
+#include "ui/style/style_classic.h"
 #include "apiwrap.h"
 #include "base/platform/base_platform_info.h"
 #include "data/data_channel.h"
@@ -90,7 +91,7 @@ not_null<Ui::SettingsButton*> AddMyChannelsBox(
 		) | rpl::on_next([=] {
 			auto p = QPainter(widget);
 			p.setFont(st::boxTextFont);
-			p.setPen(st::windowSubTextFg);
+			p.setPen(Ui::ClassicTextColor(widget, st::windowSubTextFg));
 			p.drawText(
 				widget->rect(),
 				tr::lng_contacts_loading(tr::now),

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/discrete_sliders.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/effects/ripple_animation.h"
 #include "styles/style_widgets.h"
 
@@ -15,7 +16,7 @@ namespace Ui {
 DiscreteSlider::DiscreteSlider(QWidget *parent, bool snapToLabel)
 : RpWidget(parent)
 , _snapToLabel(snapToLabel) {
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 }
 
 DiscreteSlider::~DiscreteSlider() = default;
@@ -419,8 +420,8 @@ QImage SettingsSlider::prepareRippleMask(
 			0,
 			section.width,
 			height() + plusRadius,
-			_rippleTopRoundRadius,
-			_rippleTopRoundRadius);
+			style::CornerRadius(_rippleTopRoundRadius),
+			style::CornerRadius(_rippleTopRoundRadius));
 		if (sectionIndex > 0) {
 			p.fillRect(0, 0, plusRadius, plusRadius, p.brush());
 		}
@@ -436,7 +437,6 @@ QImage SettingsSlider::prepareRippleMask(
 
 void SettingsSlider::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
-
 	const auto clip = e->rect();
 	const auto range = DiscreteSlider::getCurrentActiveRange();
 

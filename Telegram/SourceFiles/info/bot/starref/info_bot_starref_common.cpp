@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/bot/starref/info_bot_starref_common.h"
 
+#include "ui/style/style_radius.h"
 #include "apiwrap.h"
 #include "boxes/peers/replace_boost_box.h" // CreateUserpicsTransfer.
 #include "boxes/send_credits_box.h" // Ui::CreditsEmoji.
@@ -136,7 +137,7 @@ void ConnectStarRef(
 			const auto radius = st::starrefLinkCountFont->height / 2.;
 			p.setPen(st::historyPeerUserpicFg);
 			p.setBrush(st::historyPeer2UserpicBg2);
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 			p.setFont(st::starrefLinkCountFont);
 			const auto shift = QPoint(
@@ -381,7 +382,7 @@ object_ptr<Ui::AbstractButton> MakeLinkLabel(
 		p.setPen(Qt::NoPen);
 		p.setBrush(st.textBg);
 		const auto radius = st::roundRadiusLarge;
-		p.drawRoundedRect(0, 0, raw->width(), height, radius, radius);
+		p.drawRoundedRect(0, 0, raw->width(), height, style::CornerRadius(radius), style::CornerRadius(radius));
 
 		const auto font = st.style.font;
 		p.setPen(st.textFg);
@@ -902,7 +903,7 @@ std::unique_ptr<Ui::AbstractButton> MakePeerBubbleButton(
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(bgOverride ? *bgOverride : st::windowBgOver);
-		p.drawRoundedRect(left, 0, *width, size, skip, skip);
+		p.drawRoundedRect(left, 0, *width, size, style::CornerRadius(skip), style::CornerRadius(skip));
 	}, raw->lifetime());
 
 	return result;

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/application.h"
+#include "core/personal_defaults.h"
 
 #include "data/data_abstract_structure.h"
 #include "data/data_channel.h"
@@ -94,7 +95,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/abstract_box.h"
 #include "base/qthelp_regex.h"
 #include "base/qthelp_url.h"
-#include "boxes/premium_limits_box.h"
 #include "ui/accessible/ui_accessible_factory.h"
 #include "ui/boxes/confirm_box.h"
 #include "core/cached_webview_availability.h"
@@ -137,10 +137,18 @@ void SetCrashAnnotationsGL() {
 #endif // DESKTOP_APP_USE_ANGLE
 }
 
+base::options::toggle OptionSendLargePhotos({
+	.id = "send-large-photos",
+	.name = "Send Large Photos",
+	.description = "Send compressed photos with a side limit of 2560px by default.",
+	.defaultValue = true,
+});
+
 base::options::toggle OptionSkipUrlSchemeRegister({
 	.id = kOptionSkipUrlSchemeRegister,
 	.name = "Skip URL scheme register",
 	.description = "Don't re-register tg:// URL scheme on autoupdate.",
+	.defaultValue = false,
 });
 
 } // namespace
@@ -337,6 +345,7 @@ void Application::run() {
 	QCoreApplication::instance()->installTranslator(_translator.get());
 
 	style::StartManager(cScale());
+	QApplication::setFont(st::normalFont->f);
 	Ui::Accessible::Init();
 	Ui::InitTextOptions();
 	Ui::StartCachedCorners();
@@ -388,31 +397,6 @@ void Application::run() {
 	_domain->activeChanges(
 	) | rpl::on_next([=](not_null<Main::Account*> account) {
 		showAccount(account);
-	}, _lifetime);
-
-	(
-		_domain->activeValue(
-		) | rpl::to_empty | rpl::filter([=] {
-			return _domain->started();
-		}) | rpl::take(1)
-	) | rpl::then(
-		_domain->accountsChanges()
-	) | rpl::map([=] {
-		return (_domain->accounts().size() > Main::Domain::kMaxAccounts)
-			? _domain->activeChanges()
-			: rpl::never<not_null<Main::Account*>>();
-	}) | rpl::flatten_latest(
-	) | rpl::on_next([=](not_null<Main::Account*> account) {
-		const auto ordered = _domain->orderedAccounts();
-		const auto it = ranges::find(ordered, account);
-		if (_lastActivePrimaryWindow && it != end(ordered)) {
-			const auto index = std::distance(begin(ordered), it);
-			if ((index + 1) > _domain->maxAccounts()) {
-				_lastActivePrimaryWindow->show(Box(
-					AccountsLimitBox,
-					&account->session()));
-			}
-		}
 	}, _lifetime);
 
 	QCoreApplication::instance()->installEventFilter(this);
@@ -548,8 +532,25 @@ void Application::startDomain() {
 
 void Application::startSettingsAndBackground() {
 	Local::rewriteSettingsIfNeeded();
+	const auto applyPhotoDefault = [=] {
+		auto way = settings().sendFilesWay();
+		way.setSendLargePhotos(OptionSendLargePhotos.value());
+		settings().setSendFilesWay(way);
+		Local::writeSettings();
+	};
+	applyPhotoDefault();
+	OptionSendLargePhotos.changes() | rpl::on_next(applyPhotoDefault, _lifetime);
+	_langCloudManager->applyPersonalDefault();
 	Window::Theme::Background()->start();
+	ApplyPersonalLocalDefaults();
 	checkSystemDarkMode();
+	_domain->activeSessionValue() | rpl::filter([](Main::Session *session) {
+		return session != nullptr;
+	}) | rpl::take(1) | rpl::on_next([=](Main::Session *) {
+		crl::on_main(this, [] {
+			ApplyPersonalChatBackgroundDefault();
+		});
+	}, _lifetime);
 	Ui::SetScreenReaderModeDisabled(
 		settings().readPref<bool>(kScreenReaderModeDisabledKey));
 }

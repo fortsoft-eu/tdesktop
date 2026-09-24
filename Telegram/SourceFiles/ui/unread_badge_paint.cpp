@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/unread_badge_paint.h"
 
+#include "ui/style/style_classic.h"
 #include "ui/ui_utility.h"
 #include "styles/style_dialogs.h"
 
@@ -106,7 +107,15 @@ void PaintUnreadBadge(QPainter &p, const QRect &rect, const UnreadBadgeStyle &st
 		Assert(st.sizeId < UnreadBadgeSize::kCount);
 		badgeData = &styles.sizes[static_cast<int>(st.sizeId)];
 	}
-	const auto bg = (st.sizeId == UnreadBadgeSize::ReactionInDialogs)
+	const auto bg = (st.sizeId == UnreadBadgeSize::Dialogs)
+		? (st.active
+			? st::dialogsUnreadBgActive
+			: st.selected
+			? st::dialogsUnreadBgOver
+			: st::dialogsUnreadBg)
+		: (st.sizeId == UnreadBadgeSize::MainMenu)
+		? st::dialogsUnreadBg
+		: (st.sizeId == UnreadBadgeSize::ReactionInDialogs)
 		? styles.reactionBg[index]
 		: (st.sizeId == UnreadBadgeSize::PollInDialogs)
 		? styles.pollBg[index]
@@ -180,12 +189,30 @@ QRect PaintUnreadBadge(
 
 	const auto textTop = st.textTop ? st.textTop : (unreadRectHeight - st.font->height) / 2;
 	p.setFont(st.font);
-	p.setPen(st.active
-		? st::dialogsUnreadFgActive
-		: st.selected
-		? st::dialogsUnreadFgOver
-		: st::dialogsUnreadFg);
-	p.drawText(unreadRectLeft + (unreadRectWidth - unreadWidth) / 2, unreadRectTop + textTop + st.font->ascent, text);
+	const auto textPosition = QPointF(
+		unreadRectLeft + (unreadRectWidth - unreadWidth) / 2,
+		unreadRectTop + textTop + st.font->ascent);
+	if (st.sizeId == UnreadBadgeSize::Dialogs) {
+		PaintClassicText(
+			p,
+			textPosition,
+			text,
+			st.active
+				? st::dialogsUnreadFgActive->c
+				: st.selected
+				? st::dialogsUnreadFgOver->c
+				: st::classicUnreadBadgeFg->c);
+	} else if ((st.sizeId == UnreadBadgeSize::MainMenu)
+		|| (st.sizeId == UnreadBadgeSize::HistoryToDown)) {
+		PaintClassicText(p, textPosition, text, st::classicUnreadBadgeFg->c);
+	} else {
+		p.setPen(st.active
+			? st::dialogsUnreadFgActive
+			: st.selected
+			? st::dialogsUnreadFgOver
+			: st::dialogsUnreadFg);
+		p.drawText(textPosition, text);
+	}
 
 	return badge;
 }

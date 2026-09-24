@@ -46,9 +46,11 @@ public:
 	Data::FileOrigin fileOrigin() const override;
 
 	QByteArray readLoadedPart(int64 offset);
+	[[nodiscard]] bool cacheOnly() const;
 
 private:
 	void startLoading() override;
+	[[nodiscard]] bool supportsLocalOnlyParts() const override;
 	Cache::Key cacheKey() const override;
 	std::optional<MediaKey> fileLocationKey() const override;
 	void cancelHook() override;

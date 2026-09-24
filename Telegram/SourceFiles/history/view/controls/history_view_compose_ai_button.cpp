@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "styles/style_chat_helpers.h"
 
 namespace HistoryView::Controls {
@@ -44,7 +45,7 @@ ComposeAiButton::ComposeAiButton(
 , _star2(star2)
 , _overColor(overColor) {
 	resize(_st.width, _st.height);
-	setCursor(style::cur_pointer);
+	setCursor(style::cur_default);
 
 	shownValue(
 	) | rpl::on_next([=](bool shown) {
@@ -72,7 +73,12 @@ void ComposeAiButton::paintEvent(QPaintEvent *e) {
 	PainterHighQualityEnabler hq(p);
 
 	const auto over = isDown() || isOver() || forceRippled();
-	paintRipple(p, _st.rippleAreaPosition);
+	if (property("classicButton").toBool()) {
+		Ui::PaintClassicButton(p, rect(), this, isDown());
+		p.translate(Ui::ClassicButtonContentOffset(this, isDown()));
+	} else {
+		paintRipple(p, _st.rippleAreaPosition);
+	}
 
 	const auto progress = _animation.value(1.);
 	auto star1Opacity = 1.;

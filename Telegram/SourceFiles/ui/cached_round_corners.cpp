@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/cached_round_corners.h"
+
+#include "ui/style/style_radius.h"
 #include "ui/chat/chat_style.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
@@ -39,10 +41,10 @@ std::array<std::array<QImage, 4>, kCachedCornerRadiusCount> CachedMasks;
 		p.setPen(Qt::NoPen);
 		if (shadow) {
 			p.setBrush((*shadow)->b);
-			p.drawRoundedRect(0, s, r * 3, r * 3, r, r);
+			p.drawRoundedRect(0, s, r * 3, r * 3, style::CornerRadius(r), style::CornerRadius(r));
 		}
 		p.setBrush(brush);
-		p.drawRoundedRect(0, 0, r * 3, r * 3, r, r);
+		p.drawRoundedRect(0, 0, r * 3, r * 3, style::CornerRadius(r), style::CornerRadius(r));
 	}
 	auto result = std::array<QImage, 4>();
 	result[0] = rect.copy(0, 0, r, r);

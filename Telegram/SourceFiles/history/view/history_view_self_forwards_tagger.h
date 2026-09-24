@@ -7,13 +7,19 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
 
 class History;
 
 namespace Data {
+struct ReactionId;
 class Session;
 } // namespace Data
+
+namespace ChatHelpers {
+class TabbedPanel;
+} // namespace ChatHelpers
 
 namespace Main {
 class Session;
@@ -32,10 +38,6 @@ namespace Ui::Toast {
 class Instance;
 } // namespace Ui::Toast
 
-namespace Reactions {
-struct ChosenReaction;
-} // namespace Reactions
-
 namespace HistoryView {
 
 class SelfForwardsTagger final : public base::has_weak_ptr {
@@ -43,7 +45,6 @@ public:
 	SelfForwardsTagger(
 		not_null<Window::SessionController*> controller,
 		not_null<Ui::RpWidget*> parent,
-		Fn<Ui::RpWidget*()> listWidget,
 		not_null<QWidget*> scroll,
 		Fn<History*()> history);
 
@@ -57,8 +58,9 @@ private:
 
 	void setup();
 	void showSelectorForMessages(const MessageIdsList &ids);
+	void showTagPanel(const MessageIdsList &ids);
 	void showToast(const TextWithEntities &text, Fn<void()> callback);
-	void showTaggedToast(DocumentId);
+	void showTaggedToast(const Data::ReactionId &reaction);
 	void showChannelFilterToast(not_null<PeerData*> peer);
 	not_null<Ui::AbstractButton*> createRightButton(
 		not_null<Ui::RpWidget*> widget);
@@ -67,15 +69,14 @@ private:
 		not_null<ToastTimerState*> state,
 		Fn<void()> hideCallback);
 	void hideToast();
-	[[nodiscard]] QRect toastGeometry() const;
 
 	const not_null<Window::SessionController*> _controller;
 	const not_null<Ui::RpWidget*> _parent;
-	const Fn<Ui::RpWidget*()> _listWidget;
 	const not_null<QWidget*> _scroll;
 	const Fn<History*()> _history;
 
 	base::weak_ptr<Ui::Toast::Instance> _toast;
+	base::unique_qptr<ChatHelpers::TabbedPanel> _tagPanel;
 	rpl::lifetime _lifetime;
 
 };

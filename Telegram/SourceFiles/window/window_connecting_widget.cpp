@@ -461,7 +461,7 @@ auto ConnectionState::computeLayout(const State &state) const -> Layout {
 			state.waitTillRetry);
 		break;
 	}
-	result.textWidth = st::normalFont->width(result.text);
+	result.textWidth = st::classicSettingsFont->width(result.text);
 	result.contentWidth = (result.textWidth > 0)
 		? (st::connectingTextPadding.left()
 			+ result.textWidth
@@ -548,7 +548,7 @@ void ConnectionState::Widget::paintEvent(QPaintEvent *e) {
 
 	const auto available = text.width();
 	if (available > 0 && !_currentLayout.text.isEmpty()) {
-		p.setFont(st::normalFont);
+		p.setFont(st::classicSettingsFont);
 		p.setPen(st::windowSubTextFg);
 		if (available >= _currentLayout.textWidth) {
 			p.drawTextLeft(
@@ -562,7 +562,7 @@ void ConnectionState::Widget::paintEvent(QPaintEvent *e) {
 				text.x(),
 				text.y(),
 				width(),
-				st::normalFont->elided(_currentLayout.text, available));
+				st::classicSettingsFont->elided(_currentLayout.text, available));
 		}
 	}
 }

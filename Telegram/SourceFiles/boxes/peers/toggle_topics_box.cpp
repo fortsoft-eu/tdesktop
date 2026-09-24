@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/toggle_topics_box.h"
 
+#include "ui/style/style_radius.h"
 #include "lang/lang_keys.h"
 #include "lottie/lottie_icon.h"
 #include "settings/settings_common.h"
@@ -106,7 +107,7 @@ LayoutButton::LayoutButton(
 			const auto radius = _text.height() / 2.;
 			p.setPen(Qt::NoPen);
 			p.setBrush(st::windowBgActive);
-			p.drawRoundedRect(_text.rect(), radius, radius);
+			p.drawRoundedRect(_text.rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 		}
 	}, _text.lifetime());
 

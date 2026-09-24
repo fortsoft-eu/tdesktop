@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "overview/overview_layout.h"
 
+#include "ui/style/style_radius.h"
 #include "overview/overview_checkbox.h"
 #include "overview/overview_layout_delegate.h"
 #include "core/application.h"
@@ -36,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_cursor_state.h"
 #include "history/view/media/history_view_media_common.h"
 #include "history/view/media/history_view_document.h" // DrawThumbnailAsSongCover
+#include "history/view/media/history_view_video_status.h"
 #include "iv/iv_instance.h"
 #include "base/unixtime.h"
 #include "boxes/sticker_set_box.h"
@@ -55,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_chat_style.h"
 #include "styles/style_overview.h"
+#include "styles/style_info.h"
 
 namespace Overview::Layout {
 namespace {
@@ -205,7 +208,7 @@ void PaintSensitiveTag(Painter &p, QRect r) {
 
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::radialBg);
-	p.drawRoundedRect(outer, radius, radius);
+	p.drawRoundedRect(outer, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setPen(st::radialFg);
 	text.draw(p, {
 		.position = outer.marginsRemoved(st::paidTagPadding).topLeft(),
@@ -654,7 +657,7 @@ Video::Video(
 , _data(video)
 , _videoCover(LookupVideoCover(video, parent))
 , _duration(Ui::FormatDurationText(_data->duration() / 1000))
-, _durationw(st::normalFont->width(_duration))
+, _durationw(st::classicSettingsFont->width(_duration))
 , _spoiler((options.spoiler || parent->isMediaSensitive())
 	? std::make_unique<Ui::SpoilerAnimation>([=] {
 		delegate->repaintItem(this);
@@ -800,33 +803,57 @@ void Video::paint(
 	}
 
 	if (!selected && !context->selecting && radialOpacity < 1.) {
-		if (clip.intersects(QRect(0, _height - st::normalFont->height, _width, st::normalFont->height))) {
+		const auto &font = st::classicSettingsFont;
+		const auto margin = st::overviewVideoStatusMargin;
+		const auto padding = st::overviewVideoStatusPadding;
+		const auto statusH = font->height + 2 * padding.y();
+		if (clip.intersects(QRect(0, _height - margin - statusH, _width, statusH))) {
 			const auto download = !loaded && !_dataMedia->canBePlayed();
 			const auto &icon = download
 				? (selected ? st::overviewVideoDownloadSelected : st::overviewVideoDownload)
 				: (selected ? st::overviewVideoPlaySelected : st::overviewVideoPlay);
 			const auto text = download ? _status.text() : _duration;
 			const auto textw = download
-				? st::normalFont->width(text)
+				? font->width(text)
 				: _durationw;
-			const auto margin = st::overviewVideoStatusMargin;
-			const auto padding = st::overviewVideoStatusPadding;
-			const auto statusX = margin + padding.x(), statusY = _height - margin - padding.y() - st::normalFont->height;
+			const auto statusX = margin + padding.x();
+			const auto statusY = _height - margin - padding.y() - font->height;
 			const auto fullW = icon.width()
 				+ 3 * padding.x()
 				+ textw;
-			const auto showText = (fullW <= _width - 2 * margin);
-			const auto statusW = showText
+			const auto fullFits = (fullW <= _width - 2 * margin);
+			const auto showText = !download || fullFits;
+			const auto showIcon = download || fullFits;
+			const auto statusW = (showText && showIcon)
 				? fullW
+				: showText
+				? (textw + 2 * padding.x())
 				: (icon.width() + 2 * padding.x());
-			const auto statusH = st::normalFont->height + 2 * padding.y();
 			p.setOpacity(1. - radialOpacity);
-			Ui::FillRoundRect(p, statusX - padding.x(), statusY - padding.y(), statusW, statusH, selected ? st::msgDateImgBgSelected : st::msgDateImgBg, selected ? Ui::OverviewVideoSelectedCorners : Ui::OverviewVideoCorners);
-			p.setFont(st::normalFont);
-			p.setPen(st::msgDateImgFg);
-			icon.paint(p, statusX, statusY + (st::normalFont->height - icon.height()) / 2, _width);
+			p.fillRect(
+				statusX - padding.x(),
+				statusY - padding.y(),
+				statusW,
+				statusH,
+				selected ? st::msgDateImgBgSelected : st::msgDateImgBg);
+			p.setFont(font);
+			if (showIcon) {
+				icon.paint(
+					p,
+					statusX,
+					statusY + (font->height - icon.height()) / 2,
+					_width);
+			}
 			if (showText) {
-				p.drawTextLeft(statusX + icon.width() + padding.x(), statusY, _width, text, statusW - 2 * padding.x());
+				const auto textLeft = statusX + (showIcon
+					? icon.width() + padding.x()
+					: 0);
+				HistoryView::PaintWhiteVideoStatusText(
+					p,
+					{ textLeft, statusY },
+					_width,
+					text,
+					textw);
 			}
 		}
 	}
@@ -1023,7 +1050,7 @@ Voice::Voice(
 	const auto dateText = tr::link(
 		langDateTime(base::unixtime::parse(parent->date()))); // Link 1.
 	_details.setMarkedText(
-		st::defaultTextStyle,
+		st::infoApplicationText,
 		tr::lng_date_and_duration(
 			tr::now,
 			lt_date,
@@ -1140,17 +1167,17 @@ void Voice::paint(Painter &p, const QRect &clip, TextSelection selection, const 
 		_name.drawLeftElided(p, nameleft, nametop, namewidth, _width);
 	}
 
-	if (clip.intersects(style::rtlrect(nameleft, statustop, namewidth, st::normalFont->height, _width))) {
-		p.setFont(st::normalFont);
-		p.setPen(selected ? st::mediaInFgSelected : st::mediaInFg);
+	if (clip.intersects(style::rtlrect(nameleft, statustop, namewidth, st::classicSettingsFont->height, _width))) {
+		p.setFont(st::classicSettingsFont);
+		p.setPen(st::classicMenuText);
 		int32 unreadx = nameleft;
 		if (_status.size() == Ui::FileStatusSizeLoaded || _status.size() == Ui::FileStatusSizeReady) {
-			p.setTextPalette(selected ? st::mediaInPaletteSelected : st::mediaInPalette);
+			p.setTextPalette(st::overviewVoiceDetailsPalette);
 			_details.drawLeftElided(p, nameleft, statustop, namewidth, _width);
 			p.restoreTextPalette();
 			unreadx += _details.maxWidth();
 		} else {
-			int32 statusw = st::normalFont->width(_status.text());
+			int32 statusw = st::classicSettingsFont->width(_status.text());
 			p.drawTextLeft(nameleft, statustop, _width, _status.text(), statusw);
 			unreadx += statusw;
 		}
@@ -1230,7 +1257,7 @@ TextState Voice::getState(
 		nameleft,
 		statustop,
 		statusmaxwidth,
-		st::normalFont->height,
+		st::classicSettingsFont->height,
 		_width);
 	if (statusrect.contains(point)) {
 		if (_status.size() == Ui::FileStatusSizeLoaded || _status.size() == Ui::FileStatusSizeReady) {
@@ -1372,7 +1399,7 @@ Document::Document(
 	? fields.dateOverride
 	: parent->date())))
 , _ext(_generic.ext)
-, _datew(st::normalFont->width(_date)) {
+, _datew(st::classicSettingsFont->width(_date)) {
 	_name.setMarkedText(
 		st::defaultTextStyle,
 		(!_forceFileLayout
@@ -1557,8 +1584,8 @@ void Document::paint(Painter &p, const QRect &clip, TextSelection selection, con
 				p.setBrush(st::defaultTextPalette.selectOverlay);
 				p.drawRoundedRect(
 					rthumb,
-					st::roundRadiusSmall,
-					st::roundRadiusSmall);
+					style::CornerRadius(st::roundRadiusSmall),
+					style::CornerRadius(st::roundRadiusSmall));
 			}
 
 			if (radial || (!loaded && !activeLoading())) {
@@ -1612,16 +1639,16 @@ void Document::paint(Painter &p, const QRect &clip, TextSelection selection, con
 		_name.drawLeftElided(p, nameleft, nametop, namewidth, _width);
 	}
 
-	if (clip.intersects(style::rtlrect(nameleft, statustop, availwidth, st::normalFont->height, _width))) {
-		p.setFont(st::normalFont);
-		p.setPen((isSong && selected) ? st::mediaInFgSelected : st::mediaInFg);
+	if (clip.intersects(style::rtlrect(nameleft, statustop, availwidth, st::classicSettingsFont->height, _width))) {
+		p.setFont(st::classicSettingsFont);
+		p.setPen(st::classicMenuText);
 		p.drawTextLeft(nameleft, statustop, _width, _status.text());
 	}
-	if (datetop >= 0 && clip.intersects(style::rtlrect(nameleft, datetop, _datew, st::normalFont->height, _width))) {
+	if (datetop >= 0 && clip.intersects(style::rtlrect(nameleft, datetop, _datew, st::classicSettingsFont->height, _width))) {
 		p.setFont((_msgl && ClickHandler::showAsActive(_msgl))
-			? st::normalFont->underline()
-			: st::normalFont);
-		p.setPen(st::mediaInFg);
+			? st::classicSettingsFont->underline()
+			: st::classicSettingsFont);
+		p.setPen(st::classicMenuText);
 		p.drawTextLeft(nameleft, datetop, _width, _date, _datew);
 	}
 
@@ -1683,16 +1710,16 @@ void Document::paintThumbnail(
 			p.setBrush(st::overviewFileThumbBg);
 			p.drawRoundedRect(
 				rthumb,
-				st::roundRadiusSmall,
-				st::roundRadiusSmall);
+				style::CornerRadius(st::roundRadiusSmall),
+				style::CornerRadius(st::roundRadiusSmall));
 		}
 	} else {
 		p.setPen(Qt::NoPen);
 		p.setBrush(_generic.color);
 		p.drawRoundedRect(
 			rthumb,
-			st::roundRadiusSmall,
-			st::roundRadiusSmall);
+			style::CornerRadius(st::roundRadiusSmall),
+			style::CornerRadius(st::roundRadiusSmall));
 		if (withExt && !_ext.isEmpty()) {
 			p.setFont(st::overviewFileExtFont);
 			p.setPen(st::overviewFileExtFg);
@@ -1855,7 +1882,7 @@ TextState Document::getState(
 				nameleft,
 				datetop,
 				_datew,
-				st::normalFont->height,
+				st::classicSettingsFont->height,
 				_width);
 			if (daterect.contains(point)) {
 				return { parent(), _msgl };
@@ -2205,7 +2232,7 @@ void Link::setupLinks(
 			int(link.display.size()),
 			link.url,
 		});
-		link.text.setMarkedText(st::defaultTextStyle, markup, kLinkOptions);
+		link.text.setMarkedText(st::infoApplicationText, markup, kLinkOptions);
 		link.text.setLink(1, link.handler);
 	}
 
@@ -2244,7 +2271,7 @@ void Link::initDimensions() {
 	if (!_text.isEmpty()) {
 		_minh += qMin(3 * st::normalFont->height, _text.countHeight(_maxw - st::linksPhotoSize - st::linksPhotoPadding));
 	}
-	_minh += _links.size() * st::normalFont->height;
+	_minh += _links.size() * st::classicSettingsFont->height;
 	_minh = qMax(_minh, int32(st::linksPhotoSize)) + st::linksMargin.top() + st::linksMargin.bottom() + st::linksBorder;
 }
 
@@ -2265,7 +2292,7 @@ int32 Link::resizeGetHeight(int32 width) {
 	if (!_text.isEmpty()) {
 		_height += qMin(3 * st::normalFont->height, _text.countHeight(_width - st::linksPhotoSize - st::linksPhotoPadding));
 	}
-	_height += _links.size() * st::normalFont->height;
+	_height += _links.size() * st::classicSettingsFont->height;
 	_height = qMax(_height, int32(st::linksPhotoSize)) + st::linksMargin.top() + st::linksMargin.bottom() + st::linksBorder;
 	return _height;
 }
@@ -2286,7 +2313,7 @@ void Link::paint(Painter &p, const QRect &clip, TextSelection selection, const P
 	const auto w = _width - left;
 	auto top = [&] {
 		if (!_title.isEmpty() && _text.isEmpty() && _links.size() == 1) {
-			return pixTop + (st::linksPhotoSize - st::semiboldFont->height - st::normalFont->height) / 2;
+			return pixTop + (st::linksPhotoSize - st::semiboldFont->height - st::classicSettingsFont->height) / 2;
 		}
 		return st::linksTextTop;
 	}();
@@ -2311,10 +2338,10 @@ void Link::paint(Painter &p, const QRect &clip, TextSelection selection, const P
 	p.setPen(st::windowActiveTextFg);
 	for (const auto &link : _links) {
 		const auto width = link.text.maxWidth();
-		if (clip.intersects(style::rtlrect(left, top, qMin(w, width), st::normalFont->height, _width))) {
+		if (clip.intersects(style::rtlrect(left, top, qMin(w, width), st::classicSettingsFont->height, _width))) {
 			link.text.drawLeftElided(p, left, top, w, _width);
 		}
-		top += st::normalFont->height;
+		top += st::classicSettingsFont->height;
 	}
 
 	QRect border(style::rtlrect(left, 0, w, st::linksBorder, _width));
@@ -2457,7 +2484,7 @@ TextState Link::getState(
 	}
 
 	if (!_title.isEmpty() && _text.isEmpty() && _links.size() == 1) {
-		top += (st::linksPhotoSize - st::semiboldFont->height - st::normalFont->height) / 2;
+		top += (st::linksPhotoSize - st::semiboldFont->height - st::classicSettingsFont->height) / 2;
 	}
 	if (!_title.isEmpty()) {
 		if (style::rtlrect(left, top, qMin(w, _titlew), st::semiboldFont->height, _width).contains(point)) {
@@ -2470,10 +2497,10 @@ TextState Link::getState(
 	}
 	for (const auto &link : _links) {
 		const auto width = link.text.maxWidth();
-		if (style::rtlrect(left, top, qMin(w, width), st::normalFont->height, _width).contains(point)) {
+		if (style::rtlrect(left, top, qMin(w, width), st::classicSettingsFont->height, _width).contains(point)) {
 			return { parent(), link.handler };
 		}
-		top += st::normalFont->height;
+		top += st::classicSettingsFont->height;
 	}
 	return {};
 }

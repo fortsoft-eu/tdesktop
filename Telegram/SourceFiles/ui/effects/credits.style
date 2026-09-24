@@ -13,16 +13,23 @@ using "settings/settings.style";
 
 creditsSettingsBigBalanceButton: RoundButton(defaultActiveButton) {
 	width: 240px;
-	height: 40px;
-	textTop: 11px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	style: semiboldTextStyle;
+}
+creditsSettingsTopupButton: RoundButton(classicProfileActionButton) {
+	height: 28px;
 }
 
 creditsPremiumCover: PremiumCover(defaultPremiumCover) {
+	bg: classicControlBg;
 	starTopSkip: 39px;
-	titleFont: font(15px semibold);
+	titleFont: classicSettingsFont;
 	about: FlatLabel(userPremiumCoverAbout) {
 		textFg: boxTitleFg;
+		style: TextStyle(premiumAboutTextStyle) {
+			font: classicSettingsFont;
+		}
 	}
 	aboutMaxWidth: 236px;
 	additionalShadowForDarkThemes: false;
@@ -33,14 +40,43 @@ creditsLowBalancePremiumCover: PremiumCover(creditsPremiumCover) {
 	about: FlatLabel(userPremiumCoverAbout) {
 		textFg: boxTitleFg;
 		minWidth: 200px;
+		style: TextStyle(premiumAboutTextStyle) {
+			font: classicSettingsFont;
+		}
 	}
 }
 creditsLowBalancePremiumCoverHeight: 162px;
 creditsTopupButton: SettingsButton(settingsButton) {
-	style: semiboldTextStyle;
+	style: TextStyle(semiboldTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+creditsTopupMoreButton: SettingsButton(creditsTopupButton) {
+	textFg: lightButtonFg;
+	textFgOver: lightButtonFgOver;
+	padding: margins(70px, 10px, 22px, 8px);
 }
 creditsTopupPrice: FlatLabel(defaultFlatLabel) {
 	textFg: windowSubTextFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+creditsTopupSubsectionTitle: FlatLabel(defaultSubsectionTitle) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+creditsBalanceTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
+creditsBalanceTitleTextStyle: TextStyle(defaultTextStyle) {
+	font: classicActionFont;
+}
+
+creditsTopupOptionsBox: Box(defaultBox) {
+	bg: classicControlBg;
 }
 
 creditsHistoryRightSkip: 10px;
@@ -53,11 +89,26 @@ creditsBoxAbout: FlatLabel(defaultFlatLabel) {
 creditsBoxAboutTitle: FlatLabel(settingsPremiumUserTitle) {
 	minWidth: 256px;
 }
+creditsGiftDetailsTitle: FlatLabel(creditsBoxAboutTitle) {
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
+}
 creditsBoxAboutDivider: FlatLabel(boxDividerLabel) {
 	align: align(top);
 }
+creditsGiftDetailsTerms: FlatLabel(creditsBoxAboutDivider) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
 creditsBoxButtonLabel: FlatLabel(defaultFlatLabel) {
 	style: semiboldTextStyle;
+}
+giftSendButtonLabel: FlatLabel(creditsBoxButtonLabel) {
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
 }
 creditsReleasedByLabel: FlatLabel(defaultFlatLabel) {
 	textFg: windowSubTextFg;
@@ -124,16 +175,56 @@ creditsGiftBox: Box(defaultBox) {
 
 giftBox: Box(defaultBox) {
 	buttonPadding: margins(22px, 11px, 22px, 12px);
-	buttonHeight: 42px;
+	buttonHeight: classicWideBoxButtonHeight;
 	buttonWide: true;
-	button: RoundButton(defaultActiveButton) {
-		height: 42px;
-		textTop: 12px;
-		style: semiboldTextStyle;
+	button: RoundButton(classicWideBoxButton) {
 	}
+}
+creditsEntryOkBox: Box(defaultBox) {
+	shadowIgnoreTopSkip: true;
+}
+creditsGiftStatusStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
+peerColorApplyButton: RoundButton(classicProfileActionButton) {
+	width: 160px;
+	height: 28px;
+	textTop: 7px;
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
+}
+peerColorBox: Box(giftBox) {
+	buttonPadding: margins(102px, 11px, 102px, 12px);
+	buttonHeight: 28px;
+	buttonWide: false;
+	button: peerColorApplyButton;
+}
+peerColorEmojiButton: SettingsButton(peerAppearanceButton) {
+	textFg: classicMenuText;
+	textFgOver: classicMenuText;
+}
+peerColorEmojiIcon: icon{{ "settings/premium/features/feature_color_names", classicMenuText }};
+peerColorGiftTabs: SubTabs(defaultSubTabs) {
+	bg: classicControlBg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	classic: true;
 }
 giftLimitedBox: Box(giftBox) {
 	buttonPadding: margins(22px, 48px, 22px, 12px);
+}
+giftSendBox: Box(giftBox) {
+	buttonPadding: margins(60px, 11px, 60px, 3px);
+	buttonHeight: 28px;
+	button: RoundButton(defaultBoxButton) {
+		height: 28px;
+		textTop: 7px;
+	}
+}
+giftSendLimitedBox: Box(giftSendBox) {
+	buttonPadding: margins(60px, 48px, 60px, 3px);
 }
 giftCraftBox: Box(giftBox) {
 	buttonPadding: margins(0px, 0px, 0px, 0px);
@@ -150,8 +241,20 @@ giftBoxSubtitle: FlatLabel(defaultFlatLabel) {
 }
 giftBoxSubtitleMargin: margins(22px, 4px, 22px, 4px);
 giftBoxAbout: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) { font: classicSettingsFont; }
 	align: align(top);
 	minWidth: 200px;
+}
+giftBoxRecipientAbout: FlatLabel(giftBoxAbout) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+giftTableTooltipLabel: FlatLabel(defaultImportantTooltipLabel) {
+	textFg: importantTooltipFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 giftBoxAboutMargin: margins(20px, 4px, 20px, 4px);
 giftBoxTabsMargin: margins(20px, 4px, 20px, 4px);
@@ -169,6 +272,17 @@ giftBoxPillTabs: PillTabs(defaultPillTabs) {
 }
 giftBoxResaleTabsMargin: margins(11px, 10px, 11px, 8px);
 giftBoxResaleTabSkip: 8px;
+giftBoxResaleTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
+giftBoxResaleTitle: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+}
+giftBoxResaleLabel: FlatLabel(defaultFlatLabel) {
+	style: giftBoxResaleTextStyle;
+}
 giftBoxResaleTabsDropdown: IconEmoji {
 	icon: icon{{ "intro_country_dropdown", lightButtonFg }};
 	padding: margins(4px, 6px, 0px, 0px);
@@ -200,9 +314,15 @@ giftBoxGiftHeight: 164px;
 giftBoxGiftSmall: 108px;
 giftBoxGiftTiny: 72px;
 giftBoxGiftRadius: 12px;
-giftBoxGiftBadgeFont: font(10px semibold);
+giftBoxGiftBadgeFont: classicSettingsFont;
+giftBoxPremiumTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
+giftBoxPremiumPriceStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 giftBoxByStarsStyle: TextStyle(defaultTextStyle) {
-	font: font(10px);
+	font: classicSettingsFont;
 }
 giftBoxByStarsSkip: 2px;
 giftBoxByStarsStarTop: 3px;
@@ -217,6 +337,9 @@ giftBoxPreviewTitlePadding: margins(12px, 4px, 12px, 4px);
 giftBoxReleasedByMargin: margins(6px, 1px, 6px, 2px);
 giftBoxPreviewTextPadding: margins(12px, 4px, 12px, 4px);
 giftBoxButtonMargin: margins(12px, 8px, 12px, 12px);
+giftBoxPreviewTextStyle: TextStyle(defaultTextStyle) {
+	font: classicSettingsFont;
+}
 giftBoxStickerTop: 0px;
 giftBoxStickerStarTop: 24px;
 giftBoxStickerUniqueTop: 32px;
@@ -228,25 +351,38 @@ giftBoxSelectSkip: 5px;
 giftBoxUserpicSize: 24px;
 giftBoxUserpicSkip: 2px;
 giftBoxTextField: InputField(defaultInputField) {
-	textBg: transparent;
-	textMargins: margins(2px, 0px, 32px, 0px);
+	textBg: windowBg;
+	textBgActive: windowBg;
+	textMargins: margins(3px, 4px, 52px, 3px);
 
 	placeholderFg: placeholderFg;
 	placeholderFgActive: placeholderFgActive;
 	placeholderFgError: placeholderFgActive;
-	placeholderMargins: margins(2px, 0px, 2px, 0px);
+	placeholderMargins: margins(0px, 0px, 0px, 0px);
 	placeholderScale: 0.;
 	placeholderFont: normalFont;
 
-	border: 0px;
-	borderActive: 0px;
+	border: 1px;
+	borderActive: 1px;
 
 	heightMin: 20px;
 	heightMax: 48px;
 
 	style: defaultTextStyle;
 }
-giftBoxTextPadding: margins(20px, 15px, 20px, 11px);
+giftBoxTextPadding: margins(20px, 6px, 20px, 6px);
+giftBoxAnonymousButton: SettingsButton(settingsButtonNoIcon) {
+	textFg: classicMenuText;
+	textFgOver: classicMenuText;
+	textBg: classicControlBg;
+	textBgOver: classicControlBg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	height: 16px;
+	padding: margins(36px, 4px, 16px, 4px);
+	toggleSkip: 16px;
+}
 giftBoxHiddenMark: icon{{ "chat/mini_gift_hidden", premiumButtonFg, margins(4px, 4px, 4px, 4px) }};
 giftListAbout: FlatLabel(defaultFlatLabel) {
 	minWidth: 240px;
@@ -256,10 +392,12 @@ giftListAbout: FlatLabel(defaultFlatLabel) {
 }
 giftListAboutMargin: margins(12px, 24px, 12px, 24px);
 giftListAboutToggle: FlatLabel(giftListAbout) {
-	style: semiboldTextStyle;
+	style: TextStyle(semiboldTextStyle) {
+		font: classicActionFont;
+	}
 }
 giftListAboutToggleSkip: 4px;
-giftBoxEmojiToggleTop: 7px;
+giftBoxEmojiRightSkip: 30px;
 giftBoxLimitTop: 28px;
 giftBoxLock: IconEmoji {
 	icon: icon {{ "emoji/premium_lock", placeholderFgActive }};
@@ -289,7 +427,9 @@ subscriptionCreditsBadgePadding: margins(10px, 1px, 8px, 3px);
 
 uniqueGiftModelTop: 20px;
 uniqueGiftPretitle: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
 	margin: margins(12px, 4px, 12px, 4px);
 }
 uniqueGiftTitle: FlatLabel(boxTitle) {
@@ -297,25 +437,30 @@ uniqueGiftTitle: FlatLabel(boxTitle) {
 }
 uniqueGiftNumber: FlatLabel(uniqueGiftTitle) {
 	style: TextStyle(defaultTextStyle) {
-		font: semiboldFont;
+		font: classicSettingsFont;
 	}
 }
 uniqueGiftResalePrice: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 }
 uniqueGiftTitleTop: 140px;
 uniqueGiftSubtitle: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	minWidth: 64px;
 	align: align(top);
 }
 uniqueGiftReleasedBy: FlatLabel(uniqueGiftSubtitle) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(10px);
+		font: classicSettingsFont;
 	}
 }
 uniqueGiftOnSale: FlatLabel(uniqueGiftSubtitle) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(10px semibold);
+		font: classicSettingsFont;
 	}
 }
 uniqueGiftSubtitleTop: 170px;
@@ -343,7 +488,9 @@ uniqueCraftButton: IconButton(uniqueMenuButton) {
 	iconOver: icon{{ "chat/filled_forge-24x24", videoPlayIconFg }};
 }
 uniqueGiftSenderBadge: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
 	palette: TextPalette(defaultTextPalette) {
 		linkFg: radialFg;
 		monoFg: radialFg;
@@ -357,10 +504,10 @@ uniqueGiftSenderBadge: FlatLabel(defaultFlatLabel) {
 uniqueAttributeTop: 10px;
 uniqueAttributePadding: margins(6px, 8px, 6px, 8px);
 uniqueAttributeName: TextStyle(semiboldTextStyle) {
-	font: font(12px semibold);
+	font: classicSettingsFont;
 }
 uniqueAttributeType: TextStyle(defaultTextStyle) {
-	font: font(12px);
+	font: classicSettingsFont;
 }
 uniqueAttributePercent: uniqueAttributeType;
 uniqueAttributePercentPadding: margins(4px, 0px, 4px, 0px);
@@ -373,27 +520,24 @@ uniqueAttributeModel: RoundButton(defaultLightButton) {
 	radius: 8px;
 
 	width: 107px;
-	height: 34px;
-	textTop: 7px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 	style: defaultBoxButtonTextStyle;
-	icon: icon {{ "menu/unique", windowBoldFg }};
-	iconOver: icon {{ "menu/unique", windowBoldFg }};
+	icon: icon {{ "menu/unique", classicMenuText }};
+	iconOver: icon {{ "menu/unique", classicMenuText }};
 	iconPosition: point(-1px, 4px);
 }
-uniqueAttributeModelActive: icon{{ "menu/unique", activeButtonFg }};
 uniqueAttributeBackdrop: RoundButton(uniqueAttributeModel) {
-	icon: icon {{ "menu/palette", windowBoldFg }};
-	iconOver: icon {{ "menu/palette", windowBoldFg }};
+	icon: icon {{ "menu/palette", classicMenuText }};
+	iconOver: icon {{ "menu/palette", classicMenuText }};
 }
-uniqueAttributeBackdropActive: icon{{ "menu/palette", activeButtonFg }};
 uniqueAttributeSymbol: RoundButton(uniqueAttributeModel) {
-	icon: icon {{ "menu/all_media", windowBoldFg }};
-	iconOver: icon {{ "menu/all_media", windowBoldFg }};
+	icon: icon {{ "menu/all_media", classicMenuText }};
+	iconOver: icon {{ "menu/all_media", classicMenuText }};
 }
-uniqueAttributeSymbolActive: icon{{ "menu/all_media", activeButtonFg }};
 uniqueAttributesBox: Box(giftBox) {
 	buttonWide: false;
-	buttonHeight: 34px;
+	buttonHeight: classicButtonHeight;
 	buttonPadding: margins(10px, 10px, 11px, 10px);
 }
 uniqueAttributeStickerSize: size(64px, 64px);
@@ -449,15 +593,17 @@ creditsHistoryRowRightStyle: TextStyle(defaultTextStyle) {
 	font: font(fsize);
 }
 resaleButtonTitle: FlatLabel(defaultFlatLabel) {
-	style: semiboldTextStyle;
-	textFg: activeButtonFg;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+	textFg: classicMenuText;
 	maxHeight: 20px;
 }
 resaleButtonSubtitle: FlatLabel(defaultFlatLabel) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(12px semibold);
+		font: classicSettingsFont;
 	}
-	textFg: activeButtonFg;
+	textFg: classicMenuText;
 	maxHeight: 20px;
 }
 resalePriceTableLink: FlatLabel(defaultFlatLabel) {
@@ -489,18 +635,21 @@ offerValueBad: FlatLabel(offerValueGood) {
 
 uniqueGiftValuePrice: FlatLabel(defaultFlatLabel) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(20px semibold);
+		font: classicSettingsFont;
 	}
 	margin: margins(12px, 6px, 12px, 6px);
 	textFg: windowFgActive;
 }
 uniqueGiftValueAbout: FlatLabel(defaultFlatLabel) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
 	minWidth: 128px;
 	align: align(top);
 }
 uniqueGiftValueAvailableLink: FlatLabel(boxLabel) {
 	style: TextStyle(defaultTextStyle) {
-		font: font(14px);
+		font: classicSettingsFont;
 	}
 }
 uniqueGiftValueAvailableMargin: margins(0px, 4px, 0px, 4px);
@@ -554,7 +703,7 @@ auctionBidEmoji: IconEmoji {
 auctionBidToast: Toast(defaultToast) {
 	padding: margins(19px, 13px, 19px, 12px);
 }
-auctionBidToastIcon: icon {{ "toast/auction", toastFg }};
+auctionBidToastIcon: icon {{ "toast/auction", classicMenuText }};
 auctionAboutLogo: icon {{ "settings/large_auctions", windowFgActive }};
 auctionAboutLogoPadding: margins(8px, 8px, 8px, 8px);
 auctionAboutTextPadding: margins(0px, 6px, 0px, 8px);

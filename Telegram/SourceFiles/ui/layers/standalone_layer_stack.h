@@ -37,7 +37,7 @@ class StandaloneLayerStack final
 	: public LayerStackDelegate
 	, public base::has_weak_ptr {
 public:
-	StandaloneLayerStack();
+	explicit StandaloneLayerStack(QWidget *parent = nullptr);
 	~StandaloneLayerStack();
 
 	void showBox(
@@ -49,6 +49,7 @@ public:
 		std::optional<QRect> geometry,
 		std::optional<QSize> outerSize,
 		Platform::ForeignParent transientParent);
+	void setToolWindowTitle(QString title);
 	ShowFactory showFactory() override;
 	std::optional<QSize> layerOuterSize() override;
 	bool centerWithinOuter() override {
@@ -78,9 +79,11 @@ private:
 	void hideAllPanels();
 
 	std::vector<Entry> _entries;
+	QWidget * const _parent = nullptr;
 	std::optional<QRect> _anchorGeometry;
 	std::optional<QSize> _anchorOuterSize;
 	Platform::ForeignParent _transientParent;
+	QString _toolWindowTitle;
 	rpl::event_stream<> _boxAdded;
 	rpl::event_stream<> _boxClosed;
 

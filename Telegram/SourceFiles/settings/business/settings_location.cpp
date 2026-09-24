@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/checkbox.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/vertical_list.h"
@@ -112,6 +113,7 @@ void Location::setupContent(
 		setupUnsupported(content);
 	}
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 
@@ -150,17 +152,17 @@ void Location::setupPicker(not_null<Ui::VerticalLayout*> content) {
 	AddDivider(content);
 	AddSkip(content);
 
-	const auto maptoggle = AddButtonWithIcon(
+	const auto maptoggle = content->add(object_ptr<Ui::Checkbox>(
 		content,
 		tr::lng_location_set_map(),
-		st::settingsButton,
-		{ &st::menuIconAddress }
-	)->toggleOn(_data.value(
-	) | rpl::map([](const Data::BusinessLocation &location) {
-		return location.point.has_value();
-	}));
+		_data.current().point.has_value(),
+		st::settingsCheckbox),
+		st::settingsCheckboxPadding);
+	_data.value() | rpl::on_next([=](const Data::BusinessLocation &location) {
+		maptoggle->setChecked(location.point.has_value(), Ui::Checkbox::NotifyAboutChange::DontNotify);
+	}, maptoggle->lifetime());
 
-	maptoggle->toggledValue() | rpl::on_next([=](bool toggled) {
+	maptoggle->checkedChanges() | rpl::on_next([=](bool toggled) {
 		if (!toggled) {
 			auto copy = _data.current();
 			if (copy.point.has_value()) {

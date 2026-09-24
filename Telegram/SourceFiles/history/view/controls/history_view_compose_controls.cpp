@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/controls/history_view_compose_controls.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "base/call_delayed.h"
 #include "base/event_filter.h"
 #include "base/options.h"
@@ -140,6 +143,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 
+#include <QtWidgets/QApplication>
+#include <QtGui/QRegion>
+
 namespace HistoryView {
 namespace {
 
@@ -200,6 +206,22 @@ using ForwardPanel = Controls::ForwardPanel;
 
 namespace Controls {
 const char kOptionMacCmdReplyImmediately[] = "mac-cmd-reply-immediately";
+
+void DisablePointerCursor(not_null<Ui::RpWidget*> widget) {
+	const auto reset = [=] {
+		if (widget->cursor().shape() == Qt::PointingHandCursor) {
+			widget->setCursor(style::cur_default);
+		}
+	};
+	reset();
+	widget->events(
+	) | rpl::filter([](not_null<QEvent*> event) {
+		return event->type() == QEvent::CursorChange;
+	}) | rpl::on_next([=] {
+		reset();
+	}, widget->lifetime());
+}
+
 } // namespace Controls
 
 const ChatHelpers::PauseReason kDefaultPanelsLevel
@@ -1184,7 +1206,13 @@ ComposeControls::StarEffect::StarEffect(
 		stars).bgLight);
 	p.setPen(Qt::NoPen);
 	p.setBrush(bg);
-	p.drawRoundedRect(0, 0, width, height, height / 2., height / 2.);
+	p.drawRoundedRect(
+		0,
+		0,
+		width,
+		height,
+		style::CornerRadius(height / 2.),
+		style::CornerRadius(height / 2.));
 	from->paintUserpic(p, userpic, PaintUserpicContext{
 		.position = QPoint(userpicPadding.left(), userpicPadding.top()),
 		.size = userpicSize,
@@ -1306,6 +1334,34 @@ ComposeControls::ComposeControls(
 , _unavailableEmojiPasted(std::move(descriptor.unavailableEmojiPasted))
 , _saveDraftTimer([=] { saveDraft(); })
 , _saveCloudDraftTimer([=] { saveCloudDraft(); }) {
+	if (descriptor.arrowCursor) {
+		Controls::DisablePointerCursor(_send.get());
+		Controls::DisablePointerCursor(_header.get());
+		Controls::DisablePointerCursor(_richDraftPreview.get());
+		_voiceRecordBar->disablePointerCursor();
+	}
+	if (descriptor.classicStyle) {
+		Ui::SetClassicSettingsStyle(_wrap.get());
+		_classicFrameOverlay = std::make_unique<Ui::RpWidget>(_wrap.get());
+		const auto frame = _classicFrameOverlay.get();
+		frame->setAttribute(Qt::WA_TransparentForMouseEvents);
+		frame->show();
+		_wrap->sizeValue(
+		) | rpl::on_next([=](QSize size) {
+			frame->resize(size);
+			frame->raise();
+		}, frame->lifetime());
+		frame->paintRequest(
+		) | rpl::on_next([=] {
+			auto p = QPainter(frame);
+			const auto outer = frame->rect();
+			const auto width = 2 * st::lineWidth;
+			const auto inner = outer.marginsRemoved(
+				QMargins(width, width, width, width));
+			p.setClipRegion(QRegion(outer).subtracted(QRegion(inner)));
+			Ui::PaintClassicButton(p, outer, _wrap.get(), false);
+		}, frame->lifetime());
+	}
 	if (_st.radius > 0) {
 		_backgroundRect.emplace(_st.radius, _st.bg);
 	}
@@ -2940,6 +2996,9 @@ void ComposeControls::init() {
 void ComposeControls::orderControls() {
 	_voiceRecordBar->raise();
 	_send->raise();
+	if (_classicFrameOverlay) {
+		_classicFrameOverlay->raise();
+	}
 }
 
 bool ComposeControls::showRecordButton() const {
@@ -3140,7 +3199,7 @@ void ComposeControls::initField() {
 			_unavailableEmojiPasted(emoji);
 		}
 		return false;
-	});
+	}, _regularWindow != nullptr);
 	InitMessageFieldFade(_field, _st.field.textBg);
 	_field->setEditLinkCallback(
 		DefaultEditLinkCallback(_show, _field, &_st.boxField));
@@ -3855,19 +3914,37 @@ void ComposeControls::initTabbedSelector() {
 		setTabbedPanel(nullptr);
 	}
 
+	const auto wrap = _wrap.get();
 	_tabbedSelectorToggle->addClickHandler([=] {
-		if (_tabbedPanel && _tabbedPanel->isHidden()) {
+		if (_tabbedPanel
+			&& !_tabbedPanel->isSelectorStolen()
+			&& _tabbedPanel->isHidden()) {
 			_tabbedPanel->showAnimated();
 		} else {
-			toggleTabbedSelectorMode();
+			const auto now = crl::now();
+			if (_lastTabbedSelectorModeChange
+				&& now - _lastTabbedSelectorModeChange
+					< QApplication::doubleClickInterval()) {
+				return;
+			}
+			_lastTabbedSelectorModeChange = now;
+			InvokeQueued(wrap, [=] {
+				toggleTabbedSelectorMode();
+			});
 		}
 	});
 
-	const auto wrap = _wrap.get();
-
 	base::install_event_filter(wrap, _selector, [=](not_null<QEvent*> e) {
-		if (_tabbedPanel && e->type() == QEvent::ParentChange) {
-			setTabbedPanel(nullptr);
+		if (_tabbedPanel
+			&& e->type() == QEvent::ParentChange
+			&& _tabbedPanel->isSelectorStolen()) {
+			const auto panel = QPointer<ChatHelpers::TabbedPanel>(
+				_tabbedPanel.get());
+			InvokeQueued(wrap, [=] {
+				if (panel && panel->isSelectorStolen()) {
+					panel->selectorWasStolen();
+				}
+			});
 		}
 		return base::EventFilterResult::Continue;
 	});
@@ -4109,7 +4186,8 @@ void SetupRestrictionView(
 		std::shared_ptr<ChatHelpers::Show> show,
 		not_null<PeerData*> peer,
 		rpl::producer<Controls::WriteRestriction> restriction,
-		Fn<void(QPainter &p, QRect clip)> paintBackground) {
+		Fn<void(QPainter &p, QRect clip)> paintBackground,
+		bool fixedButtonWidth) {
 	struct State {
 		std::unique_ptr<Ui::FlatLabel> label;
 		std::unique_ptr<Ui::AbstractButton> button;
@@ -4120,7 +4198,20 @@ void SetupRestrictionView(
 	const auto state = widget->lifetime().make_state<State>();
 	state->updateGeometries = [=] {
 		if (!state->label && state->button) {
-			state->button->setGeometry(widget->rect());
+			if (const auto button = dynamic_cast<Ui::FlatButton*>(state->button.get())) {
+				const auto buttonWidth = std::min(widget->width(),
+					fixedButtonWidth
+						? st::historyBottomButtonWidth
+						: button->textWidth() + 2 * st::classicButtonMinimumPadding);
+				const auto buttonHeight = st::historyCompactComposeButton.height;
+				button->setGeometry(
+					(widget->width() - buttonWidth) / 2,
+					(widget->height() - buttonHeight) / 2,
+					buttonWidth,
+					buttonHeight);
+			} else {
+				state->button->setGeometry(widget->rect());
+			}
 		} else if (!state->label) {
 			return;
 		} else if (state->button) {
@@ -4283,7 +4374,8 @@ void ComposeControls::initWriteRestriction() {
 		_show,
 		_history->peer,
 		_writeRestriction.value(),
-		background);
+		background,
+		_regularWindow != nullptr);
 
 	_writeRestriction.value(
 	) | rpl::on_next([=] {
@@ -4943,7 +5035,9 @@ void ComposeControls::updateControlsGeometry(QSize size) {
 	left += (_attachToggle || _sendAs) ? _st.padding.left() : _st.fieldLeft;
 	if (_botMenu.button) {
 		const auto skip = st::historyBotMenuSkip;
-		_botMenu.button->moveToLeft(left + skip, buttonsTop + skip);
+		_botMenu.button->moveToLeft(
+			left + skip,
+			buttonsTop + (_st.attach.height - _botMenu.button->height()) / 2);
 		left += skip + _botMenu.button->width();
 	}
 	if (_replaceMedia) {
@@ -5456,7 +5550,7 @@ void ComposeControls::updateOuterGeometry(QRect rect) {
 		_inlineResults->moveBottom(rect.y());
 	}
 	const auto bottom = rect.y() + rect.height() - _st.attach.height;
-	if (_tabbedPanel) {
+	if (_tabbedPanel && !_tabbedPanel->isSelectorStolen()) {
 		_tabbedPanel->moveBottomRight(bottom, rect.x() + rect.width());
 	}
 	if (_attachBotsMenu) {
@@ -5591,13 +5685,20 @@ void ComposeControls::updateAttachBotsMenu() {
 }
 
 void ComposeControls::paintBackground(QPainter &p, QRect full, QRect clip) {
+	if (Ui::UsesClassicSettingsStyle(_wrap.get())) {
+		Ui::PaintClassicButton(p, full, _wrap.get(), false);
+		return;
+	}
 	if (_backgroundRect) {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setBrush(_st.bg);
 		p.setPen(Qt::NoPen);
 		const auto r = _st.radius;
 		if (_commentsShown && !_commentsShown->isHidden()) {
-			p.drawRoundedRect(_commentsShown->geometry(), r, r);
+			p.drawRoundedRect(
+				_commentsShown->geometry(),
+				style::CornerRadius(r),
+				style::CornerRadius(r));
 			full.setLeft(full.left()
 				+ _commentsShown->width()
 				+ _st.commentsSkip);
@@ -5607,7 +5708,10 @@ void ComposeControls::paintBackground(QPainter &p, QRect full, QRect clip) {
 				- _starsReaction->width()
 				- _st.starsSkip);
 		}
-		p.drawRoundedRect(full, _st.radius, _st.radius);
+		p.drawRoundedRect(
+			full,
+			style::CornerRadius(_st.radius),
+			style::CornerRadius(_st.radius));
 	} else {
 		p.fillRect(clip, _st.bg);
 	}
@@ -5659,6 +5763,7 @@ void ComposeControls::createTabbedPanel() {
 			? object_ptr<TabbedSelector>::fromRaw(_ownedSelector.release())
 			: object_ptr<TabbedSelector>(nullptr)),
 		.nonOwnedSelector = _ownedSelector ? nullptr : _selector.get(),
+		.separateWindow = true,
 	};
 	setTabbedPanel(std::make_unique<TabbedPanel>(
 		_panelsParent,
@@ -5687,7 +5792,7 @@ void ComposeControls::toggleTabbedSelectorMode() {
 	if (!_history || !_regularWindow || !_features.commonTabbedPanel) {
 		return;
 	}
-	if (_tabbedPanel) {
+	if (_tabbedPanel && !_tabbedPanel->isSelectorStolen()) {
 		if (_regularWindow->canShowThirdSection()
 				&& !_regularWindow->adaptive().isOneColumn()) {
 			Core::App().settings().setTabbedSelectorSectionEnabled(true);

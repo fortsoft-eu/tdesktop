@@ -135,10 +135,10 @@ boostsListBox: PeerList(defaultPeerList) {
 		0px,
 		7px);
 	item: PeerListItem(defaultPeerListItem) {
-		height: 52px;
-		photoPosition: point(18px, 4px);
-		namePosition: point(70px, 6px);
-		statusPosition: point(70px, 26px);
+		height: 48px;
+		photoPosition: point(18px, 3px);
+		namePosition: point(70px, 5px);
+		statusPosition: point(70px, 25px);
 		photoSize: 42px;
 	}
 }

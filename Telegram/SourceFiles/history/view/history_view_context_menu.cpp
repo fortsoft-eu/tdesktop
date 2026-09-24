@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/media/history_view_media.h"
 #include "history/view/media/menu/history_view_poll_menu.h"
 #include "history/view/media/history_view_save_document_action.h"
+#include "history/view/media/history_view_local_copy.h"
 #include "history/view/media/history_view_web_page.h"
 #include "history/view/reactions/history_view_reactions_list.h"
 #include "info/info_memento.h"
@@ -368,14 +369,23 @@ void AddPhotoActions(
 		HistoryItem *item,
 		not_null<ListWidget*> list) {
 	const auto contextId = item ? item->fullId() : FullMsgId();
+	const auto localCopy = ReadLocalMediaCopy(photo);
+	if (localCopy) {
+		const auto show = list->controller()->uiShow();
+		menu->addAction(tr::lng_context_save_image(tr::now), [=] {
+			SaveLocalMediaCopy(*localCopy, &photo->session(), show);
+		}, &st::menuIconSaveImage);
+	}
 	if (!list->hasCopyMediaRestriction(item)) {
-		menu->addAction(
-			tr::lng_context_save_image(tr::now),
-			base::fn_delayed(
-				st::defaultDropdownMenu.menu.ripple.hideDuration,
-				&photo->session(),
-				[=] { SavePhotoToFile(photo); }),
-			&st::menuIconSaveImage);
+		if (!localCopy) {
+			menu->addAction(
+				tr::lng_context_save_image(tr::now),
+				base::fn_delayed(
+					st::defaultDropdownMenu.menu.ripple.hideDuration,
+					&photo->session(),
+					[=] { SavePhotoToFile(photo); }),
+				&st::menuIconSaveImage);
+		}
 		menu->addAction(tr::lng_context_copy_image(tr::now), [=] {
 			const auto item = photo->owner().message(contextId);
 			if (!list->showCopyMediaRestriction(item)) {
@@ -627,6 +637,21 @@ void AddForwardAction(
 		not_null<ListWidget*> list) {
 	AddForwardSelectedAction(menu, request, list);
 	AddForwardMessageAction(menu, request, list);
+	const auto ids = request.overSelection && !request.selectedItems.empty()
+		? ExtractIdsList(request.selectedItems)
+		: request.item
+		? (request.pointState == PointState::GroupPart
+			? MessageIdsList{ request.item->fullId() }
+			: request.item->history()->owner().itemOrItsGroup(request.item))
+		: MessageIdsList();
+	if (!ids.empty()) {
+		const auto weak = base::make_weak(list->controller());
+		menu->addAction(u"Send a Copy..."_q, [=] {
+			if (const auto controller = weak.get()) {
+				ShowSendLocalCopies(controller, ids);
+			}
+		}, &st::menuIconForward);
+	}
 }
 
 void AddOfferAction(
@@ -1454,11 +1479,17 @@ void EditTagBox(
 		box,
 		tr::lng_edit_tag_about(),
 		st::editTagAbout));
-	const auto field = box->addRow(object_ptr<Ui::InputField>(
-		box,
-		st::editTagField,
-		tr::lng_edit_tag_name(),
-		title));
+	const auto row = box->addRow(object_ptr<Ui::RpWidget>(box));
+	const auto icon = Ui::CreateChild<Ui::RpWidget>(row);
+	const auto field = Ui::CreateChild<Ui::InputField>(row, st::editTagField, tr::lng_edit_tag_name(), title);
+	row->resize(row->width(), field->height());
+	row->widthValue() | rpl::on_next([=](int width) {
+		const auto iconSize = st::reactionInlineSize;
+		const auto left = iconSize + st::editTagIconSkip;
+		icon->setGeometryToLeft(0, (row->height() - iconSize) / 2, iconSize, iconSize);
+		field->resizeToWidth(std::max(width - left, 0));
+		field->moveToLeft(left, 0);
+	}, row->lifetime());
 	field->setMaxLength(kTagNameLimit * 2);
 	box->setFocusCallback([=] {
 		field->setFocusFast();
@@ -1473,19 +1504,18 @@ void EditTagBox(
 	if (const auto customId = id.custom()) {
 		state->custom = owner->customEmojiManager().create(
 			customId,
-			[=] { field->update(); });
+			[=] { icon->update(); });
 	} else {
 		owner->reactions().preloadReactionImageFor(id);
 	}
-	field->paintRequest() | rpl::on_next([=](QRect clip) {
-		auto p = QPainter(field);
-		const auto top = st::editTagField.textMargins.top();
+	icon->paintRequest() | rpl::on_next([=](QRect clip) {
+		auto p = QPainter(icon);
 		if (const auto custom = state->custom.get()) {
 			const auto inactive = !field->window()->isActiveWindow();
 			custom->paint(p, {
 				.textColor = st::windowFg->c,
 				.now = crl::now(),
-				.position = QPoint(0, top),
+				.position = QPoint(),
 				.paused = inactive || On(PowerSaving::kEmojiChat),
 			});
 		} else {
@@ -1496,10 +1526,10 @@ void EditTagBox(
 			if (!state->image.isNull()) {
 				const auto size = st::reactionInlineSize;
 				const auto skip = (size - st::reactionInlineImage) / 2;
-				p.drawImage(skip, top + skip, state->image);
+				p.drawImage(skip, skip, state->image);
 			}
 		}
-	}, field->lifetime());
+	}, icon->lifetime());
 
 	Ui::AddLengthLimitLabel(field, kTagNameLimit);
 
@@ -2966,23 +2996,9 @@ void AddSelectRestrictionAction(
 		((addIcon && !user)
 			? st::historySponsoredAboutMenuLabelPosition
 			: st::historyHasCustomEmojiPosition),
-		(peer->isMegagroup()
-			? tr::lng_context_noforwards_info_group(tr::now, tr::rich)
-			: (peer->isChannel())
-			? tr::lng_context_noforwards_info_channel(tr::now, tr::rich)
-			: (user && user->isBot())
-			? tr::lng_context_noforwards_info_bot(tr::now, tr::rich)
-			: user
-			? ((user->flags() & UserDataFlag::NoForwardsMyEnabled)
-				? tr::lng_context_noforwards_info_mine(tr::now, tr::rich)
-				: tr::lng_context_noforwards_info_his(
-					tr::now,
-					lt_user,
-					tr::bold(user->shortName()),
-					tr::rich))
-			: tr::lng_context_noforwards_info_channel(tr::now, tr::rich)),
+		TextWithEntities{ u"Original forwarding is restricted. Use Send a Copy for locally available content."_q },
 		(addIcon && !user) ? &st::menuIconCopyright : nullptr);
-	button->setAttribute(Qt::WA_TransparentForMouseEvents);
+	button->action()->setDisabled(true);
 	menu->addAction(std::move(button));
 }
 

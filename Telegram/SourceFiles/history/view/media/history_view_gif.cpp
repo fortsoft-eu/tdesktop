@@ -882,23 +882,34 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
 	} else if (!skipDrawingSurrounding) {
 		if (isRound) {
 			const auto mediaUnread = item->hasUnreadMediaFlag();
+			const auto &statusFont = st::classicSettingsFont;
 			const auto statusText = _seeking
 				? Ui::FormatDurationText(1 + int64(base::SafeRound(
 					(1. - _roundSeek->progress())
 						* _data->duration()
 						/ 1000.)))
 				: _statusText;
-			auto statusW = st::normalFont->width(statusText) + 2 * st::msgDateImgPadding.x();
-			auto statusH = st::normalFont->height + 2 * st::msgDateImgPadding.y();
+			auto statusW = statusFont->width(statusText) + 2 * st::msgDateImgPadding.x();
+			auto statusH = statusFont->height + 2 * st::msgDateImgPadding.y();
 			auto statusX = usex + paintx + st::msgDateImgDelta + st::msgDateImgPadding.x();
 			auto statusY = painty + painth - st::msgDateImgDelta - statusH + st::msgDateImgPadding.y();
 			if (mediaUnread) {
 				statusW += st::mediaUnreadSkip + st::mediaUnreadSize;
 			}
-			Ui::FillRoundRect(p, style::rtlrect(statusX - st::msgDateImgPadding.x(), statusY - st::msgDateImgPadding.y(), statusW, statusH, width()), sti->msgServiceBg, sti->msgServiceBgCornersSmall);
-			p.setFont(st::normalFont);
-			p.setPen(st->msgServiceFg());
-			p.drawTextLeft(statusX, statusY, width(), statusText, statusW - 2 * st::msgDateImgPadding.x());
+			p.fillRect(
+				style::rtlrect(
+					statusX - st::msgDateImgPadding.x(),
+					statusY - st::msgDateImgPadding.y(),
+					statusW,
+					statusH,
+					width()),
+				sti->msgServiceBg);
+			PaintWhiteVideoStatusText(
+				p,
+				{ statusX, statusY },
+				width(),
+				statusText,
+				statusW - 2 * st::msgDateImgPadding.x());
 			if (mediaUnread) {
 				p.setPen(Qt::NoPen);
 				p.setBrush(st->msgServiceFg());

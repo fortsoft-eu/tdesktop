@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/vertical_layout.h"
 #include "ui/vertical_list.h"
 #include "window/window_session_controller.h"
+#include "styles/style_layers.h"
 #include "styles/style_settings.h"
 
 namespace Settings {
@@ -90,11 +91,15 @@ void QuickReplies::setupContent(
 			delete addWrap->widgetAt(0);
 		}
 		if (count < limit) {
-			const auto add = addWrap->add(object_ptr<Ui::SettingsButton>(
-				addWrap,
-				tr::lng_replies_add(),
-				st::settingsButtonNoIcon
-			));
+			const auto row = addWrap->add(object_ptr<Ui::RpWidget>(addWrap));
+			const auto add = Ui::CreateChild<Ui::RoundButton>(row, tr::lng_replies_add(), st::classicProfileActionButton);
+			add->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
+			row->resize(row->width(), add->height());
+			row->widthValue() | rpl::on_next([=](int width) {
+				add->resize(std::min(width, st::classicProfileActionButton.width), add->height());
+				add->moveToLeft((width - add->width()) / 2, 0);
+			}, add->lifetime());
+			add->show();
 
 			add->setClickedCallback([=] {
 				if (!controller->session().premium()) {
@@ -160,6 +165,7 @@ void QuickReplies::setupContent(
 		_count = inner->count();
 	}, content->lifetime());
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 
@@ -200,11 +206,9 @@ void EditShortcutNameBox(
 			? tr::lng_replies_edit_about()
 			: tr::lng_replies_add_shortcut()),
 		st::settingsAddReplyLabel));
-	const auto field = box->addRow(object_ptr<Ui::InputField>(
-		box,
-		st::settingsAddReplyField,
-		tr::lng_replies_add_placeholder(),
-		name));
+	const auto field = box->addRow(
+		object_ptr<Ui::InputField>(box, st::settingsAddReplyField, tr::lng_replies_add_placeholder(), name),
+		st::settingsBusinessBoxFieldPadding);
 	box->setFocusCallback([=] {
 		field->setFocusFast();
 	});

@@ -295,7 +295,7 @@ Widget::Widget(
 , _settingsFilter(
 	this,
 	tr::lng_menu_settings(tr::now),
-	st::historyComposeButton)
+	st::historyCompactComposeButton)
 , _whatIsThis(this, st::historyAdminLogWhatIsThis)
 , _scrollDown(_scroll, st::historyToDown) {
 	_fixedBar->move(0, 0);
@@ -369,6 +369,9 @@ Widget::Widget(
 
 void Widget::setupScrollDownButton() {
 	_scrollDown->setClickedCallback([=] { scrollDownClicked(); });
+	_scrollDown->widthValue() | rpl::skip(1) | rpl::on_next([=] {
+		updateScrollDownPosition();
+	}, _scrollDown->lifetime());
 	updateScrollDownVisibility();
 }
 
@@ -595,7 +598,7 @@ void Widget::resizeEvent(QResizeEvent *e) {
 	const auto bottom = height();
 	const auto scrollHeight = bottom
 		- _fixedBar->height()
-		- _settingsFilter->height();
+		- st::historyComposeButton.height;
 	const auto scrollSize = QSize(contentWidth, scrollHeight);
 	if (_scroll->size() != scrollSize) {
 		_scroll->resize(scrollSize);
@@ -610,15 +613,15 @@ void Widget::resizeEvent(QResizeEvent *e) {
 		auto scrollTop = _scroll->scrollTop();
 		_inner->setVisibleTopBottom(scrollTop, scrollTop + _scroll->height());
 	}
-	const auto fullWidthButtonRect = myrtlrect(
-		0,
-		bottom - _settingsFilter->height(),
-		contentWidth,
-		_settingsFilter->height());
-	_settingsFilter->setGeometry(fullWidthButtonRect);
+	const auto buttonWidth = std::min(std::max(contentWidth
+		- 2 * (_whatIsThis->width() + st::historySendRight), 0),
+		st::historyBottomButtonWidth);
+	_settingsFilter->setGeometry((contentWidth - buttonWidth) / 2,
+		bottom - (st::historyComposeButton.height + _settingsFilter->height()) / 2,
+		buttonWidth, _settingsFilter->height());
 	_whatIsThis->moveToRight(
 		st::historySendRight,
-		bottom - _whatIsThis->height());
+		bottom - (st::historyComposeButton.height + _whatIsThis->height()) / 2);
 
 	updateScrollDownPosition();
 }
@@ -639,6 +642,8 @@ void Widget::paintEvent(QPaintEvent *e) {
 
 	const auto clip = e->rect();
 	SectionWidget::PaintBackground(controller(), _inner->theme(), this, clip);
+	const auto barHeight = st::historyComposeButton.height;
+	QPainter(this).fillRect(QRect(0, height() - barHeight, width(), barHeight), st::windowBg);
 }
 
 void Widget::onScroll() {

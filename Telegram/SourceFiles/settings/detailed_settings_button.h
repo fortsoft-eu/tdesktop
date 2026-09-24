@@ -1,5 +1,6 @@
 #pragma once
 
+#include "styles/style_settings.h"
 #include "settings/settings_common.h"
 #include "ui/text/text.h"
 #include "ui/widgets/buttons.h"
@@ -54,7 +55,7 @@ private:
 	[[nodiscard]] int iconSize() const;
 	void paintIcon(QPainter &p) const;
 
-	const style::DetailedSettingsButtonStyle &_style;
+	const style::DetailedSettingsButtonStyle _style;
 	Ui::Text::String _title;
 	Ui::Text::String _description;
 	std::unique_ptr<Ui::ToggleView> _toggle;

@@ -128,6 +128,13 @@ void AboutBox(not_null<Ui::GenericBox*> box) {
 	addText(Text2());
 	addText(Text3());
 
+	layout->add(
+		object_ptr<Ui::FlatLabel>(
+			box,
+			u"FortSoft version based on Telegram Desktop %1."_q.arg(QString::fromLatin1(AppVersionStr)),
+			st::aboutLabel),
+		st::boxRowPadding);
+
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 
 	box->setWidth(st::aboutWidth);
@@ -192,6 +199,15 @@ void ArchiveHintBox(
 		bool unarchiveOnNewMessage,
 		Fn<void()> onUnarchive) {
 	box->setNoContentMargin(true);
+	struct LabelStyles {
+		style::FlatLabel title = st::boxTitle;
+		style::FlatLabel section = st::channelEarnSemiboldLabel;
+		style::FlatLabel about = st::channelEarnHistoryRecipientLabel;
+	};
+	const auto labels = box->lifetime().make_state<LabelStyles>();
+	labels->title.style.font = st::classicActionFont;
+	labels->section.style.font = st::classicActionFont;
+	labels->about.style.font = st::classicSettingsFont;
 
 	const auto content = box->verticalLayout().get();
 
@@ -221,7 +237,7 @@ void ArchiveHintBox(
 		object_ptr<Ui::FlatLabel>(
 			content,
 			tr::lng_archive_hint_title(),
-			st::boxTitle),
+			labels->title),
 		style::al_top);
 	Ui::AddSkip(content);
 	Ui::AddSkip(content);
@@ -242,7 +258,7 @@ void ArchiveHintBox(
 						return tr::link(std::move(text), 1);
 					}),
 					tr::rich),
-				st::channelEarnHistoryRecipientLabel));
+				labels->about));
 		label->resizeToWidth(box->width()
 			- rect::m::sum::h(st::boxRowPadding));
 		label->setLink(
@@ -271,14 +287,14 @@ void ArchiveHintBox(
 				object_ptr<Ui::FlatLabel>(
 					content,
 					std::move(title),
-					st::channelEarnSemiboldLabel),
+					labels->section),
 				padding);
 			Ui::AddSkip(content, st::channelEarnHistoryThreeSkip);
 			content->add(
 				object_ptr<Ui::FlatLabel>(
 					content,
 					std::move(about),
-					st::channelEarnHistoryRecipientLabel),
+					labels->about),
 				padding);
 			const auto left = Ui::CreateChild<Ui::RpWidget>(
 				box->verticalLayout().get());
@@ -317,18 +333,6 @@ void ArchiveHintBox(
 	Ui::AddSkip(content);
 	Ui::AddSkip(content);
 	Ui::AddSkip(content);
-	{
-		const auto &st = st::premiumPreviewDoubledLimitsBox;
-		box->setStyle(st);
-		auto button = object_ptr<Ui::RoundButton>(
-			box,
-			tr::lng_archive_hint_button(),
-			st::defaultActiveButton);
-		button->resizeToWidth(box->width()
-			- st.buttonPadding.left()
-			- st.buttonPadding.left());
-		button->setClickedCallback([=] { box->closeBox(); });
-		box->addButton(std::move(button));
-	}
+	box->addButton(tr::lng_archive_hint_button(), [=] { box->closeBox(); });
 }
 

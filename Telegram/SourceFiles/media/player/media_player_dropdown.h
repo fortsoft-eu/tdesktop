@@ -37,11 +37,14 @@ public:
 	bool overlaps(const QRect &globalRect);
 
 	QMargins getMargin() const;
+	void showFromClick();
 
 protected:
 	void paintEvent(QPaintEvent *e) override;
 	void enterEventHook(QEnterEvent *e) override;
 	void leaveEventHook(QEvent *e) override;
+	void focusOutEvent(QFocusEvent *e) override;
+	void hideEvent(QHideEvent *e) override;
 
 	bool eventFilter(QObject *obj, QEvent *e) override;
 
@@ -63,6 +66,7 @@ private:
 
 	base::Timer _hideTimer;
 	base::Timer _showTimer;
+	bool _pinned = false;
 
 };
 
@@ -101,7 +105,6 @@ private:
 	base::unique_qptr<Ui::DropdownMenu> _menu;
 	rpl::variable<bool> _menuToggled;
 	bool _temporarilyHidden = false;
-	bool _overButton = false;
 
 };
 

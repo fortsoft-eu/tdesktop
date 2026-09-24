@@ -22,6 +22,7 @@ enum class PointState : char {
 };
 enum class CursorState : char {
 	None,
+	Default,
 	Text,
 	Date,
 	Enlarge,

@@ -160,14 +160,14 @@ void PinnedBar::createControls() {
 
 	_bar = std::make_unique<MessageBar>(
 		_wrap.entity(),
-		st::defaultMessageBar,
+		st::pinnedMessageBar,
 		_customEmojiPaused);
 	if (_right.button) {
 		_right.button->raise();
 	}
 
 	// Clicks.
-	_bar->widget()->setCursor(style::cur_pointer);
+	_bar->widget()->setCursor(style::cur_default);
 	const auto fillClicks = [=](
 			Qt::MouseButton button,
 			rpl::event_stream<> &stream) {

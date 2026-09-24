@@ -1084,7 +1084,7 @@ void ListWidget::scrollTo(
 		int delta,
 		AnimatedScroll type) {
 	_scrollToAnimation.stop();
-	if (!delta || _items.empty() || type == AnimatedScroll::None) {
+	if (anim::Disabled() || !delta || _items.empty() || type == AnimatedScroll::None) {
 		_delegate->listScrollTo(scrollTop);
 		return;
 	}
@@ -2136,9 +2136,8 @@ bool ListWidget::isEmpty() const {
 		&& (_itemsHeight + _itemsRevealHeight == 0);
 }
 
-bool ListWidget::hasCopyRestriction(HistoryItem *item) const {
-	return _delegate->listCopyRestrictionType(item)
-		!= CopyRestrictionType::None;
+bool ListWidget::hasCopyRestriction(HistoryItem *) const {
+	return false;
 }
 
 bool ListWidget::hasCopyMediaRestriction(not_null<HistoryItem*> item) const {
@@ -2146,17 +2145,8 @@ bool ListWidget::hasCopyMediaRestriction(not_null<HistoryItem*> item) const {
 		!= CopyRestrictionType::None;
 }
 
-bool ListWidget::showCopyRestriction(HistoryItem *item) {
-	const auto type = _delegate->listCopyRestrictionType(item);
-	if (type == CopyRestrictionType::None) {
-		return false;
-	}
-	_delegate->listUiShow()->showToast((type == CopyRestrictionType::Channel)
-		? tr::lng_error_nocopy_channel(tr::now)
-		: (type == CopyRestrictionType::User)
-		? tr::lng_error_nocopy_user(tr::now)
-		: tr::lng_error_nocopy_group(tr::now));
-	return true;
+bool ListWidget::showCopyRestriction(HistoryItem *) {
+	return false;
 }
 
 bool ListWidget::showCopyMediaRestriction(not_null<HistoryItem*> item) {
@@ -2173,42 +2163,15 @@ bool ListWidget::showCopyMediaRestriction(not_null<HistoryItem*> item) {
 }
 
 bool ListWidget::hasCopyRestrictionForSelected() const {
-	if (hasCopyRestriction()) {
-		return true;
-	}
-	if (_selected.empty()) {
-		if (_selectedTextItem && _selectedTextItem->forbidsForward()) {
-			return true;
-		}
-	}
-	for (const auto &[itemId, selection] : _selected) {
-		if (const auto item = session().data().message(itemId)) {
-			if (item->forbidsForward()) {
-				return true;
-			}
-		}
-	}
 	return false;
 }
 
 bool ListWidget::showCopyRestrictionForSelected() {
-	if (_selected.empty()) {
-		if (_selectedTextItem && showCopyRestriction(_selectedTextItem)) {
-			return true;
-		}
-	}
-	for (const auto &[itemId, selection] : _selected) {
-		if (showCopyRestriction(session().data().message(itemId))) {
-			return true;
-		}
-	}
 	return false;
 }
 
 bool ListWidget::hasSelectRestriction() const {
-	return session().frozen()
-		|| (_delegate->listSelectRestrictionType()
-			!= CopyRestrictionType::None);
+	return bool(session().frozen());
 }
 
 Element *ListWidget::lookupItemByY(int y) const {
@@ -2943,7 +2906,7 @@ auto ListWidget::itemRenderSelection(
 
 Ui::ChatPaintContext ListWidget::preparePaintContext(
 		const QRect &clip) const {
-	return _delegate->listPreparePaintContext({
+	auto result = _delegate->listPreparePaintContext({
 		.theme = _delegate->listChatTheme(),
 		.clip = clip,
 		.visibleAreaPositionGlobal = mapToGlobal(QPoint(0, _visibleTop)),
@@ -2951,6 +2914,13 @@ Ui::ChatPaintContext ListWidget::preparePaintContext(
 		.visibleAreaWidth = width(),
 		.visibleAreaHeight = _visibleBottom - _visibleTop,
 	});
+	result.messageViewport = (_context == Context::History)
+		|| (_context == Context::Replies)
+		|| (_context == Context::Pinned)
+		|| (_context == Context::Monoforum)
+		|| (_context == Context::SavedSublist)
+		|| (_context == Context::ScheduledTopic);
+	return result;
 }
 
 bool ListWidget::markingContentsRead() const {
@@ -5096,6 +5066,8 @@ void ListWidget::mouseActionUpdate() {
 		dragState = replyBtnState;
 		lnkhost = _replyButtonManager.get();
 	} else if (view) {
+		const auto replyPressed = _replyButtonManager
+			&& _replyButtonManager->isPressed();
 		auto cursorDeltaLength = [&] {
 			auto cursorDelta = (_overState.point - _pressState.point);
 			return cursorDelta.manhattanLength();
@@ -5103,8 +5075,9 @@ void ListWidget::mouseActionUpdate() {
 		auto dragStartLength = [] {
 			return QApplication::startDragDistance();
 		};
-		if (_overState.itemId != _pressState.itemId
-			|| cursorDeltaLength() >= dragStartLength()) {
+		if (!replyPressed
+			&& (_overState.itemId != _pressState.itemId
+				|| cursorDeltaLength() >= dragStartLength())) {
 			if (_mouseAction == MouseAction::PrepareDrag) {
 				_mouseAction = MouseAction::Dragging;
 				InvokeQueued(this, [this] { performDrag(); });
@@ -5147,7 +5120,7 @@ void ListWidget::mouseActionUpdate() {
 					if (const auto date = view->Get<HistoryView::DateBadge>()) {
 						dateWidth = date->width;
 					} else {
-						dateWidth = st::msgServiceFont->width(langDayOfMonthFull(view->dateTime().date()));
+						dateWidth = st::classicSettingsFont->width(langDayOfMonthFull(view->dateTime().date(), true));
 					}
 					dateWidth += st::msgServicePadding.left() + st::msgServicePadding.right();
 					auto dateLeft = st::msgServiceMargin.left();
@@ -5301,7 +5274,15 @@ void ListWidget::mouseActionUpdate() {
 }
 
 style::cursor ListWidget::computeMouseCursor() const {
-	if (ClickHandler::getPressed() || ClickHandler::getActive()) {
+	if (_mouseCursorState == CursorState::Default) {
+		return style::cur_default;
+	}
+	const auto pressed = ClickHandler::getPressed();
+	const auto active = ClickHandler::getActive();
+	if (const auto handler = pressed ? pressed : active) {
+		if (handler->property(kClassicButtonCursorProperty).value<bool>()) {
+			return style::cur_default;
+		}
 		return style::cur_pointer;
 	} else if (!hasSelectedItems()
 		&& (_mouseCursorState == CursorState::Text)) {

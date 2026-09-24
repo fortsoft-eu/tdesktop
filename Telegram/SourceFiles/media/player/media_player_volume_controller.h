@@ -37,10 +37,12 @@ protected:
 	void resizeEvent(QResizeEvent *e) override;
 
 private:
+	void updateSliderGeometry();
 	void setVolume(float64 volume);
 	void applyVolumeChange(float64 volume);
 
 	object_ptr<Ui::MediaSlider> _slider;
+	bool _vertical = false;
 
 };
 

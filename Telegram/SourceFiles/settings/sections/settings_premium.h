@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "settings/settings_common.h"
 #include "settings/settings_type.h"
+#include "ui/style/style_core_types.h"
 
 class DocumentData;
 enum class PremiumFeature;
@@ -93,7 +94,8 @@ struct SubscribeButtonArgs final {
 	not_null<QWidget*> parent,
 	rpl::producer<QString> text,
 	const style::RoundButton &st,
-	rpl::producer<bool> locked);
+	rpl::producer<bool> locked,
+	const style::icon *lockIcon = nullptr);
 
 [[nodiscard]] not_null<Ui::GradientButton*> CreateSubscribeButton(
 	SubscribeButtonArgs &&args);

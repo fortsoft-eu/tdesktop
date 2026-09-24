@@ -203,9 +203,7 @@ void ChooseJoinAsBox(
 		}
 		Unexpected("Context in ChooseJoinAsBox.");
 	}());
-	const auto &labelSt = (context == Context::Switch)
-		? st::groupCallJoinAsLabel
-		: st::confirmPhoneAboutLabel;
+	const auto &labelSt = st::groupCallJoinAsLabel;
 	box->addRow(object_ptr<Ui::FlatLabel>(
 		box,
 		tr::lng_group_call_join_as_about(),
@@ -218,15 +216,9 @@ void ChooseJoinAsBox(
 	const auto controller = lifetime.make_state<ListController>(
 		info.possibleJoinAs,
 		info.joinAs);
-	if (context == Context::Switch) {
-		controller->setStyleOverrides(
-			&st::groupCallJoinAsList,
-			&st::groupCallMultiSelect);
-	} else {
-		controller->setStyleOverrides(
-			&st::defaultChooseSendAs.list,
-			nullptr);
-	}
+	controller->setStyleOverrides(
+		&st::groupCallJoinAsList,
+		&st::groupCallMultiSelect);
 	const auto content = box->addRow(
 		object_ptr<PeerListContent>(box, controller),
 		style::margins());

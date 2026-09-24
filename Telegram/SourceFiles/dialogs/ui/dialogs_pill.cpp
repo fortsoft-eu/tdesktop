@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/ui/dialogs_pill.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/painter.h"
 #include "styles/style_basic.h"
 
@@ -35,7 +36,7 @@ void PaintPillOutline(QPainter &p, const QRect &pill, int radius) {
 		? QRectF(pill).marginsAdded(QMarginsF(half, half, half, half))
 		: QRectF(pill).adjusted(half, half, -half, -half);
 	const auto strokeRadius = light ? (radius + half) : (radius - half);
-	p.drawRoundedRect(stroke, strokeRadius, strokeRadius);
+	p.drawRoundedRect(stroke, style::CornerRadius(strokeRadius), style::CornerRadius(strokeRadius));
 }
 
 void PaintTopFade(QPainter &p, int outerWidth, int fadeHeight, QColor bg) {

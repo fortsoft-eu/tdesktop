@@ -32,7 +32,7 @@ void SearchEmpty::setup(Icon icon, rpl::producer<TextWithEntities> text) {
 	const auto label = Ui::CreateChild<Ui::FlatLabel>(
 		this,
 		std::move(text),
-		st::defaultPeerListAbout);
+		st::dialogsSearchEmptyLabel);
 	const auto size = st::recentPeersEmptySize;
 	const auto animation = [&] {
 		switch (icon) {

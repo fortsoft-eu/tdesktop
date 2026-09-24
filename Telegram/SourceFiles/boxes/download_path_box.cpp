@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/download_path_box.h"
 
 #include "lang/lang_keys.h"
+#include "ui/style/style_classic.h"
 #include "core/file_utilities.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/buttons.h"
@@ -39,6 +40,7 @@ DownloadPathBox::DownloadPathBox(
 }
 
 void DownloadPathBox::prepare() {
+	Ui::SetClassicSettingsStyle(this);
 	addButton(tr::lng_connection_save(), [this] { save(); });
 	addButton(tr::lng_cancel(), [this] { closeBox(); });
 

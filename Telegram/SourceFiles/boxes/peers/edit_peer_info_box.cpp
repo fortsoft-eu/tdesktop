@@ -15,7 +15,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_user_names.h"
 #include "main/main_session.h"
 #include "ui/boxes/confirm_box.h"
-#include "base/event_filter.h"
 #include "boxes/peers/edit_participants_box.h"
 #include "boxes/peers/edit_peer_color_box.h"
 #include "boxes/peers/edit_peer_common.h"
@@ -34,7 +33,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/edit_privacy_box.h" // EditDirectMessagesPriceBox
 #include "boxes/stickers_box.h"
 #include "boxes/username_box.h"
-#include "chat_helpers/emoji_suggestions_widget.h"
 #include "chat_helpers/tabbed_panel.h"
 #include "chat_helpers/tabbed_selector.h"
 #include "core/application.h"
@@ -70,11 +68,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_common.h"
 #include "ui/boxes/boost_box.h"
 #include "ui/controls/emoji_button.h"
+#include "ui/controls/emoji_button_factory.h"
 #include "ui/controls/userpic_button.h"
 #include "ui/effects/premium_graphics.h"
 #include "ui/new_badges.h"
 #include "ui/rect.h"
 #include "ui/rp_widget.h"
+#include "ui/style/style_classic.h"
 #include "ui/vertical_list.h"
 #include "ui/toast/toast.h"
 #include "ui/text/text_utilities.h"
@@ -205,9 +205,13 @@ void AddCommunityRow(
 	class Controller final : public PeerListController {
 	public:
 		Controller(not_null<ChannelData*> community, Fn<void()> open)
-		: _community(community)
+		: _st(st::peerListSingleRow)
+		, _community(community)
 		, _open(std::move(open)) {
-			setStyleOverrides(&st::peerListSingleRow);
+			_st.bg = st::classicControlBg;
+			_st.item = Ui::ClassicSettingsStyle(_st.item);
+			_st.item.nameStyle = Ui::ClassicSettingsStyle(_st.item.nameStyle);
+			setStyleOverrides(&_st);
 		}
 
 		Main::Session &session() const override {
@@ -224,6 +228,7 @@ void AddCommunityRow(
 		}
 
 	private:
+		style::PeerList _st;
 		const not_null<ChannelData*> _community;
 		Fn<void()> _open;
 
@@ -502,6 +507,7 @@ private:
 	[[nodiscard]] object_ptr<Ui::RpWidget> createDescriptionEdit();
 	[[nodiscard]] object_ptr<Ui::RpWidget> createManageGroupButtons();
 	[[nodiscard]] object_ptr<Ui::RpWidget> createStickersEdit();
+	void setupFieldEmoji(not_null<Ui::InputField*> field);
 
 	[[nodiscard]] bool canEditInformation() const;
 	[[nodiscard]] bool canEditReactions() const;
@@ -734,11 +740,15 @@ object_ptr<Ui::RpWidget> Controller::createPhotoEdit() {
 object_ptr<Ui::RpWidget> Controller::createTitleEdit() {
 	Expects(_wrap != nullptr);
 
+	auto fieldStyle = st::editPeerTitleField;
+	fieldStyle.textMargins.setRight(
+		st::defaultComposeFiles.emoji.inner.width
+		+ st::classicSingleLineInputPadding.right());
 	auto result = object_ptr<Ui::PaddingWrap<Ui::InputField>>(
 		_wrap,
 		object_ptr<Ui::InputField>(
 			_wrap,
-			st::editPeerTitleField,
+			fieldStyle,
 			(_isBot
 				? tr::lng_dlg_new_bot_name
 				: _isGroup
@@ -751,89 +761,12 @@ object_ptr<Ui::RpWidget> Controller::createTitleEdit() {
 	result->entity()->setInstantReplacesEnabled(
 		Core::App().settings().replaceEmojiValue(),
 		Core::App().settings().systemTextReplaceValue());
-	Ui::Emoji::SuggestionsController::Init(
-		_wrap->window(),
-		result->entity(),
-		&_peer->session());
+	setupFieldEmoji(result->entity());
 
 	result->entity()->submits(
 	) | rpl::on_next([=] {
 		submitTitle();
 	}, result->entity()->lifetime());
-
-	{
-		const auto field = result->entity();
-		const auto container = _box->getDelegate()->outerContainer();
-		using Selector = ChatHelpers::TabbedSelector;
-		using PanelPtr = base::unique_qptr<ChatHelpers::TabbedPanel>;
-		const auto emojiPanelPtr = field->lifetime().make_state<PanelPtr>(
-			base::make_unique_q<ChatHelpers::TabbedPanel>(
-				container,
-				ChatHelpers::TabbedPanelDescriptor{
-					.ownedSelector = object_ptr<Selector>(
-						nullptr,
-						ChatHelpers::TabbedSelectorDescriptor{
-							.show = _navigation->uiShow(),
-							.st = st::defaultComposeControls.tabbed,
-							.level = Window::GifPauseReason::Layer,
-							.mode = Selector::Mode::PeerTitle,
-						}),
-				}));
-		const auto emojiPanel = emojiPanelPtr->get();
-		emojiPanel->setDesiredHeightValues(
-			1.,
-			st::emojiPanMinHeight / 2,
-			st::emojiPanMinHeight);
-		emojiPanel->hide();
-		emojiPanel->selector()->setCurrentPeer(_peer);
-		emojiPanel->selector()->emojiChosen(
-		) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
-			Ui::InsertEmojiAtCursor(field->textCursor(), data.emoji);
-			field->setFocus();
-		}, field->lifetime());
-		emojiPanel->setDropDown(true);
-
-		const auto emojiToggle = Ui::CreateChild<Ui::EmojiButton>(
-			field,
-			st::defaultComposeControls.files.emoji);
-		emojiToggle->show();
-		emojiToggle->installEventFilter(emojiPanel);
-		emojiToggle->addClickHandler([=] { emojiPanel->toggleAnimated(); });
-
-		const auto updateEmojiPanelGeometry = [=] {
-			const auto parent = emojiPanel->parentWidget();
-			const auto global = emojiToggle->mapToGlobal({ 0, 0 });
-			const auto local = parent->mapFromGlobal(global);
-			emojiPanel->moveTopRight(
-				local.y() + emojiToggle->height(),
-				local.x() + emojiToggle->width() * 3);
-		};
-
-
-		field->lifetime().make_state<base::unique_qptr<QObject>>([&] {
-			return base::install_event_filter(container, [=](
-					not_null<QEvent*> event) {
-				const auto type = event->type();
-				if (type == QEvent::Move || type == QEvent::Resize) {
-					crl::on_main(field, [=] { updateEmojiPanelGeometry(); });
-				}
-				return base::EventFilterResult::Continue;
-			});
-		}());
-
-		field->widthValue() | rpl::on_next([=](int width) {
-			const auto &p = st::editPeerTitleEmojiPosition;
-			emojiToggle->moveToRight(p.x(), p.y(), width);
-			updateEmojiPanelGeometry();
-		}, emojiToggle->lifetime());
-
-		base::install_event_filter(emojiToggle, [=](not_null<QEvent*> event) {
-			if (event->type() == QEvent::Enter) {
-				updateEmojiPanelGeometry();
-			}
-			return base::EventFilterResult::Continue;
-		});
-	}
 
 	_controls.title = result->entity();
 	return result;
@@ -846,11 +779,15 @@ object_ptr<Ui::RpWidget> Controller::createDescriptionEdit() {
 		return nullptr;
 	}
 
+	auto fieldStyle = st::settingsBio;
+	fieldStyle.textMargins.setRight(fieldStyle.textMargins.right()
+		+ st::defaultComposeFiles.emoji.inner.width);
+	fieldStyle.heightMax = st::editPeerDescription.heightMax;
 	auto result = object_ptr<Ui::PaddingWrap<Ui::InputField>>(
 		_wrap,
 		object_ptr<Ui::InputField>(
 			_wrap,
-			st::editPeerDescription,
+			fieldStyle,
 			Ui::InputField::Mode::MultiLine,
 			tr::lng_create_group_description(),
 			_peer->about()),
@@ -862,10 +799,7 @@ object_ptr<Ui::RpWidget> Controller::createDescriptionEdit() {
 		Core::App().settings().systemTextReplaceValue());
 	result->entity()->setSubmitSettings(
 		Core::App().settings().sendSubmitWay());
-	Ui::Emoji::SuggestionsController::Init(
-		_wrap->window(),
-		result->entity(),
-		&_peer->session());
+	setupFieldEmoji(result->entity());
 
 	result->entity()->submits(
 	) | rpl::on_next([=] {
@@ -874,6 +808,48 @@ object_ptr<Ui::RpWidget> Controller::createDescriptionEdit() {
 
 	_controls.description = result->entity();
 	return result;
+}
+
+void Controller::setupFieldEmoji(not_null<Ui::InputField*> field) {
+	using Selector = ChatHelpers::TabbedSelector;
+	using PanelPtr = base::unique_qptr<ChatHelpers::TabbedPanel>;
+	const auto window = _navigation->parentController();
+	const auto emojiPanelPtr = field->lifetime().make_state<PanelPtr>(
+		base::make_unique_q<ChatHelpers::TabbedPanel>(
+			_box->getDelegate()->outerContainer(),
+			ChatHelpers::TabbedPanelDescriptor{
+				.regularWindow = window,
+				.ownedSelector = object_ptr<Selector>(
+					nullptr,
+					ChatHelpers::TabbedSelectorDescriptor{
+						.show = _navigation->uiShow(),
+						.st = st::defaultComposeControls.tabbed,
+						.level = Window::GifPauseReason::Layer,
+						.mode = Selector::Mode::PeerTitle,
+					}),
+				.separateWindow = true,
+				.windowTitle = tr::lng_switch_emoji(tr::now),
+			}));
+	const auto emojiPanel = emojiPanelPtr->get();
+	emojiPanel->setDesiredHeightValues(
+		1.,
+		st::emojiPanMinHeight / 2,
+		st::emojiPanMinHeight);
+	emojiPanel->hide();
+	emojiPanel->selector()->setCurrentPeer(_peer);
+	emojiPanel->selector()->emojiChosen(
+	) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
+		Ui::InsertEmojiAtCursor(field->textCursor(), data.emoji);
+	}, field->lifetime());
+	const auto emojiToggle = Ui::AddEmojiToggleToField(
+		field,
+		_box,
+		window,
+		emojiPanel,
+		QPoint(-st::defaultComposeFiles.emoji.inner.width, 0),
+		false,
+		Ui::EmojiToggleMode::PlainText);
+	emojiToggle->show();
 }
 
 object_ptr<Ui::RpWidget> Controller::createManageGroupButtons() {
@@ -3115,6 +3091,7 @@ EditPeerInfoBox::EditPeerInfoBox(
 	not_null<PeerData*> peer)
 : _navigation(navigation)
 , _peer(peer->migrateToOrMe()) {
+	Ui::SetClassicSettingsStyle(this);
 }
 
 void EditPeerInfoBox::prepare() {
@@ -3188,15 +3165,16 @@ object_ptr<Ui::SettingsButton> EditPeerInfoBox::CreateButton(
 		rpl::duplicate(text),
 		std::move(labelText),
 		button->widthValue()
-	) | rpl::on_next([&st, label](
+	) | rpl::on_next([&st, button, label](
 			const QString &text,
 			const TextWithEntities &labelText,
 			int width) {
-		const auto available = width
-			- st.button.padding.left()
-			- (st.button.style.font->spacew * 2)
-			- st.button.style.font->width(text)
-			- st.labelPosition.x();
+		const auto &buttonStyle = button->st();
+		const auto available = std::max(width
+			- buttonStyle.padding.left()
+			- (buttonStyle.style.font->spacew * 2)
+			- buttonStyle.style.font->width(text)
+			- st.labelPosition.x(), 0);
 		const auto required = label->textMaxWidth();
 		label->resizeToWidth(std::min(required, available));
 		label->moveToRight(
@@ -3206,6 +3184,9 @@ object_ptr<Ui::SettingsButton> EditPeerInfoBox::CreateButton(
 	}, label->lifetime());
 
 	if (badge) {
+		const auto badgeFont = Ui::ClassicSettingsStyle(
+			button,
+			st::settingsPremiumNewBadge.style.font);
 		rpl::combine(
 			std::move(text),
 			label->widthValue(),
@@ -3214,9 +3195,10 @@ object_ptr<Ui::SettingsButton> EditPeerInfoBox::CreateButton(
 				const QString &text,
 				int labelWidth,
 				int width) {
-			const auto space = st.button.style.font->spacew;
-			const auto left = st.button.padding.left()
-				+ st.button.style.font->width(text)
+			const auto &buttonStyle = button->st();
+			const auto space = buttonStyle.style.font->spacew;
+			const auto left = buttonStyle.padding.left()
+				+ buttonStyle.style.font->width(text)
 				+ space;
 			const auto right = st.labelPosition.x()
 				+ labelWidth
@@ -3224,9 +3206,9 @@ object_ptr<Ui::SettingsButton> EditPeerInfoBox::CreateButton(
 			const auto available = width - left - right;
 			badge->setVisible(available >= badge->width());
 			if (!badge->isHidden()) {
-				const auto top = st.button.padding.top()
-					+ st.button.style.font->ascent
-					- st::settingsPremiumNewBadge.style.font->ascent
+				const auto top = buttonStyle.padding.top()
+					+ buttonStyle.style.font->ascent
+					- badgeFont->ascent
 					- st::settingsPremiumNewBadgePadding.top();
 				badge->moveToLeft(left, top, width);
 			}

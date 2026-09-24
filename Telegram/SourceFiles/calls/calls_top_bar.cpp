@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "calls/calls_top_bar.h"
 
 #include "ui/effects/cross_line.h"
+#include "ui/style/style_classic.h"
 #include "ui/paint/blobs_linear.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
@@ -49,6 +50,20 @@ enum class BarState {
 };
 
 namespace {
+
+class DurationLabel final : public Ui::LabelSimple {
+public:
+	explicit DurationLabel(QWidget *parent) : LabelSimple(parent, st::callBarLabel) {
+	}
+
+private:
+	void paintEvent(QPaintEvent *event) override {
+		auto p = QPainter(this);
+		p.setFont(st::callBarLabel.font);
+		Ui::PaintClassicText(p, QPointF(0, st::callBarLabel.font->ascent), accessibilityName(), st::callBarLabel.textFg->c);
+	}
+
+};
 
 constexpr auto kUpdateDebugTimeoutMs = crl::time(500);
 
@@ -257,19 +272,19 @@ TopBar::TopBar(
 		rpl::single(true),
 		[=] { updateUserpics(); }))
 , _durationLabel(_call
-	? object_ptr<Ui::LabelSimple>(this, st::callBarLabel)
+	? object_ptr<Ui::LabelSimple>(object_ptr<DurationLabel>(this))
 	: object_ptr<Ui::LabelSimple>(nullptr))
 , _signalBars(_call
 	? object_ptr<SignalBars>(this, _call.get(), st::callBarSignalBars)
 	: object_ptr<SignalBars>(nullptr))
 , _fullInfoLabel(this, st::callBarInfoLabel)
 , _shortInfoLabel(this, st::callBarInfoLabel)
-, _hangupLabel(_call
-	? object_ptr<Ui::LabelSimple>(
+, _endCall(_call
+	? object_ptr<Ui::FlatButton>(
 		this,
-		st::callBarLabel,
-		tr::lng_call_bar_hangup(tr::now))
-	: object_ptr<Ui::LabelSimple>(nullptr))
+		tr::lng_call_bar_hangup(tr::now),
+		st::callBarEndCall)
+	: object_ptr<Ui::FlatButton>(nullptr))
 , _mute(this, st::callBarMuteToggle)
 , _info(this)
 , _hangup(this, st::callBarHangup)
@@ -421,7 +436,7 @@ void TopBar::initControls() {
 			Core::App().calls().showInfoPanel(group);
 		}
 	});
-	_hangup->setClickedCallback([this] {
+	const auto hangup = [this] {
 		if (const auto call = _call.get()) {
 			call->hangup();
 		} else if (const auto group = _groupCall.get()) {
@@ -437,7 +452,13 @@ void TopBar::initControls() {
 					Ui::LayerOption::CloseOther);
 			}
 		}
-	});
+	};
+	_hangup->setClickedCallback(hangup);
+	_hangup->setVisible(!_endCall);
+	if (_endCall) {
+		_endCall->setClickedCallback(hangup);
+		_endCall->setPointerCursor(false);
+	}
 	updateDurationText();
 }
 
@@ -656,13 +677,33 @@ void TopBar::updateInfoLabels() {
 }
 
 void TopBar::setInfoLabels() {
+	const auto group = _groupCall.get();
+	const auto conferenceTitle = group
+		&& group->conference()
+		&& !_isGroupConnecting.current()
+		&& (!_usersCount
+			|| _users.empty()
+			|| (_users.size() == 1
+				&& _users.front().id == group->peer()->session().userPeerId().value
+				&& _usersCount == 1));
+	auto labelStyle = st::callBarInfoLabel;
+	if (conferenceTitle) {
+		labelStyle.style.font = st::classicActionFont;
+	}
+	for (const auto label : { &_fullInfoLabel, &_shortInfoLabel }) {
+		if (*label && (*label)->st().style.font != labelStyle.style.font) {
+			label->destroy();
+			label->create(this, labelStyle);
+			(*label)->stackUnder(_info);
+		}
+	}
 	if (const auto call = _call.get()) {
 		const auto user = call->user();
 		const auto fullName = user->name();
 		const auto shortName = user->firstName;
 		_fullInfoLabel->setText(fullName);
 		_shortInfoLabel->setText(shortName);
-	} else if (const auto group = _groupCall.get()) {
+	} else if (group) {
 		const auto peer = group->peer();
 		const auto real = peer->groupCall();
 		const auto connecting = _isGroupConnecting.current();
@@ -683,11 +724,7 @@ void TopBar::setInfoLabels() {
 			if (_shortInfoLabel) {
 				_shortInfoLabel->setText(text);
 			}
-		} else if (!_usersCount
-			|| _users.empty()
-			|| (_users.size() == 1
-				&& _users.front().id == peer->session().userPeerId().value
-				&& _usersCount == 1)) {
+		} else if (conferenceTitle) {
 			_fullInfoLabel->setText(tr::lng_confcall_join_title(tr::now));
 			_shortInfoLabel->setText(tr::lng_confcall_join_title(tr::now));
 		} else {
@@ -775,18 +812,17 @@ void TopBar::updateControlsGeometry() {
 	}
 
 	auto right = st::callBarRightSkip;
-	if (_hangupLabel) {
-		_hangupLabel->moveToRight(right, st::callBarLabelTop);
-		right += _hangupLabel->width();
+	if (_endCall) {
+		_endCall->moveToRight(right, (height() - _endCall->height()) / 2);
+		right += _endCall->width();
 	} else {
-		//right -= st::callBarRightSkip;
+		right += st::callBarHangup.width;
+		_hangup->setGeometryToRight(0, 0, right, height());
 	}
-	right += st::callBarHangup.width;
-	_hangup->setGeometryToRight(0, 0, right, height());
 	_info->setGeometryToLeft(
 		_mute->width(),
 		0,
-		width() - _mute->width() - _hangup->width(),
+		std::max(width() - _mute->width() - right, 0),
 		height());
 
 	auto fullWidth = _fullInfoLabel->textMaxWidth();
@@ -800,7 +836,12 @@ void TopBar::updateControlsGeometry() {
 			infoLeft = left;
 			infoWidth = width() - left - right;
 		}
-		infoLabel->setGeometryToLeft(infoLeft, st::callBarLabelTop, infoWidth, st::callBarInfoLabel.style.font->height);
+		const auto labelHeight = infoLabel->st().style.font->height;
+		infoLabel->setGeometryToLeft(
+			infoLeft,
+			st::callBarLabelTop + (st::callBarInfoLabel.style.font->height - labelHeight) / 2,
+			infoWidth,
+			labelHeight);
 	};
 
 	_fullInfoLabel->setVisible(showFull);

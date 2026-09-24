@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_web_page.h"
 
+#include "ui/style/style_radius.h"
 #include "base/unixtime.h"
 #include "core/application.h"
 #include "countries/countries_instance.h"
@@ -1223,7 +1224,7 @@ void WebPage::draw(Painter &p, const PaintContext &context) const {
 			auto hq = PainterHighQualityEnabler(p);
 			p.setPen(Qt::NoPen);
 			p.setBrush(color);
-			p.drawRoundedRect(rect, radius, radius);
+			p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 			p.setPen(cache->icon);
 			p.setBrush(Qt::NoBrush);
@@ -1363,14 +1364,12 @@ void WebPage::draw(Painter &p, const PaintContext &context) const {
 				const auto dateW = pixwidth - dateX - st::msgDateImgDelta;
 				const auto dateH = pixheight - dateY - st::msgDateImgDelta;
 
-				Ui::FillRoundRect(
-					p,
+				p.fillRect(
 					dateX,
 					dateY,
 					dateW,
 					dateH,
-					sti->msgDateImgBg,
-					sti->msgDateImgBgCorners);
+					sti->msgDateImgBg);
 
 				p.setFont(st::msgDateFont);
 				p.setPen(st->msgDateImgFg());

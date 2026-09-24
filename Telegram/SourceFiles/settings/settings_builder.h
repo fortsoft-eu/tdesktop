@@ -185,6 +185,7 @@ public:
 
 	struct ButtonArgs {
 		QString id;
+		bool raised = false;
 		rpl::producer<QString> title;
 		const style::SettingsButton *st = nullptr;
 		IconDescriptor icon;

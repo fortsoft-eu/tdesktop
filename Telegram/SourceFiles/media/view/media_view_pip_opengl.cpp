@@ -113,18 +113,14 @@ ShaderPart FragmentRoundToShadow() {
 	return {
 		.header = R"(
 uniform vec4 roundRect;
-uniform float roundRadius;
 )" + shadow.header + R"(
 
 float roundedCorner() {
 	vec2 rectHalf = roundRect.zw / 2.;
 	vec2 rectCenter = roundRect.xy + rectHalf;
 	vec2 fromRectCenter = abs(gl_FragCoord.xy - rectCenter);
-	vec2 vectorRadius = vec2(roundRadius + 0.5, roundRadius + 0.5);
-	vec2 fromCenterWithRadius = fromRectCenter + vectorRadius;
-	vec2 fromRoundingCenter = max(fromCenterWithRadius, rectHalf)
-		- rectHalf;
-	float rounded = length(fromRoundingCenter) - roundRadius;
+	vec2 edgeDistance = fromRectCenter - rectHalf + vec2(0.5);
+	float rounded = max(edgeDistance.x, edgeDistance.y);
 
 	return 1. - smoothstep(0., 1., rounded);
 }
@@ -465,9 +461,6 @@ void Pip::RendererGL::paintTransformedContent(
 		float(PipShadow().topLeft.height() * globalFactor),
 		float(PipShadow().left.width() * globalFactor),
 		float(PipShadow().top.height() * globalFactor)));
-	program->setUniformValue(
-		"roundRadius",
-		GLfloat(st::roundRadiusLarge * _factor));
 	program->setUniformValue("fadeColor", QVector4D(
 		float(st::radialBg->c.redF() * fadeAlpha),
 		float(st::radialBg->c.greenF() * fadeAlpha),

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "main/main_session.h"
+#include "core/personal_defaults.h"
 
 #include "apiwrap.h"
 #include "api/api_peer_colors.h"
@@ -38,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/components/promo_suggestions.h"
 #include "data/components/recent_inline_bots.h"
 #include "data/components/recent_peers.h"
+#include "data/components/profile_details.h"
 #include "data/components/recent_shared_media_gifts.h"
 #include "data/components/scheduled_messages.h"
 #include "data/components/sponsored_messages.h"
@@ -110,6 +112,7 @@ Session::Session(
 , _downloader(std::make_unique<Storage::DownloadManagerMtproto>(_api.get()))
 , _uploader(std::make_unique<Storage::Uploader>(_api.get()))
 , _storage(std::make_unique<Storage::Facade>())
+, _profileDetails(std::make_unique<Data::ProfileDetails>(this))
 , _data(std::make_unique<Data::Session>(this))
 , _user(_data->processUser(user))
 , _emojiStickersPack(std::make_unique<Stickers::EmojiPack>(this))
@@ -250,6 +253,7 @@ Session::Session(
 		data().stickers().notifyUpdated(Data::StickersType::Emoji);
 		data().stickers().notifySavedGifsUpdated();
 		DEBUG_LOG(("Init: Account stored data load finished."));
+		Core::ApplyPersonalAccountDefaults(this);
 	} }).dispatch();
 
 #ifndef TDESKTOP_DISABLE_SPELLCHECK

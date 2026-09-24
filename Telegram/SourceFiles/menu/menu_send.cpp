@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "menu/menu_send.h"
 
+#include "ui/style/style_radius.h"
 #include "menu/menu_checked_action.h"
 
 #include "api/api_common.h"
@@ -57,6 +58,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/section_widget.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
+#include "styles/style_basic.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_window.h"
 
@@ -173,7 +175,7 @@ QImage BottomRounded::prepareRippleMask() const {
 	return Ui::RippleAnimation::MaskByDrawer(size(), fill, [&](QPainter &p) {
 		const auto radius = st::previewMenu.radius;
 		const auto expanded = rect().marginsAdded({ 0, 2 * radius, 0, 0 });
-		p.drawRoundedRect(expanded, radius, radius);
+		p.drawRoundedRect(expanded, style::CornerRadius(radius), style::CornerRadius(radius));
 	});
 }
 
@@ -187,7 +189,7 @@ void BottomRounded::paintEvent(QPaintEvent *e) {
 	if (isOver()) {
 		p.setBrush(st.overBgColor);
 	}
-	p.drawRoundedRect(expanded, radius, radius);
+	p.drawRoundedRect(expanded, style::CornerRadius(radius), style::CornerRadius(radius));
 	p.end();
 
 	Ui::FlatButton::paintEvent(e);
@@ -624,13 +626,16 @@ FillMenuResult AttachSendMenuEffect(
 	using namespace HistoryView::Reactions;
 	const auto effect = std::make_shared<base::weak_qptr<EffectPreview>>();
 	const auto position = desiredPositionOverride.value_or(QCursor::pos());
+	const auto effectsPan = menu->lifetime().make_state<style::EmojiPan>(
+		details.effectsPan
+			? *details.effectsPan
+			: st::reactPanelEmojiPan);
+	effectsPan->about.style.font = st::classicSettingsFont;
 	const auto selector = details.effectAllowed
 		? AttachSelectorToMenu(
 			menu,
 			position,
-			(details.effectsPan
-				? *details.effectsPan
-				: st::reactPanelEmojiPan),
+			*effectsPan,
 			show,
 			LookupPossibleEffects(&show->session()),
 			{ tr::lng_effect_add_title(tr::now) },

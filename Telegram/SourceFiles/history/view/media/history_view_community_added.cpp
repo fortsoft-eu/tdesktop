@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_community_added.h"
 
+#include "ui/style/style_radius.h"
 #include "core/click_handler_types.h" // ClickHandlerContext
 #include "data/data_changes.h"
 #include "data/data_channel.h"
@@ -120,7 +121,7 @@ QImage CommunityServiceUserpic::image(int size) {
 			const auto radius = size * Ui::ForumUserpicRadiusMultiplier();
 			p.setPen(Qt::NoPen);
 			p.setBrush(st::msgServiceBg);
-			p.drawRoundedRect(QRect(0, 0, size, size), radius, radius);
+			p.drawRoundedRect(QRect(0, 0, size, size), style::CornerRadius(radius), style::CornerRadius(radius));
 			CommunityServiceEmptyIcon().paintInCenter(
 				p,
 				QRect(0, 0, size, size),
@@ -228,9 +229,9 @@ auto GenerateCommunityAddedMedia(
 				0,
 				st::msgPadding.right(),
 				st::msgServiceGiftBoxTitlePadding.bottom()),
-			st::premiumPreviewAbout.style));
+			st::serviceTextStyle));
 
-		push(MakeGenericButtonPart(
+		push(MakeGenericClassicButtonPart(
 			tr::lng_community_view(tr::now),
 			QMargins(
 				0,

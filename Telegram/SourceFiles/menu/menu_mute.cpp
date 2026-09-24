@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/time_picker_box.h"
 #include "ui/effects/animation_value.h"
 #include "ui/layers/generic_box.h"
+#include "ui/style/style_classic.h"
 #include "ui/text/format_values.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/menu/menu_action.h"
@@ -135,6 +136,7 @@ void MuteItem::paintEvent(QPaintEvent *e) {
 }
 
 void MuteBox(not_null<Ui::GenericBox*> box, Descriptor descriptor) {
+	Ui::SetClassicSettingsStyle(box);
 	struct State {
 		int lastSeconds = 0;
 	};
@@ -168,6 +170,7 @@ void MuteBox(not_null<Ui::GenericBox*> box, Descriptor descriptor) {
 void PickMuteBox(
 		not_null<Ui::GenericBox*> box,
 		Descriptor descriptor) {
+	Ui::SetClassicSettingsStyle(box);
 	struct State {
 		base::unique_qptr<Ui::PopupMenu> menu;
 	};

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "media/view/media_view_playback_controls.h"
 
+#include "ui/style/style_classic.h"
 #include "media/audio/media_audio.h"
 #include "media/player/media_player_button.h"
 #include "media/player/media_player_dropdown.h"
@@ -529,7 +530,7 @@ void PlaybackControls::paintEvent(QPaintEvent *e) {
 		_volumeController->setFadeOpacity(1.);
 		_childrenHidden = false;
 	}
-	Ui::FillRoundRect(p, rect(), st::mediaviewSaveMsgBg, Ui::MediaviewSaveCorners);
+	Ui::PaintClassicButton(p, rect(), this, false);
 }
 
 void PlaybackControls::mousePressEvent(QMouseEvent *e) {

@@ -37,13 +37,14 @@ namespace {
 [[nodiscard]] not_null<Ui::SlideWrap<>*> CreateTextSeparator(
 		not_null<Ui::VerticalLayout*> layout,
 		rpl::producer<TextWithEntities> text,
-		Fn<void(not_null<Ui::FlatLabel*>)> setup) {
+		Fn<void(not_null<Ui::FlatLabel*>)> setup,
+		const style::FlatLabel *labelStyle) {
 	auto inner = object_ptr<Ui::VerticalLayout>(layout);
 	Ui::AddSkip(inner.data(), st::infoProfileSkip);
 	auto label = object_ptr<Ui::FlatLabel>(
 		inner.data(),
 		std::move(text),
-		st::defaultDividerLabel.label);
+		labelStyle ? *labelStyle : st::defaultDividerLabel.label);
 	const auto rawLabel = label.data();
 	inner->add(object_ptr<Ui::DividerLabel>(
 		inner.data(),
@@ -91,7 +92,8 @@ void SectionStack::addPlainSeparator() {
 void SectionStack::addTextSeparator(
 		rpl::producer<TextWithEntities> text,
 		rpl::producer<bool> shown,
-		Fn<void(not_null<Ui::FlatLabel*>)> setup) {
+		Fn<void(not_null<Ui::FlatLabel*>)> setup,
+		const style::FlatLabel *labelStyle) {
 	Expects(!_finalized);
 
 	_rows.push_back({
@@ -99,6 +101,7 @@ void SectionStack::addTextSeparator(
 		.shown = std::move(shown),
 		.text = std::move(text),
 		.textSetup = std::move(setup),
+		.textStyle = labelStyle,
 	});
 }
 
@@ -209,7 +212,8 @@ void SectionStack::finalize() {
 			separators[i] = CreateTextSeparator(
 				_layout,
 				std::move(row.text),
-				std::move(row.textSetup));
+				std::move(row.textSetup),
+				row.textStyle);
 			intrinsic.push_back(shownOrTrue(std::move(row.shown)));
 			break;
 		}

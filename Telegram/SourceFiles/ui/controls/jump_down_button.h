@@ -13,7 +13,12 @@ namespace Ui {
 
 class JumpDownButton final : public RippleButton {
 public:
-	JumpDownButton(QWidget *parent, const style::TwoIconButton &st);
+	enum class Context {
+		Other,
+		MessageViewport,
+	};
+
+	JumpDownButton(QWidget *parent, const style::TwoIconButton &st, Context context = Context::Other);
 
 	void setUnreadCount(int unreadCount);
 	[[nodiscard]] int unreadCount() const {
@@ -28,6 +33,7 @@ protected:
 
 private:
 	const style::TwoIconButton &_st;
+	const Context _context;
 
 	int _unreadCount = 0;
 

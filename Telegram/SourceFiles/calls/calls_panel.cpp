@@ -7,8 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "calls/calls_panel.h"
 
+#include "ui/style/style_radius.h"
 #include "boxes/peers/replace_boost_box.h" // CreateUserpicsWithMoreBadge
-#include "calls/calls_panel_background.h"
 #include "data/data_photo.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
@@ -579,7 +579,7 @@ void Panel::initConferenceInvite() {
 
 		p.setPen(Qt::NoPen);
 		p.setBrush(st::confcallInviteUserpicsBg);
-		p.drawRoundedRect(raw->rect(), radius, radius);
+		p.drawRoundedRect(raw->rect(), style::CornerRadius(radius), style::CornerRadius(radius));
 	}, raw->lifetime());
 }
 
@@ -663,13 +663,6 @@ void Panel::reinitWithCall(Call *call) {
 	}
 
 	_user = _call->user();
-
-	_background = std::make_unique<PanelBackground>(
-		_user,
-		[=] {
-			updateTextColors();
-			widget()->update();
-		});
 
 	_call->confereceSupportedValue(
 	) | rpl::on_next([=](bool supported) {
@@ -870,7 +863,6 @@ void Panel::reinitWithCall(Call *call) {
 
 	_name->setText(_user->name());
 	updateStatusText(_call->state());
-	updateTextColors();
 
 	_answerHangupRedial->raise();
 	_decline->raise();
@@ -910,7 +902,7 @@ void Panel::createRemoteAudioMute() {
 			_controlsShown ? 1. : 0.));
 		p.setBrush(st::videoPlayIconBg);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(r, r.height() / 2, r.height() / 2);
+		p.drawRoundedRect(r, style::CornerRadius(r.height() / 2), style::CornerRadius(r.height() / 2));
 
 		st::callTooltipMutedIcon.paint(
 			p,
@@ -973,7 +965,7 @@ void Panel::createRemoteLowBattery() {
 			_controlsShown ? 1. : 0.));
 		p.setBrush(st::videoPlayIconBg);
 		p.setPen(Qt::NoPen);
-		p.drawRoundedRect(r, r.height() / 2, r.height() / 2);
+		p.drawRoundedRect(r, style::CornerRadius(r.height() / 2), style::CornerRadius(r.height() / 2));
 
 		p.drawImage(
 			st::callTooltipMutedIconPosition.x(),
@@ -1248,7 +1240,7 @@ void Panel::updateControlsGeometry() {
 	const auto shown = _controlsShownAnimation.value(
 		_controlsShown ? 1. : 0.);
 	if (_fingerprint) {
-#ifndef Q_OS_MAC
+#if !defined Q_OS_WIN && !defined Q_OS_MAC
 		const auto controlsGeometry = _window->controlsGeometry();
 		const auto halfWidth = widget()->width() / 2;
 		const auto controlsWidth = controlsGeometry.width()
@@ -1264,7 +1256,7 @@ void Panel::updateControlsGeometry() {
 		_incoming->setControlsAlignment(minLeft
 			? style::al_left
 			: style::al_right);
-#else // !Q_OS_MAC
+#else // Q_OS_WIN || Q_OS_MAC
 		const auto minLeft = 0;
 		const auto minRight = 0;
 #endif // _controls
@@ -1571,18 +1563,8 @@ void Panel::paint(QRect clip) {
 		region = region.subtracted(QRegion(_incoming->widget()->geometry()));
 	}
 
-	if (_background) {
-		_background->paint(
-			p,
-			widget()->size(),
-			_bodyTop,
-			_bodySt->photoTop,
-			_bodySt->photoSize,
-			region);
-	} else {
-		for (const auto &rect : region) {
-			p.fillRect(rect, st::callBgOpaque);
-		}
+	for (const auto &rect : region) {
+		p.fillRect(rect, st::classicControlBg);
 	}
 
 	if (_incoming && _incoming->widget()->isHidden()) {
@@ -1754,18 +1736,6 @@ void Panel::updateStatusText(State state) {
 	};
 	_status->setText(statusText());
 	updateStatusGeometry();
-}
-
-void Panel::updateTextColors() {
-	if (!_background) {
-		_name->setTextColorOverride(std::nullopt);
-		_status->setTextColorOverride(std::nullopt);
-		return;
-	}
-	_name->setTextColorOverride(
-		_background->textColorOverride(st::callName.textFg));
-	_status->setTextColorOverride(
-		_background->textColorOverride(st::callStatus.textFg));
 }
 
 void Panel::startDurationUpdateTimer(crl::time currentDuration) {

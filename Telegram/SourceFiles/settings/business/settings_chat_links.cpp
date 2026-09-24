@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/rect.h"
 #include "ui/vertical_list.h"
+#include "window/window_controller.h"
 #include "window/window_session_controller.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
@@ -47,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "styles/style_settings.h"
+#include "styles/style_window.h"
 
 #include <QtGui/QGuiApplication>
 
@@ -352,9 +354,10 @@ void EditChatLinkBox(
 	const auto field = box->addRow(
 		object_ptr<Ui::InputField>(
 			box.get(),
-			st::settingsChatLinkField,
+			st::settingsBio,
 			Ui::InputField::Mode::MultiLine,
-			tr::lng_chat_link_placeholder()));
+			tr::lng_chat_link_placeholder()),
+		st::settingsChatLinkFieldPadding);
 	box->setFocusCallback([=] {
 		field->setFocusFast();
 	});
@@ -362,11 +365,18 @@ void EditChatLinkBox(
 	Ui::AddDivider(box->verticalLayout());
 	Ui::AddSkip(box->verticalLayout());
 
-	const auto title = box->addRow(object_ptr<Ui::InputField>(
-		box.get(),
-		st::defaultInputField,
-		tr::lng_chat_link_name(),
-		data.title));
+	auto titleStyle = st::settingsChatLinkField;
+	titleStyle.style = st::windowFilterNameInput.style;
+	titleStyle.placeholderFont = titleStyle.style.font;
+	titleStyle.textMargins = st::classicSingleLineInputPadding;
+	const auto title = box->addRow(
+		object_ptr<Ui::InputField>(
+			box.get(),
+			titleStyle,
+			Ui::InputField::Mode::SingleLine,
+			tr::lng_chat_link_name(),
+			data.title),
+		st::settingsChatLinkFieldPadding);
 
 	const auto emojiToggle = Ui::CreateChild<Ui::EmojiButton>(
 		field->parentWidget(),
@@ -375,13 +385,18 @@ void EditChatLinkBox(
 	using Selector = ChatHelpers::TabbedSelector;
 	auto &lifetime = box->lifetime();
 	const auto emojiPanel = lifetime.make_state<ChatHelpers::TabbedPanel>(
-		outer,
-		controller,
-		object_ptr<Selector>(
-			nullptr,
-			controller->uiShow(),
-			Window::GifPauseReason::Layer,
-			Selector::Mode::EmojiOnly));
+		controller->window().widget()->bodyWidget(),
+		ChatHelpers::TabbedPanelDescriptor{
+			.regularWindow = controller,
+			.ownedSelector = object_ptr<Selector>(
+				nullptr,
+				controller->uiShow(),
+				Window::GifPauseReason::Layer,
+				Selector::Mode::EmojiOnly),
+			.separateWindow = true,
+			.windowTitle = tr::lng_switch_emoji(tr::now),
+		});
+	emojiPanel->setDropDown(false);
 	emojiPanel->setDesiredHeightValues(
 		1.,
 		st::emojiPanMinHeight / 2,
@@ -435,7 +450,7 @@ void EditChatLinkBox(
 		const auto local = parent->mapFromGlobal(global);
 		emojiPanel->moveBottomRight(
 			local.y(),
-			local.x() + emojiToggle->width() * 3);
+			local.x() + emojiToggle->width());
 	};
 	const auto filterCallback = [=](not_null<QEvent*> event) {
 		const auto type = event->type();
@@ -464,9 +479,10 @@ void EditChatLinkBox(
 		box->sizeValue(),
 		field->geometryValue()
 	) | rpl::on_next([=](QSize outer, QRect inner) {
+		const auto frame = field->textFrameRect();
 		emojiToggle->moveToLeft(
-			inner.x() + inner.width() - emojiToggle->width(),
-			inner.y() + st::settingsChatLinkEmojiTop);
+			inner.x() + inner.width() + st::settingsChatLinkEmojiSkip,
+			inner.y() + frame.y() + (frame.height() - emojiToggle->height()) / 2);
 		emojiToggle->update();
 		crl::on_main(emojiPanel, updateEmojiPanelGeometry);
 	}, emojiToggle->lifetime());
@@ -819,6 +835,7 @@ void ChatLinks::setupContent(
 		st::defaultDividerBar,
 		RectPart::Top));
 
+	Ui::AddSkip(content);
 	Ui::ResizeFitChild(this, content);
 }
 

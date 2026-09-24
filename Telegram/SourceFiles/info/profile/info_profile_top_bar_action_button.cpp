@@ -7,7 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/info_profile_top_bar_action_button.h"
 
-#include "ui/effects/animation_value.h"
+#include "ui/style/style_classic.h"
+#include <crl/crl_on_main.h>
+
 #include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
 #include "ui/rect.h"
@@ -46,8 +48,9 @@ TopBarActionButton::~TopBarActionButton() = default;
 void TopBarActionButton::setupLottie(const QString &lottieName) {
 	_lottie = std::make_unique<Lottie::Icon>(Lottie::IconDescriptor{
 		.name = lottieName,
-		.color = _lottieColor,
+		.color = &st::classicMenuText,
 		.sizeOverride = Size(st::infoProfileTopBarActionButtonLottieSize),
+		.colorizeUsingAlpha = true,
 	});
 	_lottie->animate([=] { update(); }, 0, _lottie->framesCount() - 1);
 }
@@ -73,11 +76,19 @@ void TopBarActionButton::toggle(bool state) {
 	_toggleState = state;
 	const auto &lottie = _toggleState ? _onLottie : _offLottie;
 	setupLottie(lottie);
+	const auto animation = base::make_weak(_lottie.get());
 	_lottie->animate([=] {
 		update();
-		if (_lottie->frameIndex() == _lottie->framesCount() - 1) {
-			_icon = _toggleState ? _onIcon : _offIcon;
-			_lottie.reset();
+		const auto icon = animation.get();
+		if (icon && icon->frameIndex() == icon->framesCount() - 1) {
+			crl::on_main(this, [=] {
+				if (_lottie.get() != animation.get()) {
+					return;
+				}
+				_icon = _toggleState ? _onIcon : _offIcon;
+				_lottie.reset();
+				update();
+			});
 		}
 	}, 0, _lottie->framesCount() - 1);
 }
@@ -95,21 +106,9 @@ void TopBarActionButton::setText(const QString &text) {
 	update();
 }
 
-void TopBarActionButton::setLottieColor(const style::color *color) {
-	_lottieColor = color;
-	_lottie.reset();
-	update();
-}
-
 void TopBarActionButton::setStyle(const TopBarActionButtonStyle &style) {
 	_bgColor = style.bgColor;
 	_fgColor = style.fgColor;
-	_rippleColor = _fgColor
-		? std::make_optional(
-			anim::with_alpha(
-				*_fgColor,
-				st::infoProfileTopBarBackdropRippleOpacity))
-		: std::nullopt;
 	update();
 }
 
@@ -120,24 +119,8 @@ void TopBarActionButton::paintEvent(QPaintEvent *e) {
 		/ st::infoProfileTopBarActionButtonSize;
 	p.setOpacity(progress);
 
-	p.setPen(Qt::NoPen);
-	p.setBrush(_bgColor);
-	{
-		auto hq = PainterHighQualityEnabler(p);
-		p.drawRoundedRect(rect(), st::boxRadius, st::boxRadius);
-
-		const auto hovered = _rippleColor
-			? _overAnimation.value(isOver() ? 1. : 0.)
-			: 0.;
-		if (hovered > 0.) {
-			p.setOpacity(progress * hovered);
-			p.setBrush(*_rippleColor);
-			p.drawRoundedRect(rect(), st::boxRadius, st::boxRadius);
-			p.setOpacity(progress);
-		}
-	}
-
-	paintRipple(p, 0, 0, _rippleColor ? &*_rippleColor : nullptr);
+	Ui::PaintClassicButton(p, rect(), this, isDown());
+	p.translate(Ui::ClassicButtonContentOffset(this, isDown()));
 
 	const auto iconSize = st::infoProfileTopBarActionButtonIconSize;
 	const auto iconTop = st::infoProfileTopBarActionButtonIconTop;
@@ -156,13 +139,9 @@ void TopBarActionButton::paintEvent(QPaintEvent *e) {
 		p.translate(-iconCenter);
 		p.translate(iconLeft, iconTop);
 		if (_lottie) {
-			_lottie->paint(p, 0, 0, _fgColor);
+			_lottie->paint(p, 0, 0, QColor(Qt::black));
 		} else if (_icon) {
-			if (_fgColor) {
-				_icon->paint(p, 0, 0, width(), *_fgColor);
-			} else {
-				_icon->paint(p, 0, 0, width());
-			}
+			_icon->paint(p, 0, 0, width(), QColor(Qt::black));
 		}
 		p.restore();
 		p.setOpacity(progress);
@@ -172,11 +151,7 @@ void TopBarActionButton::paintEvent(QPaintEvent *e) {
 
 	p.setClipRect(0, 0, width(), height() - skip);
 
-	if (_fgColor.has_value()) {
-		p.setPen(*_fgColor);
-	} else {
-		p.setPen(st::windowBoldFg);
-	}
+	p.setPen(st::classicMenuText);
 
 	p.setFont(st::infoProfileTopBarActionButtonFont);
 
@@ -193,21 +168,6 @@ void TopBarActionButton::paintEvent(QPaintEvent *e) {
 		textRect.width(),
 		Qt::ElideMiddle);
 	p.drawText(textRect, elidedText, style::al_top);
-}
-
-void TopBarActionButton::onStateChanged(
-		State was,
-		StateChangeSource source) {
-	RippleButton::onStateChanged(was, source);
-
-	const auto over = isOver();
-	if (over != ((was & StateFlag::Over) != 0)) {
-		_overAnimation.start(
-			[=] { update(); },
-			over ? 0. : 1.,
-			over ? 1. : 0.,
-			st::universalDuration);
-	}
 }
 
 QImage TopBarActionButton::prepareRippleMask() const {

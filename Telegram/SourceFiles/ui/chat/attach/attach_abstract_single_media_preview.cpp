@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/attach/attach_abstract_single_media_preview.h"
 
+#include "ui/style/style_radius.h"
 #include "editor/photo_editor_common.h"
 #include "ui/chat/attach/attach_controls.h"
 #include "ui/chat/attach/attach_prepare.h"
@@ -205,7 +206,7 @@ void AbstractSingleMediaPreview::paintEvent(QPaintEvent *e) {
 			height());
 		const auto radius = st::bubbleRadiusSmall;
 		auto clipPath = QPainterPath();
-		clipPath.addRoundedRect(bgRect, radius, radius);
+		clipPath.addRoundedRect(bgRect, style::CornerRadius(radius), style::CornerRadius(radius));
 		hq.emplace(p);
 		p.setClipPath(clipPath);
 		if (_previewLeft > padding.left()) {

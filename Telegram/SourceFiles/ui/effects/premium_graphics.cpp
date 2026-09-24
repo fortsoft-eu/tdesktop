@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/effects/premium_graphics.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "data/data_premium_subscription_option.h"
 #include "lang/lang_keys.h"
 #include "ui/abstract_button.h"
@@ -176,6 +179,7 @@ private:
 	void recache(const QSize &s);
 
 	const style::PremiumLimits &_st;
+	const style::TextStyle _textStyle;
 
 	QPixmap _leftPixmap;
 	QPixmap _rightPixmap;
@@ -228,14 +232,17 @@ Line::Line(
 	LimitRowLabels labels,
 	rpl::producer<LimitRowState> state)
 : Ui::RpWidget(parent)
-, _st(st) {
+, _st(st)
+, _textStyle(labels.textStyle
+	? *labels.textStyle
+	: ClassicSettingsStyle(parent, st::semiboldTextStyle)) {
 	resize(width(), st::requestsAcceptButton.height);
 
 	const auto set = [&](
 			Ui::Text::String &label,
 			rpl::producer<QString> &text) {
 		std::move(text) | rpl::on_next([=, &label](QString text) {
-			label = { st::semiboldTextStyle, text };
+			label = { _textStyle, text };
 			_recaches.fire({});
 		}, lifetime());
 	};
@@ -358,8 +365,8 @@ void Line::recache(const QSize &s) {
 		auto result = QPainterPath();
 		result.addRoundedRect(
 			r(width),
-			st::premiumLineRadius,
-			st::premiumLineRadius);
+			style::CornerRadius(st::premiumLineRadius),
+			style::CornerRadius(st::premiumLineRadius));
 		return result;
 	};
 	const auto width = s.width();
@@ -563,14 +570,20 @@ void AddAccountsRow(
 
 		const auto radius = st::premiumAccountsLabelRadius;
 		p.setBrush(st::premiumButtonFg);
-		p.drawRoundedRect(rectOut, radius, radius);
+		p.drawRoundedRect(
+			rectOut,
+			style::CornerRadius(radius),
+			style::CornerRadius(radius));
 
 		const auto left = center - rectIn.width() / 2;
 		p.setBrush(QBrush(ComputeGradient(container, left, rectIn.width())));
-		p.drawRoundedRect(rectIn, radius / 2, radius / 2);
+		p.drawRoundedRect(
+			rectIn,
+			style::CornerRadius(radius / 2),
+			style::CornerRadius(radius / 2));
 
 		p.setPen(st::premiumButtonFg);
-		p.setFont(st::semiboldFont);
+		p.setFont(st::classicActionFont);
 		p.drawText(rectIn, u"+1"_q, style::al_center);
 
 		return badge;
@@ -741,7 +754,6 @@ void ShowListBox(
 		std::vector<ListEntry> entries) {
 	box->setWidth(st::boxWideWidth);
 
-	const auto &stLabel = st::defaultFlatLabel;
 	const auto &titlePadding = st::settingsPremiumPreviewTitlePadding;
 	const auto &aboutPadding = st::settingsPremiumPreviewAboutPadding;
 	const auto iconTitlePadding = st::settingsPremiumPreviewIconTitlePadding;
@@ -758,13 +770,13 @@ void ShowListBox(
 			object_ptr<Ui::FlatLabel>(
 				content,
 				base::take(entry.title) | rpl::map(tr::bold),
-				stLabel),
+				st::premiumListTitle),
 			entry.icon ? iconTitlePadding : titlePadding);
 		content->add(
 			object_ptr<Ui::FlatLabel>(
 				content,
 				base::take(entry.about),
-				st::boxDividerLabel),
+				st::premiumListAbout),
 			entry.icon ? iconAboutPadding : aboutPadding);
 		if (const auto outlined = entry.icon) {
 			if (!icons) {
@@ -882,10 +894,20 @@ void AddGiftOptions(
 		}
 
 		const auto &stCheckbox = st::defaultBoxCheckbox;
-		auto radioView = std::make_unique<GradientRadioView>(
-			st::defaultRadio,
-			(group->hasValue() && group->current() == index));
-		const auto radioViewRaw = radioView.get();
+		const auto checked = group->hasValue() && group->current() == index;
+		auto radioViewRaw = static_cast<GradientRadioView*>(nullptr);
+		auto radioView = std::unique_ptr<Ui::AbstractCheckView>();
+		if (st.classic) {
+			radioView = std::make_unique<Ui::RadioView>(
+				st::defaultRadio,
+				checked);
+		} else {
+			auto gradient = std::make_unique<GradientRadioView>(
+				st::defaultRadio,
+				checked);
+			radioViewRaw = gradient.get();
+			radioView = std::move(gradient);
+		}
 		const auto radio = Ui::CreateChild<Ui::Radiobutton>(
 			row,
 			group,
@@ -912,7 +934,7 @@ void AddGiftOptions(
 				(s.height() - radioHeight) / 2);
 		}, radio->lifetime());
 
-		{
+		if (radioViewRaw) {
 			auto onceLifetime = std::make_shared<rpl::lifetime>();
 			row->paintRequest(
 			) | rpl::take(
@@ -934,8 +956,12 @@ void AddGiftOptions(
 		const auto removedStar = [&](QString s) {
 			return s.replace(kStar, QChar());
 		};
-		const auto &costPerMonthFont = st::shareBoxListItem.nameStyle.font;
-		const auto &costPerYearFont = st::normalFont;
+		const auto &costPerMonthFont = st.classic
+			? st::classicSettingsFont
+			: st::shareBoxListItem.nameStyle.font;
+		const auto &costPerYearFont = st.classic
+			? st::classicSettingsFont
+			: st::normalFont;
 		const auto costPerMonthIcon = info.costPerMonth.startsWith(kStar)
 			? GenerateStars(costPerMonthFont->height, 1)
 			: QImage();
@@ -951,8 +977,12 @@ void AddGiftOptions(
 			: removedStar(info.costPerMonth));
 		const auto costPerMonthLabel
 			= row->lifetime().make_state<Ui::Text::String>();
+		const auto costPerMonthStyle
+			= row->lifetime().make_state<style::TextStyle>(
+				st::shareBoxListItem.nameStyle);
+		costPerMonthStyle->font = costPerMonthFont;
 		costPerMonthLabel->setMarkedText(
-			st::shareBoxListItem.nameStyle,
+			*costPerMonthStyle,
 			std::move(leftText));
 		const auto rightText = info.total.isEmpty()
 			? info.costPerYear
@@ -994,7 +1024,9 @@ void AddGiftOptions(
 			const auto left = st.textLeft;
 			const auto halfHeight = row->height() / 2;
 
-			const auto titleFont = st::semiboldFont;
+			const auto titleFont = st.classic
+				? st::classicSettingsFont
+				: st::semiboldFont;
 			p.setFont(titleFont);
 			p.setPen(st::boxTextFg);
 			if (info.costPerMonth.isEmpty() && info.discount.isEmpty()) {
@@ -1009,7 +1041,9 @@ void AddGiftOptions(
 					info.duration);
 			}
 
-			const auto discountFont = st::windowFiltersButton.badgeStyle.font;
+			const auto discountFont = st.classic
+				? st::classicActionFont
+				: st::windowFiltersButton.badgeStyle.font;
 			const auto discountWidth = discountFont->width(info.discount);
 			const auto &discountMargins = discountWidth
 				? st.badgeMargins
@@ -1040,7 +1074,10 @@ void AddGiftOptions(
 				p.setPen(Qt::NoPen);
 				p.setBrush(partialGradientBrush);
 				const auto round = st.badgeRadius;
-				p.drawRoundedRect(discountRect, round, round);
+				p.drawRoundedRect(
+					discountRect,
+					style::CornerRadius(round),
+					style::CornerRadius(round));
 			}
 
 			if (st.borderWidth && (animation->nowIndex == index)) {
@@ -1061,12 +1098,23 @@ void AddGiftOptions(
 				const auto borderRect = row->rect()
 					- Margins(pen.width() / 2);
 				const auto round = st.borderRadius;
-				p.drawRoundedRect(borderRect, round, round);
+				p.drawRoundedRect(
+					borderRect,
+					style::CornerRadius(round),
+					style::CornerRadius(round));
 			}
 
 			p.setPen(st::premiumButtonFg);
 			p.setFont(discountFont);
-			p.drawText(discountRect, info.discount, style::al_center);
+			if (topBadges) {
+				p.drawText(
+					discountRect.left()
+						+ (discountRect.width() - discountWidth) / 2,
+					st.subtitleTop + titleFont->ascent,
+					info.discount);
+			} else {
+				p.drawText(discountRect, info.discount, style::al_center);
+			}
 
 			const auto perRect = QMargins(0, 0, row->width(), 0)
 				+ bottomLeftRect.translated(

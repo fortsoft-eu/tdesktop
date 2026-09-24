@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/spoiler_mess.h"
 #include "ui/effects/voice_once_particles.h"
 #include "ui/image/image.h"
+#include "ui/style/style_classic.h"
 #include "ui/toast/toast.h"
 #include "ui/text/format_values.h"
 #include "ui/text/text_options.h"
@@ -889,6 +890,11 @@ ReplyKeyboard::ReplyKeyboard(
 					i,
 					j,
 					context);
+				if (_st->buttonUsesDefaultCursor()) {
+					button.link->setProperty(
+						kClassicButtonCursorProperty,
+						QVariant::fromValue(true));
+				}
 				if (!textWithEntities.text.isEmpty()) {
 					button.text.setMarkedText(
 						_st->textStyle(),
@@ -1040,7 +1046,8 @@ void ReplyKeyboard::paint(
 		Ui::BubbleRounding rounding,
 		int outerWidth,
 		const QRect &clip,
-		bool paused) const {
+		bool paused,
+		bool messageViewport) const {
 	Assert(_st != nullptr);
 	Assert(_width > 0);
 
@@ -1091,7 +1098,8 @@ void ReplyKeyboard::paint(
 				outerWidth,
 				button,
 				buttonRounding,
-				paused);
+				paused,
+				messageViewport);
 
 			if (number) {
 				p.setFont(st::dialogsUnreadFont);
@@ -1250,9 +1258,19 @@ void ReplyKeyboard::Style::paintButton(
 		int outerWidth,
 		const ReplyKeyboard::Button &button,
 		Ui::BubbleRounding rounding,
-		bool paused) const {
+		bool paused,
+		bool messageViewport) const {
 	const auto &rect = button.rect;
-	paintButtonBg(p, st, rect, button.color, rounding, button.howMuchOver);
+	const auto pressed = ClickHandler::showAsPressed(button.link);
+	const auto contentOffset = buttonContentOffset(pressed, messageViewport);
+	paintButtonBg(
+		p,
+		st,
+		rect,
+		button.color,
+		rounding,
+		button.howMuchOver,
+		pressed);
 	if (button.ripple) {
 		const auto color = st
 			? &st->msgBotKbRippleBg()->c
@@ -1264,7 +1282,13 @@ void ReplyKeyboard::Style::paintButton(
 			button.ripple.reset();
 		}
 	}
-	paintButtonIcon(p, st, rect, outerWidth, button.iconType);
+	paintButtonIcon(
+		p,
+		st,
+		rect,
+		outerWidth,
+		button.iconType,
+		contentOffset);
 	if (HistoryMessageMarkupButton::LoadsOnActivate(button.type)) {
 		if (const auto data = button.link->getButton()) {
 			if (data->requestId) {
@@ -1279,33 +1303,33 @@ void ReplyKeyboard::Style::paintButton(
 		}
 	}
 
-	int tx = rect.x(), tw = rect.width();
-	if (tw >= st::botKbStyle.font->elidew + _st->padding * 2) {
-		tx += _st->padding;
-		tw -= _st->padding * 2;
-	} else if (tw > st::botKbStyle.font->elidew) {
-		tx += (tw - st::botKbStyle.font->elidew) / 2;
-		tw = st::botKbStyle.font->elidew;
-	}
+	const auto content = st
+		? Ui::ClassicButtonContentRect(rect, nullptr)
+		: rect;
 	paintButtonStart(p, st, button.color);
 	button.text.draw(p, {
 		.position = {
-			tx,
-			rect.y() + _st->textTop + ((rect.height() - _st->height) / 2),
+			content.x() + contentOffset.x(),
+			rect.y() + _st->textTop
+				+ ((rect.height() - _st->height) / 2)
+				+ contentOffset.y(),
 		},
-		.availableWidth = tw,
+		.availableWidth = content.width(),
 		.align = style::al_top,
 		.paused = paused || On(PowerSaving::kEmojiChat),
 		.elisionLines = 1,
 	});
 	if (button.type == HistoryMessageMarkupButton::Type::SimpleWebView) {
 		const auto &icon = st::markupWebview;
-		st::markupWebview.paint(
+		p.save();
+		p.translate(contentOffset);
+		icon.paint(
 			p,
-			rect::right(rect) - icon.width() - _st->padding / 2,
+			rect.x() + Ui::ClassicButtonIconLeft(rect.height(), icon.size()),
 			rect.y() + _st->padding / 2,
 			rect.width(),
 			p.pen().color());
+		p.restore();
 	}
 }
 

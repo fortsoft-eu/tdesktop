@@ -77,7 +77,7 @@ struct Entry {
 
 struct BusinessState {
 	Fn<void(bool)> setPaused;
-	QPointer<Ui::SettingsButton> sponsoredButton;
+	QPointer<Ui::Checkbox> sponsoredButton;
 	base::flat_map<PremiumFeature, QPointer<Ui::SettingsButton>> featureButtons;
 };
 
@@ -455,9 +455,12 @@ void BuildSponsoredSection(
 			Ui::AddSubsectionTitle(
 				inner,
 				tr::lng_business_subtitle_sponsored());
-			const auto button = inner->add(object_ptr<Ui::SettingsButton>(
+			const auto button = inner->add(object_ptr<Ui::Checkbox>(
 				inner,
-				tr::lng_business_button_sponsored()));
+				tr::lng_business_button_sponsored(),
+				false,
+				st::settingsCheckbox),
+				st::settingsCheckboxPadding);
 			if (state) {
 				state->sponsoredButton = button;
 			}
@@ -490,11 +493,11 @@ void BuildSponsoredSection(
 
 			api->toggled(
 			) | rpl::on_next([=](bool enabled) {
-				button->toggleOn(rpl::single(enabled));
+				button->setChecked(enabled, Ui::Checkbox::NotifyAboutChange::DontNotify);
 				wrap->toggle(true, anim::type::instant);
 				loading->toggle(false, anim::type::instant);
 
-				button->toggledChanges(
+				button->checkedChanges(
 				) | rpl::on_next([=](bool toggled) {
 					api->setToggled(
 						toggled
@@ -931,8 +934,11 @@ base::weak_qptr<Ui::RpWidget> Business::createPinnedToBottom(
 
 	content->widthValue(
 	) | rpl::on_next([=](int width) {
-		const auto padding = st::settingsPremiumButtonPadding;
-		_subscribe->resizeToWidth(width - padding.left() - padding.right());
+		const auto padding = st::premiumPreviewBox.buttonPadding;
+		_subscribe->resizeToWidth(std::clamp(width - padding.left() - padding.right(), 0, st::settingsTerminateSessionsButton.width));
+	}, _subscribe->lifetime());
+	rpl::combine(content->widthValue(), _subscribe->widthValue()) | rpl::on_next([=](int width, int buttonWidth) {
+		_subscribe->moveToLeft((width - buttonWidth) / 2, _subscribe->y());
 	}, _subscribe->lifetime());
 
 	rpl::combine(
@@ -950,7 +956,7 @@ base::weak_qptr<Ui::RpWidget> Business::createPinnedToBottom(
 			? (padding.top() + buttonHeight + padding.bottom())
 			: 0;
 		content->resize(content->width(), finalHeight);
-		_subscribe->moveToLeft(padding.left(), padding.top());
+		_subscribe->moveToLeft(_subscribe->x(), padding.top());
 		_subscribe->setVisible(!premium && premiumPossible);
 	}, _subscribe->lifetime());
 

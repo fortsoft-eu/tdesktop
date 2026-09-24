@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/send_button.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "lang/lang_tag.h"
 #include "lottie/lottie_icon.h"
 #include "ui/effects/ripple_animation.h"
@@ -155,6 +158,22 @@ void SendButton::finishAnimating() {
 
 void SendButton::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
+
+	if (property("classicButton").toBool() && (_state.type == Type::Send || _state.type == Type::Save)) {
+		PaintClassicButton(p, rect(), this, isDown());
+		p.translate(ClassicButtonContentOffset(this, isDown()));
+		if (_state.type == Type::Send && !_starsToSendText.isEmpty()) {
+			p.setPen(st::classicMenuText);
+			_starsToSendText.draw(p, {
+				.position = { 0, (height() - _st.stars.style.font->height) / 2 },
+				.availableWidth = width(),
+				.align = style::al_center,
+			});
+		} else {
+			_st.inner.icon.paintInCenter(p, rect(), isDisabled() ? st::windowSubTextFg->c : st::classicMenuText->c);
+		}
+		return;
+	}
 
 	auto over = (isDown() || isOver());
 
@@ -309,7 +328,7 @@ void SendButton::paintSend(QPainter &p, bool over) {
 			} else {
 				p.setBrush(st::windowBgActive);
 			}
-			p.drawEllipse(ellipse);
+			p.drawRect(ellipse);
 		}
 		if (!isDisabled()) {
 			auto color = _st.sendIconFg->c;
@@ -349,7 +368,7 @@ void SendButton::paintStop(QPainter &p, bool over) {
 		size);
 	p.setPen(Qt::NoPen);
 	p.setBrush(over ? st::historySendIconFgOver : st::historySendIconFg);
-	p.drawRoundedRect(inner, _st.stopRadius, _st.stopRadius);
+	p.drawRoundedRect(inner, style::CornerRadius(_st.stopRadius), style::CornerRadius(_st.stopRadius));
 }
 
 void SendButton::paintStarsToSend(QPainter &p, bool over) {
@@ -363,7 +382,7 @@ void SendButton::paintStarsToSend(QPainter &p, bool over) {
 			p.setBrush(over ? _st.stars.textBgOver : _st.stars.textBg);
 		}
 		const auto radius = geometry.rounded.height() / 2;
-		p.drawRoundedRect(geometry.rounded, radius, radius);
+		p.drawRoundedRect(geometry.rounded, style::CornerRadius(radius), style::CornerRadius(radius));
 	}
 	if (!isDisabled()) {
 		auto color = _st.stars.textFg->c;
@@ -384,7 +403,7 @@ void SendButton::paintSchedule(QPainter &p, bool over) {
 		PainterHighQualityEnabler hq(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(over ? st::historySendIconFgOver : st::historySendIconFg);
-		p.drawEllipse(ellipse);
+		p.drawRect(ellipse);
 	}
 	if (!isDisabled()) {
 		auto color = st::historyComposeAreaBg->c;
@@ -624,13 +643,13 @@ void SendStarButton::paintEvent(QPaintEvent *e) {
 	const auto highlighted = _highlight.value(_highlighted ? 1. : 0.);
 	p.setPen(Qt::NoPen);
 	p.setBrush(_counterSt.textBg);
-	p.drawEllipse(rect());
+	p.drawRect(rect());
 	paintRipple(p, QPoint());
 	if (highlighted > 0.) {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setBrush(st::creditsBg3);
 		p.setOpacity(highlighted);
-		p.drawEllipse(rect());
+		p.drawRect(rect());
 		p.setOpacity(1.);
 	}
 
@@ -651,7 +670,7 @@ void SendStarButton::paintEvent(QPaintEvent *e) {
 		const auto left = (width() - larger.width());
 		const auto top = 0;
 		const auto r = larger.height() / 2.;
-		p.drawRoundedRect(left, top, larger.width(), larger.height(), r, r);
+		p.drawRoundedRect(left, top, larger.width(), larger.height(), style::CornerRadius(r), style::CornerRadius(r));
 		p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 		p.setPen(
 			anim::pen(_counterSt.textFg, st::premiumButtonFg, highlighted));

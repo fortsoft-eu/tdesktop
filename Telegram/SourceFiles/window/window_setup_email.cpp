@@ -125,7 +125,7 @@ SetupEmailLockWidget::SetupEmailLockWidget(
 			_logoutButton = object_ptr<Ui::RoundButton>(
 				this,
 				tr::lng_settings_logout(),
-				st::defaultBoxButton);
+				st::compactBoxButton);
 			if (session) {
 				session->promoSuggestions().setSetupEmailState(
 					Data::SetupEmailState::SettingUpNoSkip);
@@ -149,7 +149,7 @@ SetupEmailLockWidget::SetupEmailLockWidget(
 			_debugButton = object_ptr<Ui::RoundButton>(
 				this,
 				rpl::single(u"[DEBUG] Clear bio"_q),
-				st::defaultBoxButton);
+				st::compactBoxButton);
 			_debugButton->setClickedCallback([=] {
 				session->api().saveSelfBio({});
 			});

@@ -9,6 +9,48 @@ using "settings/settings.style";
 
 sessionLocationTop: 54px;
 sessionCurrentSkip: 8px;
+sessionHeader: FlatLabel(defaultSubsectionTitle) {
+	textFg: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+}
+sessionRename: LinkButton(defaultLinkButton) {
+	font: classicSettingsFont;
+	overFont: font(11px underline "Tahoma");
+}
+sessionTerminateAllButton: SettingsButton(settingsButtonActive) {
+	style: TextStyle(defaultTextStyle) {
+		font: classicActionFont;
+	}
+}
+sessionTerminateAboutBar: DividerBar(defaultDividerBar) {
+	bg: classicControlBg;
+}
+sessionTerminateAbout: DividerLabel(defaultDividerLabel) {
+	bar: sessionTerminateAboutBar;
+	label: FlatLabel(boxDividerLabel) {
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
+}
+sessionAutoTerminateButton: SettingsButton(settingsButtonNoIcon) {
+	textBg: classicControlBg;
+	textBgOver: classicControlBg;
+	textFg: classicMenuText;
+	textFgOver: classicMenuText;
+	style: TextStyle(defaultTextStyle) {
+		font: classicSettingsFont;
+	}
+	rightLabel: FlatLabel(defaultSettingsRightLabel) {
+		textFg: windowActiveTextFg;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
+	}
+}
 sessionIconWindows: icon{{ "settings/devices/device_desktop_win", historyPeerUserpicFg }};
 sessionIconMac: icon{{ "settings/devices/device_desktop_mac", historyPeerUserpicFg }};
 sessionIconUbuntu: icon{{ "settings/devices/device_linux_ubuntu", historyPeerUserpicFg }};

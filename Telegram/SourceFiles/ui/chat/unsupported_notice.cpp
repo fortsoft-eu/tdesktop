@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/chat/unsupported_notice.h"
 
+#include "ui/style/style_radius.h"
 #include "ui/chat/chat_style.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/painter.h"
@@ -92,7 +93,7 @@ void UnsupportedNoticeCard::paint(
 	p.setPen(Qt::NoPen);
 	p.setBrush(st->msgServiceBg());
 	const auto radius = st::unsupportedNoticeRadius;
-	p.drawRoundedRect(cardRect, radius, radius);
+	p.drawRoundedRect(cardRect, style::CornerRadius(radius), style::CornerRadius(radius));
 
 	const auto &padding = st::unsupportedNoticePadding;
 	const auto badgeSize = st::unsupportedNoticeBadgeSize;
@@ -130,11 +131,11 @@ void UnsupportedNoticeCard::paint(
 	const auto buttonRadius = button.height() / 2.;
 	p.setPen(Qt::NoPen);
 	p.setBrush(st->msgServiceBg());
-	p.drawRoundedRect(button, buttonRadius, buttonRadius);
+	p.drawRoundedRect(button, style::CornerRadius(buttonRadius), style::CornerRadius(buttonRadius));
 	if (ripple) {
 		p.save();
 		auto clip = QPainterPath();
-		clip.addRoundedRect(QRectF(button), buttonRadius, buttonRadius);
+		clip.addRoundedRect(QRectF(button), style::CornerRadius(buttonRadius), style::CornerRadius(buttonRadius));
 		p.setClipPath(clip, Qt::IntersectClip);
 		p.setOpacity(st::historyPollRippleOpacity);
 		p.translate(button.topLeft());

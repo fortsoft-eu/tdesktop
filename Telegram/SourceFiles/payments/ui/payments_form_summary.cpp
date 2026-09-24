@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "base/unixtime.h"
 #include "styles/style_payments.h"
+#include "styles/style_layers.h"
 #include "styles/style_passport.h"
 
 namespace Payments::Ui {
@@ -496,13 +497,17 @@ void FormSummary::setupSections(not_null<VerticalLayout*> layout) {
 			button->setAttribute(Qt::WA_TransparentForMouseEvents);
 		}
 	};
-	add(
-		tr::lng_payments_payment_method(),
-		(_method.savedMethods.empty()
-			? QString()
-			: _method.savedMethods[_method.savedMethodIndex].title),
-		&st::paymentsIconPaymentMethod,
-		[=] { _delegate->panelEditPaymentMethod(); });
+	const auto method = layout->add(
+		object_ptr<RoundButton>(layout, tr::lng_payments_payment_method(), st::paymentsMethodButton),
+		style::margins(),
+		style::al_top);
+	method->setClickedCallback([=] { _delegate->panelEditPaymentMethod(); });
+	if (_invoice.receipt) {
+		method->setAttribute(Qt::WA_TransparentForMouseEvents);
+	}
+	if (!_method.savedMethods.empty()) {
+		layout->add(object_ptr<FlatLabel>(layout, _method.savedMethods[_method.savedMethodIndex].title, st::paymentsMethodLabel));
+	}
 	if (_invoice.isShippingAddressRequested) {
 		auto list = QStringList();
 		const auto push = [&](const QString &value) {
@@ -580,7 +585,7 @@ void FormSummary::resizeEvent(QResizeEvent *e) {
 }
 
 void FormSummary::updateControlsGeometry() {
-	const auto &padding = st::paymentsPanelPadding;
+	const auto &padding = st::defaultBox.buttonPadding;
 	const auto buttonsHeight = padding.top()
 		+ _cancel->height()
 		+ padding.bottom();

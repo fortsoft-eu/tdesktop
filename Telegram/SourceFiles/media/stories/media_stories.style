@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 using "ui/basic.style";
 using "ui/widgets/widgets.style";
 using "boxes/boxes.style";
+using "ui/controls/location_picker.style";
 
 StealthBoxStyle {
 	box: Box;
@@ -26,27 +27,29 @@ StealthBoxStyle {
 storiesStealthStyleDefault: StealthBoxStyle {
 	box: Box(defaultBox) {
 		buttonPadding: margins(10px, 10px, 10px, 10px);
-		buttonHeight: 42px;
-		button: RoundButton(defaultActiveButton) {
-			height: 42px;
-			textTop: 12px;
-			style: semiboldTextStyle;
+		buttonHeight: 28px;
+		button: RoundButton(pickLocationChooseOnMap) {
 		}
 		margin: margins(0px, 56px, 0px, 10px);
 		bg: windowBg;
 		title: FlatLabel(boxTitle) {
 			align: align(top);
+			style: TextStyle(defaultTextStyle) {
+				font: classicActionFont;
+			}
 		}
 		titleAdditionalFg: windowSubTextFg;
 	}
 	buttonLabel: FlatLabel(defaultFlatLabel) {
-		textFg: activeButtonFg;
-		style: semiboldTextStyle;
+		textFg: classicMenuText;
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
 		align: align(top);
 		minWidth: 20px;
 		maxHeight: 20px;
 	}
-	lockIcon: icon {{ "dialogs/dialogs_lock_on", windowFgActive }};
+	lockIcon: icon {{ "dialogs/dialogs_lock_on", classicMenuText }};
 	boxClose: IconButton(defaultIconButton) {
 		width: boxTitleHeight;
 		height: boxTitleHeight;
@@ -60,17 +63,25 @@ storiesStealthStyleDefault: StealthBoxStyle {
 	}
 	about: FlatLabel(defaultFlatLabel) {
 		textFg: windowSubTextFg;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
 		align: align(top);
 		minWidth: 20px;
 	}
 	featureTitle: FlatLabel(defaultFlatLabel) {
 		textFg: windowBoldFg;
-		style: semiboldTextStyle;
+		style: TextStyle(defaultTextStyle) {
+			font: classicActionFont;
+		}
 		minWidth: 10px;
 		maxHeight: 20px;
 	}
 	featureAbout: FlatLabel(defaultFlatLabel) {
 		textFg: windowSubTextFg;
+		style: TextStyle(defaultTextStyle) {
+			font: classicSettingsFont;
+		}
 		minWidth: 20px;
 	}
 	featurePastIcon: icon {{ "stories/stealth_5m", windowActiveTextFg }};
@@ -78,3 +89,5 @@ storiesStealthStyleDefault: StealthBoxStyle {
 	logoIcon: icon {{ "stories/stealth_logo", windowFgActive }};
 	logoBg: windowBgActive;
 }
+
+storiesStealthLockSkip: 4px;

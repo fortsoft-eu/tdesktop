@@ -7,15 +7,21 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 using "boxes/boxes.style";
 
-connectionHostInputField: InputField(defaultInputField) {
+connectionInputField: InputField(classicNamedInput) {
+	style: TextStyle(boxTextStyle) {
+		font: classicSettingsFont;
+	}
+}
+
+connectionHostInputField: InputField(connectionInputField) {
 	width: 160px;
 }
-connectionPortInputField: InputField(defaultInputField) {
+connectionPortInputField: InputField(connectionInputField) {
 	width: 55px;
 }
-connectionUserInputField: InputField(defaultInputField) {
+connectionUserInputField: InputField(connectionInputField) {
 }
-connectionPasswordInputField: InputField(defaultInputField) {
+connectionPasswordInputField: InputField(connectionInputField) {
 }
 proxyUsePadding: margins(22px, 6px, 22px, 5px);
 proxyTryIPv6Padding: margins(22px, 8px, 22px, 5px);
@@ -68,7 +74,7 @@ proxyApplyBoxValueMultiline: FlatLabel(defaultTableValue) {
 	maxHeight: 100px;
 	style: TextStyle(defaultTextStyle) {
 		font: font(10px);
-		linkUnderline: kLinkUnderlineNever;
+		linkUnderline: kLinkUnderlineActive;
 	}
 }
 proxyApplyBoxSponsorLabel: FlatLabel(defaultFlatLabel) {
@@ -82,7 +88,7 @@ proxyApplyBoxSponsorLabel: FlatLabel(defaultFlatLabel) {
 proxyApplyBoxSponsorMargin: margins(13px, 8px, 13px, 8px);
 proxyApplyBox: Box(defaultBox) {
 	buttonPadding: margins(22px, 11px, 22px, 22px);
-	buttonHeight: 38px;
+	buttonHeight: classicButtonHeight;
 	buttonWide: true;
 	button: proxyApplyBoxButton;
 	shadowIgnoreTopSkip: true;

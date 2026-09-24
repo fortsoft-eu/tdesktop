@@ -8,12 +8,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 using "boxes/boxes.style";
 
 localStorageLimitLabel: LabelSimple(defaultLabelSimple) {
-	font: boxTextFont;
+	font: classicSettingsFont;
 }
 localStorageLimitValue: LabelSimple(localStorageLimitLabel) {
 	textFg: windowActiveTextFg;
 }
-localStorageLimitLabelMargin: margins(22px, 10px, 20px, 5px);
+localStorageLimitLabelMargin: margins(16px, 6px, 16px, 4px);
 localStorageChartHeight: 200px;
 localStorageChartDiameter: 172px;
 localStorageChartThickness: 38px;
@@ -87,3 +87,11 @@ localStorageUsageSubtitle: FlatLabel(defaultFlatLabel) {
 }
 localStorageClearingSpinnerPadding: margins(0px, 20px, 0px, 14px);
 localStorageClearingLottieSize: size(150px, 150px);
+
+localStorageRowHeight: 40px;
+localStorageRowPadding: margins(16px, 5px, 16px, 5px);
+localStorageClear: defaultBoxButton;
+classicLocalStorageLimitSlider: MediaSlider(defaultContinuousSlider) {
+	seekSize: size(15px, 15px);
+}
+classicLocalStorageLimitMargin: margins(16px, 5px, 16px, 10px);

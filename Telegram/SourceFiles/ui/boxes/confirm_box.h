@@ -41,6 +41,8 @@ struct ConfirmBoxArgs {
 	bool strictCancel = false;
 };
 
+[[nodiscard]] TextWithEntities BoldConfirmationQuestion(TextWithEntities text);
+
 void ConfirmBox(not_null<GenericBox*> box, ConfirmBoxArgs &&args);
 
 inline void InformBox(not_null<GenericBox*> box, ConfirmBoxArgs &&args) {

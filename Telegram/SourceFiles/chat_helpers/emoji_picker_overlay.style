@@ -31,7 +31,7 @@ stickersEmojiPickerAbout: FlatLabel(defaultFlatLabel) {
 	align: align(top);
 	textFg: windowSubTextFg;
 	style: TextStyle(defaultTextStyle) {
-		font: font(12px);
+		font: classicSettingsFont;
 	}
 }
 stickersEmojiPickerExpandIcon: icon {{ "intro_country_dropdown", windowSubTextFg }};

@@ -77,6 +77,12 @@ inline bool AreTestingTheme() {
 	).image;
 }
 
+[[nodiscard]] Data::WallPaper WorkspaceWallPaper() {
+	const auto result = Data::WallPaper::FromColorsSlug(u"808080"_q);
+	Assert(result.has_value());
+	return *result;
+}
+
 [[nodiscard]] bool GoodImageFormatAndSize(const QImage &image) {
 	return !image.size().isEmpty()
 		&& (image.format() == QImage::Format_ARGB32_Premultiplied
@@ -513,7 +519,8 @@ void ChatBackground::initialRead() {
 		applyDefaultThemeAccentColorizer();
 	}
 	if (!Local::readBackground()) {
-		set(Data::ThemeWallPaper());
+		set(WorkspaceWallPaper());
+		setTile(false);
 	}
 	if (_localStoredTileDayValue) {
 		_tileDayValue = *_localStoredTileDayValue;
@@ -1267,7 +1274,8 @@ void ChatBackground::reapplyWithNightMode(
 				Local::writeSettings();
 			}
 			if (!settingExactTheme && !Local::readBackground()) {
-				set(Data::ThemeWallPaper());
+				set(WorkspaceWallPaper());
+				setTile(false);
 			}
 		};
 	}

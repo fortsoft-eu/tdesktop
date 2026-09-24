@@ -35,10 +35,10 @@ requestHiddenIcon: IconEmoji {
 messageOwnerInfoSkip: 12px;
 requestsSectionBottomMargin: margins(12px, 10px, 12px, 10px);
 requestsAddAllButton: RoundButton(defaultActiveButton) {
-	height: 32px;
-	textTop: 7px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 }
 requestsDeclineAllButton: RoundButton(defaultLightButton) {
-	height: 32px;
-	textTop: 7px;
+	height: classicButtonHeight;
+	textTop: classicButtonTextTop;
 }

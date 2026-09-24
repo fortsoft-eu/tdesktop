@@ -129,6 +129,8 @@ extern const ChatHelpers::PauseReason kDefaultPanelsLevel;
 
 struct ComposeControlsDescriptor {
 	const style::ComposeControls *stOverride = nullptr;
+	bool classicStyle = false;
+	bool arrowCursor = false;
 	std::shared_ptr<ChatHelpers::Show> show;
 	Fn<void(not_null<DocumentData*>)> unavailableEmojiPasted;
 	ComposeControlsMode mode = ComposeControlsMode::Normal;
@@ -545,6 +547,7 @@ private:
 	Mode _mode = Mode::Normal;
 
 	const std::unique_ptr<Ui::RpWidget> _wrap;
+	std::unique_ptr<Ui::RpWidget> _classicFrameOverlay;
 	std::unique_ptr<Ui::RpWidget> _writeRestricted;
 	rpl::event_stream<FullReplyTo> _jumpToItemRequests;
 
@@ -599,6 +602,7 @@ private:
 
 	std::unique_ptr<InlineBots::Layout::Widget> _inlineResults;
 	std::unique_ptr<ChatHelpers::TabbedPanel> _tabbedPanel;
+	crl::time _lastTabbedSelectorModeChange = 0;
 	std::unique_ptr<Ui::DropdownMenu> _attachBotsMenu;
 	std::unique_ptr<ChatHelpers::FieldAutocomplete> _autocomplete;
 	std::unique_ptr<Ui::Emoji::SuggestionsController> _emojiSuggestions;

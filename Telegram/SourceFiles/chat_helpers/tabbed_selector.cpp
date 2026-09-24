@@ -17,7 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/shadow.h"
-#include "ui/widgets/discrete_sliders.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/layers/box_content.h"
@@ -40,6 +40,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwindow.h"
 #include "apiwrap.h"
 #include "styles/style_chat_helpers.h"
+
+#include <QtCore/QSignalBlocker>
+#include <QtWidgets/QTabBar>
 
 namespace ChatHelpers {
 
@@ -385,7 +388,6 @@ TabbedSelector::TabbedSelector(
 , _panelRounding(Ui::PrepareCornerPixmaps(st::emojiPanRadius, _st.bg))
 , _categoriesRounding(
 	Ui::PrepareCornerPixmaps(st::emojiPanRadius, _st.categoriesBg))
-, _topShadow(full() ? object_ptr<Ui::PlainShadow>(this) : nullptr)
 , _bottomShadow(this)
 , _scroll(this, st::emojiScroll)
 , _tabs([&] {
@@ -431,7 +433,7 @@ TabbedSelector::TabbedSelector(
 		tab.widget()->hide();
 	}
 	if (tabbed()) {
-		createTabsSlider();
+		createTabBar();
 	}
 	setWidgetToScrollArea();
 
@@ -464,12 +466,9 @@ TabbedSelector::TabbedSelector(
 		handleScroll();
 	}, lifetime());
 
-	if (_topShadow) {
-		_topShadow->raise();
-	}
 	_bottomShadow->raise();
-	if (_tabsSlider) {
-		_tabsSlider->raise();
+	if (_tabBar) {
+		_tabBar->raise();
 	}
 
 	if (hasStickersTab()
@@ -487,7 +486,9 @@ TabbedSelector::TabbedSelector(
 	if (hasStickersTab()) {
 		session().data().stickers().stickerSetInstalled(
 		) | rpl::on_next([=](uint64 setId) {
-			_tabsSlider->setActiveSection(indexByType(SelectorTab::Stickers));
+			if (_tabBar) {
+				_tabBar->setCurrentIndex(indexByType(SelectorTab::Stickers));
+			}
 			stickers()->showStickerSet(setId);
 			if (_currentPeer
 				&& Data::CanSend(
@@ -520,7 +521,7 @@ TabbedSelector::TabbedSelector(
 	if (hasEmojiTab() && _mode == Mode::Full) {
 		session().data().stickers().emojiSetInstalled(
 		) | rpl::on_next([=](uint64 setId) {
-			_tabsSlider->setActiveSection(indexByType(SelectorTab::Emoji));
+			_tabBar->setCurrentIndex(indexByType(SelectorTab::Emoji));
 			emoji()->showSet(setId);
 			if (_currentPeer && Data::CanSendTexts(_currentPeer)) {
 				_showRequests.fire({});
@@ -562,7 +563,7 @@ void TabbedSelector::reinstallSwipe(not_null<Inner*> widget) {
 	};
 
 	auto init = [=](Ui::Controls::SwipeHandlerInitData data) {
-		if (!_tabsSlider) {
+		if (!_tabBar) {
 			return Ui::Controls::SwipeHandlerFinishData();
 		}
 		const auto horizontalDelta = (data.direction == Qt::LeftToRight)
@@ -573,15 +574,15 @@ void TabbedSelector::reinstallSwipe(not_null<Inner*> widget) {
 				horizontalDelta)) {
 			return Ui::Controls::SwipeHandlerFinishData();
 		}
-		const auto activeSection = _tabsSlider->activeSection();
+		const auto activeSection = _tabBar->currentIndex();
 		const auto isToLeft = data.direction == Qt::RightToLeft;
 		if ((isToLeft && activeSection > 0)
-			|| (!isToLeft && activeSection < _tabs.size() - 1)) {
+			|| (!isToLeft && activeSection < _tabBar->count() - 1)) {
 			return Ui::Controls::DefaultSwipeBackHandlerFinishData([=] {
-				if (_tabsSlider
-					&& _tabsSlider->activeSection() == activeSection) {
+				if (_tabBar
+					&& _tabBar->currentIndex() == activeSection) {
 					_swipeBackData = {};
-					_tabsSlider->setActiveSection(isToLeft
+					_tabBar->setCurrentIndex(isToLeft
 						? activeSection - 1
 						: activeSection + 1);
 				}
@@ -769,26 +770,15 @@ rpl::producer<> TabbedSelector::slideFinished() const {
 	return _slideFinished.events();
 }
 
-void TabbedSelector::updateTabsSliderGeometry() {
-	if (!_tabsSlider) {
+void TabbedSelector::updateTabBarGeometry() {
+	if (!_tabBar) {
 		return;
 	}
-	const auto w = (mediaEditor() && hasMasksTab() && masks()->mySetsEmpty())
-		? width() / 2
-		: width();
-	_tabsSlider->resizeToWidth(w);
-	_tabsSlider->moveToLeft(0, 0);
+	_tabBar->setGeometry(0, 0, width(), _tabBar->sizeHint().height());
 }
 
 void TabbedSelector::resizeEvent(QResizeEvent *e) {
-	updateTabsSliderGeometry();
-	if (_topShadow && _tabsSlider) {
-		_topShadow->setGeometry(
-			_tabsSlider->x(),
-			_tabsSlider->bottomNoMargins() - st::lineWidth,
-			_tabsSlider->width(),
-			st::lineWidth);
-	}
+	updateTabBarGeometry();
 	updateScrollGeometry(e->oldSize());
 	updateRestrictedLabelGeometry();
 	updateFooterGeometry();
@@ -880,8 +870,8 @@ void TabbedSelector::paintEvent(QPaintEvent *e) {
 void TabbedSelector::paintSlideFrame(QPainter &p) {
 	if (_roundRadius > 0) {
 		paintBgRoundedPart(p);
-	} else if (_tabsSlider) {
-		p.fillRect(0, 0, width(), _tabsSlider->height(), _st.bg);
+	} else if (_tabBar) {
+		p.fillRect(0, 0, width(), _tabBar->height(), _st.categoriesBg);
 	}
 	auto slideDt = _a_slide.value(1.);
 	_slideAnimation->paintFrame(p, _st, slideDt, 1.);
@@ -890,8 +880,8 @@ void TabbedSelector::paintSlideFrame(QPainter &p) {
 void TabbedSelector::paintBgRoundedPart(QPainter &p) {
 	const auto fill = _dropDown
 		? QRect(0, height() - _roundRadius, width(), _roundRadius)
-		: _tabsSlider
-		? QRect(0, 0, width(), _tabsSlider->height())
+		: _tabBar
+		? QRect(0, 0, width(), _tabBar->height())
 		: QRect(0, 0, width(), _roundRadius);
 	Ui::FillRoundRect(p, fill, _st.bg, {
 		.p = {
@@ -904,7 +894,7 @@ void TabbedSelector::paintBgRoundedPart(QPainter &p) {
 }
 
 void TabbedSelector::paintContent(QPainter &p) {
-	const auto &footerBg = hasSectionIcons() ? _st.categoriesBg : _st.bg;
+	const auto &footerBg = _st.categoriesBg;
 	if (_roundRadius > 0) {
 		paintBgRoundedPart(p);
 
@@ -925,8 +915,8 @@ void TabbedSelector::paintContent(QPainter &p) {
 			},
 		});
 	} else {
-		if (_tabsSlider) {
-			p.fillRect(0, 0, width(), _tabsSlider->height(), _st.bg);
+		if (_tabBar) {
+			p.fillRect(0, 0, width(), _tabBar->height(), _st.categoriesBg);
 		}
 		p.fillRect(0, _footerTop, width(), _st.footer, footerBg);
 	}
@@ -952,8 +942,8 @@ void TabbedSelector::paintContent(QPainter &p) {
 int TabbedSelector::marginTop() const {
 	return (_dropDown && !_noFooter)
 		? _st.footer
-		: _tabsSlider
-		? (_tabsSlider->height() - st::lineWidth)
+		: _tabBar
+		? _tabBar->height()
 		: _roundRadius;
 }
 
@@ -987,10 +977,10 @@ void TabbedSelector::refreshStickers() {
 			masksList->preloadImages();
 		}
 
-		fillTabsSliderSections();
-		updateTabsSliderGeometry();
-		if (hasStickersTab() && masksList->mySetsEmpty()) {
-			_tabsSlider->setActiveSection(indexByType(SelectorTab::Stickers));
+		fillTabBar();
+		updateTabBarGeometry();
+		if (_currentTabType != typeByIndex(_tabBar->currentIndex())) {
+			switchTab();
 		}
 	}
 }
@@ -1011,11 +1001,8 @@ QImage TabbedSelector::grabForAnimation() {
 	auto slideAnimation = base::take(_a_slide);
 
 	showAll();
-	if (_topShadow) {
-		_topShadow->hide();
-	}
-	if (_tabsSlider) {
-		_tabsSlider->hide();
+	if (_tabBar) {
+		_tabBar->hide();
 	}
 	Ui::SendPendingMoveResizeEvents(this);
 
@@ -1082,11 +1069,32 @@ void TabbedSelector::beforeHiding() {
 
 void TabbedSelector::afterShown() {
 	if (!_a_slide.animating()) {
+		const auto restoreTabFocus = _tabBar && _tabBar->hasFocus();
 		showAll();
 		currentTab()->widget()->afterShown();
 		if (_afterShownCallback) {
 			_afterShownCallback(_currentTabType);
 		}
+		if (restoreTabFocus) {
+			_tabBar->setFocus(Qt::OtherFocusReason);
+		}
+	}
+}
+
+void TabbedSelector::focusSearch() {
+	switch (_currentTabType) {
+		case SelectorTab::Emoji:
+			emoji()->focusSearch();
+			break;
+		case SelectorTab::Stickers:
+			stickers()->focusSearch();
+			break;
+		case SelectorTab::Gifs:
+			gifs()->focusSearch();
+			break;
+		case SelectorTab::Masks:
+			masks()->focusSearch();
+			break;
 	}
 }
 
@@ -1202,21 +1210,15 @@ void TabbedSelector::showAll() {
 		_scroll->show();
 		_bottomShadow->setVisible(_mode == Mode::EmojiStatus);
 	}
-	if (_topShadow) {
-		_topShadow->show();
-	}
-	if (_tabsSlider) {
-		_tabsSlider->show();
+	if (_tabBar) {
+		_tabBar->show();
 	}
 }
 
 void TabbedSelector::hideForSliding() {
 	hideChildren();
-	if (_topShadow) {
-		_topShadow->show();
-	}
-	if (_tabsSlider) {
-		_tabsSlider->show();
+	if (_tabBar) {
+		_tabBar->show();
 	}
 	currentTab()->widget()->clearSelection();
 }
@@ -1229,9 +1231,6 @@ void TabbedSelector::handleScroll() {
 
 void TabbedSelector::setRoundRadius(int radius) {
 	_roundRadius = radius;
-	if (_tabsSlider) {
-		_tabsSlider->setRippleTopRoundRadius(_roundRadius);
-	}
 }
 
 void TabbedSelector::setAllowEmojiWithoutPremium(bool allow) {
@@ -1243,20 +1242,30 @@ void TabbedSelector::setAllowEmojiWithoutPremium(bool allow) {
 	}
 }
 
-void TabbedSelector::createTabsSlider() {
-	_tabsSlider.create(this, _st.tabs);
+void TabbedSelector::createTabBar() {
+	_tabBar = object_ptr<QTabBar>::fromRaw(Ui::CreateClassicTabBar(this));
+	fillTabBar();
+	updateTabBarGeometry();
 
-	fillTabsSliderSections();
-
-	_tabsSlider->setActiveSectionFast(indexByType(_currentTabType));
-	_tabsSlider->sectionActivated(
-	) | rpl::on_next([=] {
-		switchTab();
+	QObject::connect(
+		_tabBar.data(),
+		&QTabBar::currentChanged,
+		this,
+		[=](int index) {
+			if (index >= 0) {
+				switchTab();
+			}
+		});
+	Lang::Updated() | rpl::on_next([=] {
+		fillTabBar();
+		updateTabBarGeometry();
+		updateScrollGeometry(size());
+		updateRestrictedLabelGeometry();
 	}, lifetime());
 }
 
-void TabbedSelector::fillTabsSliderSections() {
-	if (!_tabsSlider) {
+void TabbedSelector::fillTabBar() {
+	if (!_tabBar) {
 		return;
 	}
 
@@ -1278,10 +1287,21 @@ void TabbedSelector::fillTabsSliderSections() {
 			case SelectorTab::Masks:
 				return tr::lng_switch_masks;
 			}
-			Unexpected("SelectorTab value in fillTabsSliderSections.");
+			Unexpected("SelectorTab value in fillTabBar.");
 		}()(tr::now);
 	}) | ranges::to_vector;
-	_tabsSlider->setSections(sections);
+	const auto blocker = QSignalBlocker(_tabBar);
+	while (_tabBar->count() > sections.size()) {
+		_tabBar->removeTab(_tabBar->count() - 1);
+	}
+	for (auto i = 0; i != sections.size(); ++i) {
+		if (i < _tabBar->count()) {
+			_tabBar->setTabText(i, sections[i]);
+		} else {
+			_tabBar->addTab(sections[i]);
+		}
+	}
+	_tabBar->setCurrentIndex(std::min(indexByType(_currentTabType), _tabBar->count() - 1));
 }
 
 bool TabbedSelector::hasSectionIcons() const {
@@ -1291,7 +1311,7 @@ bool TabbedSelector::hasSectionIcons() const {
 void TabbedSelector::switchTab() {
 	Expects(tabbed());
 
-	const auto tab = _tabsSlider->activeSection();
+	const auto tab = _tabBar->currentIndex();
 	Assert(tab >= 0 && tab < _tabs.size());
 	const auto newTabType = typeByIndex(tab);
 	if (_currentTabType == newTabType) {
@@ -1301,6 +1321,7 @@ void TabbedSelector::switchTab() {
 
 	const auto wasSectionIcons = hasSectionIcons();
 	const auto wasIndex = indexByType(_currentTabType);
+	const auto restoreTabFocus = _tabBar->hasFocus();
 	currentTab()->saveScrollTop();
 
 	beforeHiding();
@@ -1348,6 +1369,9 @@ void TabbedSelector::switchTab() {
 	_slideAnimation->start();
 
 	hideForSliding();
+	if (restoreTabFocus) {
+		_tabBar->setFocus(Qt::OtherFocusReason);
+	}
 
 	getTab(wasIndex)->widget()->hideFinished();
 
@@ -1416,11 +1440,6 @@ void TabbedSelector::setWidgetToScrollArea() {
 
 void TabbedSelector::scrollToY(int y) {
 	_scroll->scrollToY(y);
-
-	// Qt render glitch workaround, shadow sometimes disappears if we just scroll to y.
-	if (_topShadow) {
-		_topShadow->update();
-	}
 }
 
 void TabbedSelector::showMenuWithDetails(SendMenu::Details details) {
@@ -1550,11 +1569,12 @@ void TabbedSelector::Inner::paintEmptySearchResults(
 		icon.paint(p, iconLeft, iconTop, width());
 	}
 
-	const auto textWidth = st::normalFont->width(text);
+	const auto font = st::classicSettingsFont;
+	const auto textWidth = font->width(text);
 	const auto textTop = std::min(
-		iconTop + icon.height() - st::normalFont->height,
-		height() - 2 * st::normalFont->height);
-	p.setFont(st::normalFont);
+		iconTop + icon.height() - font->height,
+		height() - 2 * font->height);
+	p.setFont(font);
 	p.setPen(_st.tabs.labelFg);
 	p.drawTextLeft(
 		(width() - textWidth) / 2,

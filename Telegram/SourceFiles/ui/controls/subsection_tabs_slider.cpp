@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/subsection_tabs_slider.h"
 
+#include "ui/style/style_radius.h"
 #include "dialogs/dialogs_three_state_icon.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/widgets/scroll_area.h"
@@ -189,12 +190,12 @@ QPainterPath VerticalButton::createClipPath(const QRect &rect) const {
 	path.setFillRule(Qt::WindingFill);
 	const auto radius = st::boxRadius;
 	if (isFirstPinned() && isLastPinned()) {
-		path.addRoundedRect(rect, radius, radius);
+		path.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	} else if (isFirstPinned()) {
-		path.addRoundedRect(rect, radius, radius);
+		path.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		path.addRect(rect.adjusted(0, rect.height() / 2, 0, 0));
 	} else if (isLastPinned()) {
-		path.addRoundedRect(rect, radius, radius);
+		path.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		path.addRect(rect.adjusted(0, 0, 0, -rect.height() / 2));
 	}
 	return path;
@@ -344,12 +345,12 @@ QPainterPath HorizontalButton::createClipPath(const QRect &rect) const {
 	path.setFillRule(Qt::WindingFill);
 	const auto radius = st::boxRadius;
 	if (isFirstPinned() && isLastPinned()) {
-		path.addRoundedRect(rect, radius, radius);
+		path.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	} else if (isFirstPinned()) {
-		path.addRoundedRect(rect, radius, radius);
+		path.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		path.addRect(rect.adjusted(rect.width() / 2, 0, 0, 0));
 	} else if (isLastPinned()) {
-		path.addRoundedRect(rect, radius, radius);
+		path.addRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 		path.addRect(rect.adjusted(0, 0, -rect.width() / 2, 0));
 	}
 	return path;
@@ -968,7 +969,7 @@ std::shared_ptr<DynamicImage> MakeIconSubsectionsThumbnail(
 				const auto radius = fill.width() / 6.;
 				p.setPen(Qt::NoPen);
 				p.setBrush(color);
-				p.drawRoundedRect(inner, radius, radius);
+				p.drawRoundedRect(inner, style::CornerRadius(radius), style::CornerRadius(radius));
 				_icon.paint(
 					p,
 					(inner.topLeft()

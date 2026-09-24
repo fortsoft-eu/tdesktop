@@ -62,7 +62,7 @@ auto RowBlobs() -> std::array<Ui::Paint::Blobs::BlobData, 2> {
 }
 
 [[nodiscard]] int StatusPercentWidth(const QString &percent) {
-	return st::normalFont->width(percent);
+	return st::classicSettingsFont->width(percent);
 }
 
 } // namespace
@@ -129,7 +129,7 @@ MembersRow::MembersRow(
 : PeerListRow(participantPeer)
 , _delegate(delegate) {
 	refreshStatus();
-	_about.setText(st::defaultTextStyle, participantPeer->about());
+	_about.setText(st::groupCallBoxText, participantPeer->about());
 }
 
 MembersRow::~MembersRow() = default;
@@ -521,7 +521,7 @@ int MembersRow::statusIconWidth(bool skipIcon) const {
 		: (_statusIcon->speaker.width() + _statusIcon->arcsWidth);
 	const auto full = iconWidth
 		+ _statusIcon->percentWidth
-		+ st::normalFont->spacew;
+		+ st::classicSettingsFont->spacew;
 	return int(base::SafeRound(shown * full));
 }
 
@@ -564,7 +564,7 @@ void MembersRow::paintStatusIcon(
 		: (speakerRect.width() + _statusIcon->arcsWidth);
 	const auto fullWidth = iconWidth
 		+ _statusIcon->percentWidth
-		+ st::normalFont->spacew;
+		+ st::classicSettingsFont->spacew;
 
 	p.save();
 	if (shown < 1.) {
@@ -584,7 +584,7 @@ void MembersRow::paintStatusIcon(
 		_statusIcon->arcs.paint(p, color);
 		p.translate(-arcPosition);
 	}
-	p.setFont(st::normalFont);
+	p.setFont(st::classicSettingsFont);
 	p.setPen(st.statusFgActive);
 	p.drawTextLeft(
 		x + iconWidth,
@@ -598,7 +598,7 @@ void MembersRow::setAbout(const QString &about) {
 	if (_about.toString() == about) {
 		return;
 	}
-	_about.setText(st::defaultTextStyle, about);
+	_about.setText(st::groupCallBoxText, about);
 	_delegate->rowUpdateRow(this);
 }
 
@@ -642,7 +642,7 @@ void MembersRow::paintComplexStatusText(
 	const auto narrowMode = (skip > 0);
 	x += skip;
 	availableWidth -= skip;
-	const auto &font = st::normalFont;
+	const auto &font = st::classicSettingsFont;
 	const auto useAbout = !_about.isEmpty()
 		&& (_state != State::WithAccess)
 		&& (_state != State::Invited)

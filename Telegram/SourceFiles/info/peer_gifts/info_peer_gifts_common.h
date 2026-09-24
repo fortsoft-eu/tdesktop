@@ -122,6 +122,7 @@ struct GiftBadge {
 	QColor fg;
 	bool gradient = false;
 	bool small = false;
+	bool classic = false;
 
 	explicit operator bool() const {
 		return !text.isEmpty();

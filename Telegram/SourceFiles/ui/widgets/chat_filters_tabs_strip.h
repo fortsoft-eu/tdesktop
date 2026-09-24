@@ -34,4 +34,9 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
 	bool trackActiveFilterAndUnreadAndReorder = false,
 	bool handleKeyboardSwitch = false);
 
+not_null<Ui::RpWidget*> AddClassicChatFiltersTabsStrip(
+	not_null<Ui::RpWidget*> parent,
+	not_null<Main::Session*> session,
+	Fn<void(FilterId)> choose);
+
 } // namespace Ui

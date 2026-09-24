@@ -114,8 +114,8 @@ void Call::draw(Painter &p, const PaintContext &context) const {
 	arrow.paint(p, statusleft + st::historyCallArrowPosition.x(), statustop + st::historyCallArrowPosition.y(), paintw);
 	statusleft += arrow.width() + st::historyCallStatusSkip;
 
-	p.setFont(st::normalFont);
-	p.setPen(stm->mediaFg);
+	p.setFont(st::classicSettingsFont);
+	p.setPen(Qt::black);
 	p.drawTextLeft(statusleft, statustop, paintw, _status);
 
 	const auto &icon = _video

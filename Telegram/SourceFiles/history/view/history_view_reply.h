@@ -110,7 +110,8 @@ public:
 	[[nodiscard]] static TextWithEntities ComposePreviewName(
 		not_null<History*> history,
 		not_null<HistoryItem*> to,
-		const FullReplyTo &replyTo);
+		const FullReplyTo &replyTo,
+		bool boldName = false);
 
 private:
 	[[nodiscard]] Ui::Text::GeometryDescriptor textGeometry(

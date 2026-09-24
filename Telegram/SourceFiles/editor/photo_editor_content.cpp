@@ -296,8 +296,10 @@ void PhotoEditorContent::setupDragArea() {
 		nullptr,
 		nullptr,
 		[](const QMimeData *d) { return Storage::MimeDataState::Image; },
-		true);
+		true,
+		[=] { return _innerRect.current(); });
 
+	areas.photo->setWorkspaceBackground(true);
 	areas.photo->setDroppedCallback([=](const QMimeData *data) {
 		_paint->handleMimeData(data);
 	});

@@ -7,8 +7,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/controls/button_labels.h"
 
+#include "ui/qt_object_factory.h"
+#include "ui/style/style_classic.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
+
+#include <QtCore/QScopedValueRollback>
 
 namespace Ui {
 
@@ -37,10 +41,30 @@ void SetButtonTwoLabels(
 		const style::FlatLabel &st,
 		const style::FlatLabel &subst,
 		const style::color *textFg) {
+	const auto round = dynamic_cast<RoundButton*>(button.get());
+	const auto classic = round || button->property("classicButton").toBool();
+	struct State {
+		style::FlatLabel title;
+		style::FlatLabel subtitle;
+		bool withSubtitle = false;
+		bool updating = false;
+	};
+	const auto state = button->lifetime().make_state<State>(State{
+		.title = st,
+		.subtitle = subst,
+	});
+	if (classic) {
+		for (const auto label : { &state->title, &state->subtitle }) {
+			label->style.font = style::font(st::classicSettingsFont->size(), label->style.font->flags(), u"Tahoma"_q);
+			label->style.lineHeight = 0;
+			label->textFg = st::classicMenuText;
+			label->maxHeight = label->style.font->height;
+		}
+	}
 	const auto buttonTitle = Ui::CreateChild<Ui::FlatLabel>(
 		button,
 		std::move(title),
-		st);
+		state->title);
 	buttonTitle->show();
 	const auto buttonSubtitle = Ui::CreateChild<Ui::FlatLabel>(
 		button,
@@ -49,9 +73,9 @@ void SetButtonTwoLabels(
 		) | rpl::filter([](const TextWithEntities &text) {
 			return !text.empty();
 		}),
-		subst);
-	buttonSubtitle->setOpacity(0.6);
-	if (textFg) {
+		state->subtitle);
+	buttonSubtitle->setOpacity(classic ? 1. : 0.6);
+	if (textFg && !classic) {
 		buttonTitle->setTextColorOverride((*textFg)->c);
 		buttonSubtitle->setTextColorOverride((*textFg)->c);
 		style::PaletteChanged() | rpl::on_next([=] {
@@ -59,31 +83,55 @@ void SetButtonTwoLabels(
 			buttonSubtitle->setTextColorOverride((*textFg)->c);
 		}, buttonTitle->lifetime());
 	}
+	const auto updateGeometry = [=] {
+		if (state->updating) {
+			return;
+		}
+		const auto guard = QScopedValueRollback(state->updating, true);
+		const auto content = classic
+			? ClassicButtonContentRect(button->rect(), button)
+			: button->rect();
+		buttonTitle->resizeToWidth(std::min(
+			buttonTitle->naturalWidth(), content.width()));
+		buttonSubtitle->resizeToWidth(std::min(
+			buttonSubtitle->naturalWidth(), content.width()));
+		const auto two = buttonTitle->height() + buttonSubtitle->height();
+		if (classic) {
+			const auto height = state->withSubtitle
+				? std::max(st::classicButtonHeight,
+					two + 2 * st::classicButtonMinimumPadding)
+				: st::classicButtonHeight;
+			button->setMinimumHeight(height);
+			button->resize(button->width(), height);
+		}
+		const auto abstract = dynamic_cast<AbstractButton*>(button.get());
+		const auto down = abstract && abstract->isDown();
+		const auto shift = classic
+			? ClassicButtonContentOffset(button, down)
+			: QPoint();
+		const auto titleTop = state->withSubtitle
+			? (button->height() - two) / 2
+			: classic
+			? (button->height() - buttonTitle->height()) / 2
+			: singleLineTextTop;
+		buttonTitle->moveToLeft(
+			(button->width() - buttonTitle->width()) / 2 + shift.x(),
+			titleTop + shift.y());
+		buttonSubtitle->moveToLeft(
+			(button->width() - buttonSubtitle->width()) / 2 + shift.x(),
+			titleTop + buttonTitle->height() + shift.y());
+	};
+	std::move(subtitle) | rpl::on_next([=](const TextWithEntities &text) {
+		state->withSubtitle = !text.empty();
+		buttonSubtitle->setVisible(state->withSubtitle);
+		updateGeometry();
+	}, button->lifetime());
 	rpl::combine(
 		button->sizeValue(),
-		buttonTitle->sizeValue(),
-		buttonSubtitle->sizeValue(),
-		std::move(subtitle)
-	) | rpl::on_next([=](
-			QSize outer,
-			QSize title,
-			QSize subtitle,
-			const TextWithEntities &subtitleText) {
-		const auto withSubtitle = !subtitleText.empty();
-		buttonSubtitle->setVisible(withSubtitle);
-
-		const auto two = title.height() + subtitle.height();
-		const auto titleTop = withSubtitle
-			? (outer.height() - two) / 2
-			: singleLineTextTop;
-		const auto subtitleTop = titleTop + title.height();
-		buttonTitle->moveToLeft(
-			(outer.width() - title.width()) / 2,
-			titleTop);
-		buttonSubtitle->moveToLeft(
-			(outer.width() - subtitle.width()) / 2,
-			subtitleTop);
-	}, buttonTitle->lifetime());
+		buttonTitle->naturalWidthValue(),
+		buttonSubtitle->naturalWidthValue()
+	) | rpl::on_next(updateGeometry, button->lifetime());
+	button->paintRequest() | rpl::on_next(updateGeometry, button->lifetime());
 	buttonTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
 	buttonSubtitle->setAttribute(Qt::WA_TransparentForMouseEvents);
 }

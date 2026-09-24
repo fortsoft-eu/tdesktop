@@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/effects/message_sending_animation_controller.h"
+#include "ui/layers/standalone_layer_stack.h"
 #include "ui/style/style_palette_colorizer.h"
 #include "ui/toast/toast.h"
 #include "calls/calls_instance.h" // Core::App().calls().inCall().
@@ -140,6 +141,7 @@ base::options::toggle OptionExternalMediaViewer({
 	.id = kOptionExternalMediaViewer,
 	.name = "External media viewer",
 	.description = "Use system media viewer instead of the internal one.",
+	.defaultValue = false,
 });
 
 class MainWindowShow final : public ChatHelpers::Show {
@@ -1642,14 +1644,17 @@ SessionController::SessionController(
 		show(Box<EditPeerInfoBox>(this, base::take(_showEditPeer)));
 	}, lifetime());
 
-	session->data().chatsListChanges(
+	rpl::merge(
+		session->data().chatsListChanges(),
+		session->data().chatsListLoadedEvents()
 	) | rpl::filter([=](Data::Folder *folder) {
 		return (folder != nullptr)
 			&& (folder == _openedFolder.current())
-			&& folder->chatsList()->indexed()->empty()
-			&& !folder->storiesCount();
+			&& folder->chatsList()->loaded()
+			&& folder->chatsList()->indexed()->empty();
 	}) | rpl::on_next([=](Data::Folder *folder) {
 		folder->updateChatListSortPosition();
+		showToast(tr::lng_archived_empty(tr::now));
 		closeFolder();
 	}, lifetime());
 
@@ -2081,7 +2086,10 @@ bool SessionController::openFolderInDifferentWindow(
 }
 
 void SessionController::openFolder(not_null<Data::Folder*> folder) {
-	if (openFolderInDifferentWindow(folder)) {
+	if (folder->chatsList()->loaded() && folder->chatsList()->empty()) {
+		showToast(tr::lng_archived_empty(tr::now));
+		return;
+	} else if (openFolderInDifferentWindow(folder)) {
 		return;
 	} else if (_openedFolder.current() != folder) {
 		resetFakeUnreadWhileOpened();
@@ -3367,6 +3375,21 @@ base::weak_qptr<Ui::BoxContent> SessionController::show(
 		Ui::LayerOptions options,
 		anim::type animated) {
 	return _window->show(std::move(content), options, animated);
+}
+
+void SessionController::showToolBox(
+		object_ptr<Ui::BoxContent> content,
+		QString title) {
+	if (!_toolLayerStack) {
+		_toolLayerStack = std::make_unique<Ui::StandaloneLayerStack>(
+			widget().get());
+	}
+	_toolLayerStack->setAnchor(widget()->geometry(), widget()->size(), {});
+	_toolLayerStack->setToolWindowTitle(std::move(title));
+	_toolLayerStack->showBox(
+		std::move(content),
+		Ui::LayerOption::CloseOther,
+		anim::type::instant);
 }
 
 void SessionController::hideLayer(anim::type animated) {

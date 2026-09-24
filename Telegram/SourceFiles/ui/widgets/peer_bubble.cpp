@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "ui/widgets/peer_bubble.h"
 
+#include "ui/style/style_radius.h"
 #include "data/data_peer.h"
 #include "info/profile/info_profile_values.h"
 #include "ui/controls/userpic_button.h"
@@ -63,7 +64,7 @@ object_ptr<Ui::RpWidget> CreatePeerBubble(
 		p.setBrush(st::windowBgOver);
 		const auto rect = peerBubble->rect();
 		const auto radius = rect.height() / 2;
-		p.drawRoundedRect(rect, radius, radius);
+		p.drawRoundedRect(rect, style::CornerRadius(radius), style::CornerRadius(radius));
 	}, peerBubble->lifetime());
 
 	return owned;

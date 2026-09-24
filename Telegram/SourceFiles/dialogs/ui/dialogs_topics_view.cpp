@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/ui/dialogs_topics_view.h"
 
 #include "dialogs/ui/dialogs_layout.h"
+#include "ui/style/style_classic.h"
 #include "data/stickers/data_custom_emoji.h"
 #include "data/data_forum.h"
 #include "data/data_forum_topic.h"
@@ -196,12 +197,12 @@ void TopicsView::paint(
 		const PaintContext &context) const {
 	p.setFont(st::dialogsTextFont);
 	p.setPen(context.active
-		? st::dialogsTextFgActive
+		? QColor(255, 255, 255)
 		: context.selected
-		? st::dialogsTextFgOver
-		: st::dialogsTextFg);
+		? st::dialogsTextFgOver->c
+		: st::dialogsTextFg->c);
 	const auto palette = &(context.active
-		? st::dialogsTextPaletteArchiveActive
+		? SelectionTextPalette()
 		: context.selected
 		? st::dialogsTextPaletteArchiveOver
 		: st::dialogsTextPaletteArchive);
@@ -212,10 +213,7 @@ void TopicsView::paint(
 		const auto text = _allLoaded
 			? tr::lng_filters_no_chats(tr::now)
 			: tr::lng_contacts_loading(tr::now);
-		p.drawText(
-			rect.x(),
-			rect.y() + st::normalFont->ascent,
-			text);
+		::Ui::PaintClassicText(p, QPointF(rect.x(), rect.y() + st::normalFont->ascent), text, p.pen().color());
 		return;
 	}
 	for (const auto &title : _titles) {

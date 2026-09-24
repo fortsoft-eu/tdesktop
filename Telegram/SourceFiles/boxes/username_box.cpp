@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/sender.h"
 #include "ui/layers/generic_box.h"
 #include "ui/painter.h"
+#include "ui/style/style_classic.h"
 #include "ui/vertical_list.h"
 #include "ui/text/text_utilities.h"
 #include "ui/text/text_variant.h"
@@ -89,7 +90,7 @@ UsernameEditor::UsernameEditor(
 , _api(&_session->mtp())
 , _username(
 	this,
-	st::defaultInputField,
+	st::classicUsernameInput,
 	rpl::single(u"@username"_q),
 	editableUsername(),
 	QString())
@@ -317,6 +318,11 @@ void FillUsernamesBox(
 		not_null<Ui::GenericBox*> box,
 		not_null<PeerData*> peer,
 		Fn<void()> onSaved) {
+	box->setProperty("classicSettingsStyle", false);
+	box->setProperty("classicFormFrame", true);
+	const auto boxStyle = box->lifetime().make_state<style::Box>(st::defaultBox);
+	boxStyle->title.style.font = st::classicActionFont;
+	box->setStyle(*boxStyle);
 	const auto isBot = peer && peer->isUser() && peer->asUser()->isBot();
 	box->setTitle(isBot
 		? tr::lng_bot_username_title()
@@ -352,13 +358,17 @@ void FillUsernamesBox(
 		}
 		return rpl::single<TextWithEntities>({});
 	}();
+	const auto dividerStyle = box->lifetime().make_state<style::DividerBar>(
+		st::defaultDividerBar);
+	dividerStyle->bg = st::classicControlBg;
 	container->add(object_ptr<Ui::DividerLabel>(
 		container,
 		object_ptr<Ui::FlatLabel>(
 			container,
 			std::move(description),
-			st::boxDividerLabel),
-		st::defaultBoxDividerLabelPadding));
+			Ui::ClassicSettingsStyle(st::boxDividerLabel)),
+		st::defaultBoxDividerLabelPadding,
+		*dividerStyle));
 
 	const auto list = box->addRow(
 		object_ptr<UsernamesList>(
@@ -410,7 +420,7 @@ void AddUsernameCheckLabel(
 		not_null<Ui::VerticalLayout*> container,
 		rpl::producer<UsernameCheckInfo> checkInfo) {
 	const auto padding = st::boxRowPadding;
-	const auto &st = st::aboutRevokePublicLabel;
+	const auto &st = st::usernameCheckLabel;
 	const auto skip = (st::usernameSkip - st.style.font->height) / 4;
 
 	auto wrapped = object_ptr<Ui::VerticalLayout>(container);

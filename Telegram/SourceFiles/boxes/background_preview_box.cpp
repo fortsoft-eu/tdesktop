@@ -178,8 +178,6 @@ constexpr auto kMaxWallPaperSlugLength = 255;
 struct BackgroundPreviewBox::OverridenStyle {
 	style::Box box;
 	style::IconButton toggle;
-	style::MediaSlider slider;
-	style::FlatLabel subtitle;
 };
 
 BackgroundPreviewBox::BackgroundPreviewBox(
@@ -337,22 +335,17 @@ void BackgroundPreviewBox::createDimmingSlider(bool dark) {
 			child->deleteLater();
 		}
 	}
-	const auto equals = (dark == Window::Theme::IsNightMode());
 	const auto inner = Ui::CreateChild<Ui::VerticalLayout>(_dimmingContent);
 	inner->show();
 	Ui::AddSubsectionTitle(
 		inner,
 		tr::lng_background_dimming(),
 		style::margins(0, st::defaultVerticalListSkip, 0, 0),
-		equals ? nullptr : dark ? &_dark->subtitle : &_light->subtitle);
+		&st::backgroundDimmingTitle);
 	_dimmingSlider = inner->add(
 		object_ptr<Ui::MediaSlider>(
 			inner,
-			(equals
-				? st::defaultContinuousSlider
-				: dark
-				? _dark->slider
-				: _light->slider)),
+			st::defaultContinuousSlider),
 		st::localStorageLimitMargin);
 	_dimmingSlider->setValue(_dimmingIntensity / 100.);
 	_dimmingSlider->setAlwaysDisplayMarker(true);
@@ -373,12 +366,12 @@ void BackgroundPreviewBox::createDimmingSlider(bool dark) {
 	inner->move(0, 0);
 	_dimmingContent->resize(inner->size());
 
-	_dimmingContent->paintRequest(
-	) | rpl::on_next([=](QRect clip) {
-		auto p = QPainter(_dimmingContent);
-		const auto palette = (dark ? _darkPalette : _lightPalette).get();
-		p.fillRect(clip, equals ? st::boxBg : palette->boxBg());
-	}, _dimmingContent->lifetime());
+	if (created) {
+		_dimmingContent->paintRequest(
+		) | rpl::on_next([=](QRect clip) {
+			QPainter(_dimmingContent).fillRect(clip, st::classicControlBg);
+		}, _dimmingContent->lifetime());
+	}
 
 	_dimmingToggleScheduled = true;
 
@@ -424,33 +417,11 @@ auto BackgroundPreviewBox::prepareOverridenStyle(bool dark)
 	auto result = OverridenStyle{
 		.box = st::defaultBox,
 		.toggle = toggle,
-		.slider = st::defaultContinuousSlider,
-		.subtitle = st::defaultSubsectionTitle,
 	};
-	result.box.button.textFg = p->lightButtonFg();
-	result.box.button.textFgOver = p->lightButtonFgOver();
-	result.box.button.numbersTextFg = p->lightButtonFg();
-	result.box.button.numbersTextFgOver = p->lightButtonFgOver();
-	result.box.button.textBg = p->lightButtonBg();
-	result.box.button.textBgOver = p->lightButtonBgOver();
-	result.box.button.ripple.color = p->lightButtonBgRipple();
-	result.box.title.textFg = p->boxTitleFg();
-	result.box.bg = p->boxBg();
-	result.box.titleAdditionalFg = p->boxTitleAdditionalFg();
 
 	result.toggle.ripple.color = p->windowBgOver();
 	result.toggle.icon = toggle.icon.withPalette(*p);
 	result.toggle.iconOver = toggle.iconOver.withPalette(*p);
-
-	result.slider.activeFg = p->mediaPlayerActiveFg();
-	result.slider.inactiveFg = p->mediaPlayerInactiveFg();
-	result.slider.activeFgOver = p->mediaPlayerActiveFg();
-	result.slider.inactiveFgOver = p->mediaPlayerInactiveFg();
-	result.slider.activeFgDisabled = p->mediaPlayerInactiveFg();
-	result.slider.inactiveFgDisabled = p->windowBg();
-	result.slider.receivedTillFg = p->mediaPlayerInactiveFg();
-
-	result.subtitle.textFg = p->windowActiveTextFg();
 
 	return result;
 }
@@ -796,16 +767,15 @@ void BackgroundPreviewBox::applyForPeer() {
 	overlay->sizeValue(
 	) | rpl::on_next([=](QSize size) {
 		const auto padding = st::backgroundConfirmPadding;
-		const auto width = size.width()
-			- padding.left()
-			- padding.right();
+		const auto width = std::min(st::classicWideBoxButton.width, std::max(size.width() - padding.left() - padding.right(), 0));
+		const auto left = (size.width() - width) / 2;
 		const auto height = cancel->height();
 		auto top = size.height() - padding.bottom() - height;
-		cancel->setGeometry(padding.left(), top, width, height);
+		cancel->setGeometry(left, top, width, height);
 		top -= height + padding.top();
-		forBoth->setGeometry(padding.left(), top, width, height);
+		forBoth->setGeometry(left, top, width, height);
 		top -= height + padding.top();
-		forMe->setGeometry(padding.left(), top, width, height);
+		forMe->setGeometry(left, top, width, height);
 	}, _forBothOverlay->lifetime());
 
 	_forBothOverlay->hide(anim::type::instant);

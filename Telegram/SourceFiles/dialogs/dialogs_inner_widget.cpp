@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_inner_widget.h"
 
+#include "ui/style/style_classic.h"
+#include "ui/style/style_radius.h"
+
 #include "dialogs/dialogs_three_state_icon.h"
 #include "dialogs/ui/chat_search_empty.h"
 #include "dialogs/ui/chat_search_in.h"
@@ -1464,7 +1467,11 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 					? (from == _filteredPressed)
 					: (from == _filteredSelected);
 				const auto row = _filterResults[from].row;
-				paintRow(row, selected, !activeEntry.fullId);
+				paintRow(
+					row,
+					selected,
+					!activeEntry.fullId
+						|| activeEntry.fullId.msg == ShowAtUnreadMsgId);
 				p.translate(0, row->height());
 			}
 		}
@@ -1491,7 +1498,8 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 							result->sponsored->data.randomId);
 					}
 					const auto peer = result->peer;
-					const auto active = !activeEntry.fullId
+					const auto active = (!activeEntry.fullId
+							|| activeEntry.fullId.msg == ShowAtUnreadMsgId)
 						&& activePeer
 						&& ((peer == activePeer)
 							|| (peer->migrateTo() == activePeer));
@@ -1638,6 +1646,9 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 					_chatTypeFilterWidth = filterFont->width(text);
 				}
 				p.setFont(filterFont);
+				p.setPen(filterOver
+					? st::searchedBarLink.overColor
+					: st::searchedBarLink.color);
 				p.drawTextLeft(
 					(width()
 						- st::searchedBarPosition.x()
@@ -1691,9 +1702,10 @@ void InnerWidget::fillRightButton(
 		const TextWithEntities &text,
 		const style::DialogRightButton &st) {
 	button.st = &st;
+	button.top = st.margin.top();
 	button.text.setMarkedText(st.button.style, text);
 	const auto size = QSize(
-		button.text.maxWidth() + button.text.minHeight(),
+		button.text.maxWidth() + 2 * st::dialogsUnreadPadding,
 		st.button.height);
 	const auto generateBg = [&](const style::color &c) {
 		auto bg = QImage(
@@ -1703,11 +1715,7 @@ void InnerWidget::fillRightButton(
 		bg.fill(Qt::transparent);
 		{
 			auto p = QPainter(&bg);
-			auto hq = PainterHighQualityEnabler(p);
-			p.setPen(Qt::NoPen);
-			p.setBrush(c);
-			const auto r = size.height() / 2;
-			p.drawRoundedRect(Rect(size), r, r);
+			p.fillRect(Rect(size), c);
 		}
 		return bg;
 	};
@@ -1932,7 +1940,8 @@ void InnerWidget::paintPeerSearchResult(
 	QRect tr(context.st->textLeft, context.st->textTop, namewidth, st::dialogsTextFont->height);
 	p.setFont(st::dialogsTextFont);
 	QString username = peer->username();
-	if (!context.active && username.startsWith(_peerSearchQuery, Qt::CaseInsensitive)) {
+	if (!context.active
+		&& username.startsWith(_peerSearchQuery, Qt::CaseInsensitive)) {
 		auto first = '@' + username.mid(0, _peerSearchQuery.size());
 		auto second = username.mid(_peerSearchQuery.size());
 		auto w = st::dialogsTextFont->width(first);
@@ -1946,11 +1955,24 @@ void InnerWidget::paintPeerSearchResult(
 			p.drawText(tr.left() + w, tr.top() + st::dialogsTextFont->ascent, st::dialogsTextFont->elided(second, tr.width() - w));
 		}
 	} else {
-		p.setPen(context.active ? st::dialogsTextFgActive : st::dialogsTextFgService);
-		p.drawText(tr.left(), tr.top() + st::dialogsTextFont->ascent, st::dialogsTextFont->elided('@' + username, tr.width()));
+		const auto text = st::dialogsTextFont->elided(
+			'@' + username,
+			tr.width());
+		const auto color = context.active
+			? QColor(255, 255, 255)
+			: st::dialogsTextFgService->c;
+		::Ui::PaintClassicText(
+			p,
+			QPointF(
+				tr.left(),
+				tr.top() + st::dialogsTextFont->ascent),
+			text,
+			color);
 	}
 
-	p.setPen(context.active ? st::dialogsTextFgActive : st::dialogsNameFg);
+	p.setPen(context.active
+		? QColor(255, 255, 255)
+		: st::dialogsNameFg->c);
 	result->name.drawElided(p, rectForName.left(), rectForName.top(), rectForName.width());
 }
 
@@ -2169,7 +2191,7 @@ bool InnerWidget::lookupIsInRightButton(
 	const auto s = button.bg.size() / style::DevicePixelRatio();
 	const auto r = QRect(
 		width() - s.width() - button.st->margin.right(),
-		button.st->margin.top(),
+		button.top,
 		s.width(),
 		s.height());
 	return r.contains(localPosition);
@@ -2584,7 +2606,7 @@ bool InnerWidget::addRightButtonRipple(QPoint origin, Fn<void()> updateCallback)
 	}
 	const auto shift = QPoint(
 		width() - size.width() - _pressedRightButtonData->st->margin.right(),
-		_pressedRightButtonData->st->margin.top());
+		_pressedRightButtonData->top);
 	_pressedRightButtonData->ripple->add(origin - shift);
 	return true;
 }
@@ -4957,7 +4979,12 @@ void InnerWidget::refreshEmpty() {
 		}
 		return result;
 	});
-	_empty.create(this, std::move(full), st::dialogsEmptyLabel);
+	_empty.create(
+		this,
+		std::move(full),
+		(state == EmptyState::Loading)
+			? st::dialogsLoadingLabel
+			: st::dialogsEmptyLabel);
 	_empty->overrideLinkClickHandler([=] {
 		if (_emptyState == EmptyState::NoContacts) {
 			_controller->showAddContact();
@@ -5002,21 +5029,19 @@ void InnerWidget::refreshEmpty() {
 		}
 		_emptyButton.create(
 			this,
-			tr::lng_no_conversations_button(),
-			st::dialogEmptyButton);
+			QString(),
+			st::historyCompactComposeButton);
 		_emptyButton->setVisible(isListVisible);
 		_emptyButton->setClickedCallback([=, window = _controller] {
 			window->show(PrepareContactsBox(window));
 		});
-		geometryValue() | rpl::on_next([=](const QRect &r) {
-			const auto top = r.height()
-				- _emptyButton->height()
-				- st::dialogEmptyButtonSkip;
-			_emptyButton->moveToLeft(st::dialogEmptyButtonSkip, top);
+		tr::lng_no_conversations_button() | rpl::on_next([=](QString text) {
+			_emptyButton->setText(text);
+			resizeEmpty();
 		}, _emptyButton->lifetime());
 		geometryValue() | rpl::on_next([=](const QRect &r) {
 			const auto bottom = _emptyButton
-				? (_emptyButton->height() + st::dialogEmptyButtonSkip)
+				? st::historyComposeAreaHeight
 				: 0;
 			_emptyList->moveToLeft(
 				0,
@@ -5039,8 +5064,16 @@ void InnerWidget::resizeEmpty() {
 		_emptyList->resizeToWidth(width());
 	}
 	if (_emptyButton) {
-		const auto skip = st::dialogEmptyButtonSkip;
-		_emptyButton->resizeToWidth(width() - 2 * skip);
+		const auto available = std::max(width() - 2 * (st::historySendPadding
+			+ st::historyGiftToChannel.width), 0);
+		const auto buttonWidth = std::min(available,
+			st::historyBottomButtonWidth);
+		_emptyButton->setGeometry(
+			(width() - buttonWidth) / 2,
+			height() - st::historyComposeAreaHeight
+				+ (st::historyComposeAreaHeight - _emptyButton->height()) / 2,
+			buttonWidth,
+			_emptyButton->height());
 	}
 	if (_searchEmpty) {
 		_searchEmpty->resizeToWidth(width());

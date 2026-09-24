@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "editor/video/video_timeline.h"
 
+#include "ui/style/style_radius.h"
 #include "media/media_video_frames.h"
 #include "ui/painter.h"
 #include "ui/text/format_values.h"
@@ -357,7 +358,7 @@ void VideoTimeline::paintEvent(QPaintEvent *e) {
 	}
 	auto path = QPainterPath();
 	const auto radius = st::videoTimelineRadius;
-	path.addRoundedRect(QRectF(strip), radius, radius);
+	path.addRoundedRect(QRectF(strip), style::CornerRadius(radius), style::CornerRadius(radius));
 	p.setClipPath(path);
 	paintFrames(p, strip);
 	p.setClipping(false);
@@ -409,7 +410,7 @@ void VideoTimeline::paintSelection(QPainter &p, const QRect &strip) {
 		(right - left) + handle * 2,
 		strip.height());
 	auto frame = QPainterPath();
-	frame.addRoundedRect(outer, radius, radius);
+	frame.addRoundedRect(outer, style::CornerRadius(radius), style::CornerRadius(radius));
 	auto inner = QPainterPath();
 	inner.addRect(QRectF(
 		left,
@@ -431,8 +432,8 @@ void VideoTimeline::paintSelection(QPainter &p, const QRect &strip) {
 			right + (handle - gripWidth) / 2 }) {
 		p.drawRoundedRect(
 			QRectF(x, gripY, gripWidth, gripHeight),
-			gripWidth / 2.,
-			gripWidth / 2.);
+			style::CornerRadius(gripWidth / 2.),
+			style::CornerRadius(gripWidth / 2.));
 	}
 }
 
@@ -453,9 +454,9 @@ void VideoTimeline::paintHead(QPainter &p, const QRect &strip) {
 		{ 1. * outline, 1. * outline, 1. * outline, 1. * outline });
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::videoTimelineDimBg);
-	p.drawRoundedRect(full, width / 2. + outline, width / 2. + outline);
+	p.drawRoundedRect(full, style::CornerRadius(width / 2. + outline), style::CornerRadius(width / 2. + outline));
 	p.setBrush(st::videoTimelineFg);
-	p.drawRoundedRect(head, width / 2., width / 2.);
+	p.drawRoundedRect(head, style::CornerRadius(width / 2.), style::CornerRadius(width / 2.));
 }
 
 void VideoTimeline::paintCoverDot(QPainter &p) {
