@@ -1,47 +1,73 @@
-# [Telegram Desktop][telegram_desktop] – Official Messenger
+# Telegram Desktop 7.1.3 with a Windows 2000-style GUI
 
-This is the complete source code and the build instructions for the official [Telegram][telegram] messenger desktop client, based on the [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol.
+## English (United States)
 
-[![Version](https://badge.fury.io/gh/telegramdesktop%2Ftdesktop.svg)](https://github.com/telegramdesktop/tdesktop/releases)
-[![Build Status](https://github.com/telegramdesktop/tdesktop/workflows/Windows./badge.svg)](https://github.com/telegramdesktop/tdesktop/actions)
-[![Build Status](https://github.com/telegramdesktop/tdesktop/workflows/MacOS./badge.svg)](https://github.com/telegramdesktop/tdesktop/actions)
-[![Build Status](https://github.com/telegramdesktop/tdesktop/workflows/Linux./badge.svg)](https://github.com/telegramdesktop/tdesktop/actions)
-[![Built with Depot](https://img.shields.io/badge/Built%20with-Depot.dev-46A75A)](https://depot.dev)
+Unofficial fork of [telegramdesktop/tdesktop][upstream], maintained in
+[fortsoft-eu/tdesktop][fork]. It is based on Telegram Desktop 7.1.3.
+New upstream functionality is incorporated selectively, rather than by
+automatically following newer releases.
 
-[![Preview of Telegram Desktop][preview_image]][preview_image_url]
+Windows 2000-style refers to the GUI appearance, not compatibility with
+the Windows 2000 operating system.
 
-The source code is published under GPLv3 with OpenSSL exception, the license is available [here][license].
+### Local changes
 
-## Supported systems
+- Windows 2000-style colors, square corners, 3D borders, controls, and scrollbars.
+- Tahoma 8 pt in dialogs and system-installed Unifont for the main text.
+- Custom profile panels and layouts for dialogs, emoji, stickers, calls,
+  and screen sharing.
+- Send a Copy for messages and media, including download preparation and
+  photo-aware sending that reuses an existing Telegram photo when possible.
+- A tray-menu action to clear the cache of all signed-in accounts.
+- Personalized local and account defaults, extended profile details, and
+  optional profile-details server integration.
 
-The latest version is available for
+This fork changes behavior as well as appearance. Some [account defaults][defaults]
+update settings on Telegram's servers; review them before signing in.
+The optional profile-details server is disabled in the
+[example configuration][profile-example].
 
-* [Windows 7 and above (64 bit)](https://telegram.org/dl/desktop/win64) ([portable](https://telegram.org/dl/desktop/win64_portable))
-* [Windows 7 and above (32 bit)](https://telegram.org/dl/desktop/win) ([portable](https://telegram.org/dl/desktop/win_portable))
-* [macOS 10.13 and above](https://telegram.org/dl/desktop/mac)
-* [Linux static build for 64 bit](https://telegram.org/dl/desktop/linux)
-* [Snap](https://snapcraft.io/telegram-desktop)
-* [Flatpak](https://flathub.org/apps/details/org.telegram.desktop)
+The related library forks are [lib_base][lib-base], [lib_ui][lib-ui],
+[lib_lottie][lib-lottie], [lib_qr][lib-qr], and [lib_webview][lib-webview].
+Their revisions are recorded as Git submodules in this repository.
 
-## Old system versions
+### Build
 
-Version **4.9.9** was the last that supports older systems
+The [local build wrapper][build] targets Windows x64 Debug with Qt 5.15.19.
+It expects Visual Studio 2026, MSVC 14.44, and Windows SDK 10.0.26100.0.
+Include submodules when cloning the repository. On a fresh build environment,
+`build-local.cmd Setup` prepares dependencies, configures, and builds the client.
 
-* [macOS 10.12](https://updates.tdesktop.com/tmac/tsetup.4.9.9.dmg)
-* [Linux with glibc < 2.28 static build](https://updates.tdesktop.com/tlinux/tsetup.4.9.9.tar.xz)
+For an already prepared checkout, run one of these commands from the repository root:
 
-Version **2.4.4** was the last that supports older systems
+| Command | Scope |
+| --- | --- |
+| `.\build-local.cmd Build` | Incremental build of Telegram and its project dependencies. |
+| `.\build-local.cmd Rebuild` | Clean and rebuild the whole Debug solution. |
+| `.\build-local.cmd RebuildAll` | Rebuild the existing external dependencies, including Qt, then the solution. |
 
-* [OS X 10.10 and 10.11](https://updates.tdesktop.com/tosx/tsetup-osx.2.4.4.dmg)
-* [Linux static build for 32 bit](https://updates.tdesktop.com/tlinux32/tsetup32.2.4.4.tar.xz)
+`Build` and `Rebuild` also apply the local QtGui font patch and rebuild that
+library incrementally if needed; they do not perform a full Qt rebuild.
+`Setup` and `Prepare` can download or recreate dependency sources, so do not
+use them as a replacement for rebuilding dependencies with local edits.
 
-Version **1.8.15** was the last that supports older systems
+The executable is `out\Debug\Telegram.exe`. Use `build-local.cmd Open`
+to open the solution or `run-local.cmd` to launch with the separate
+`.local-data` profile. A separate profile still uses real Telegram accounts.
+Keep API credentials, account data, build outputs, and crash dumps private.
+The [API configuration template][api-example] contains placeholders only.
 
-* [Windows XP and Vista](https://updates.tdesktop.com/tsetup/tsetup.1.8.15.exe) ([portable](https://updates.tdesktop.com/tsetup/tportable.1.8.15.zip))
-* [OS X 10.8 and 10.9](https://updates.tdesktop.com/tmac/tsetup.1.8.15.dmg)
-* [OS X 10.6 and 10.7](https://updates.tdesktop.com/tmac32/tsetup32.1.8.15.dmg)
+### License
 
-## Third-party
+GNU GPL version 3 or later with the OpenSSL linking exception.
+See [license.txt][license] and the original [copyright notice][legal].
+Original copyrights remain applicable; dependencies and bundled assets
+retain their own licenses.
+
+### Third-party
+
+The following notices are retained from Telegram Desktop. The exact set of
+dependencies depends on the build configuration.
 
 * Qt 6 ([LGPL](http://doc.qt.io/qt-6/lgpl.html)) and Qt 5.15 ([LGPL](http://doc.qt.io/qt-5/lgpl.html)) slightly patched
 * OpenSSL 3.2.1 ([Apache License 2.0](https://openssl-library.org/source/license/apache-license-2.0.txt))
@@ -67,33 +93,80 @@ Version **1.8.15** was the last that supports older systems
 * Hunspell ([LGPL](https://github.com/hunspell/hunspell/blob/master/COPYING.LESSER))
 * Ada ([Apache License 2.0](https://github.com/ada-url/ada/blob/main/LICENSE-APACHE))
 
-## Build instructions
+## Česky
 
-* [Windows (32-bit and 64-bit)][win]
-* [macOS][mac]
-* [GNU/Linux using Docker][linux]
+Neoficiální fork [telegramdesktop/tdesktop][upstream] spravovaný v repozitáři
+[fortsoft-eu/tdesktop][fork]. Vychází z Telegram Desktop 7.1.3.
+Novější funkcionality původního projektu se přebírají cíleně, nikoli
+automatickým přechodem na nová vydání.
 
-[//]: # (LINKS)
-[telegram]: https://telegram.org
-[telegram_desktop]: https://desktop.telegram.org
-[telegram_api]: https://core.telegram.org
-[telegram_proto]: https://core.telegram.org/mtproto
-[license]: LICENSE
-[win]: docs/building-win.md
-[mac]: docs/building-mac.md
-[linux]: docs/building-linux.md
-[preview_image]: https://github.com/telegramdesktop/tdesktop/blob/dev/docs/assets/preview.png "Preview of Telegram Desktop"
-[preview_image_url]: https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/docs/assets/preview.png
+Windows 2000-style označuje vzhled GUI, nikoli kompatibilitu s operačním
+systémem Windows 2000.
 
-## Thanks to
+### Místní změny
 
-<a href="https://depot.dev">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://depot.dev/assets/brand/1693758816/depot-logo-horizontal-on-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://depot.dev/assets/brand/1693758816/depot-logo-horizontal-on-light.svg">
-    <img alt="Depot" src="https://depot.dev/assets/brand/1693758816/depot-logo-horizontal-on-light.svg" width="150">
-  </picture>
-</a>
+- Barvy, hranaté rohy, 3D rámečky, ovládací prvky a scrollbary ve stylu Windows 2000.
+- Tahoma 8 pt v dialozích a systémově nainstalovaný Unifont pro hlavní text.
+- Vlastní profilové panely a rozvržení dialogů, emoji, samolepek, hovorů
+  a sdílení obrazovky.
+- Send a Copy pro zprávy a média včetně přípravy stažením a odesílání fotografií
+  jako fotografií; pokud je to možné, použije se již existující fotografie v Telegramu.
+- Příkaz v menu tray ikony pro vymazání cache všech přihlášených účtů.
+- Osobní výchozí nastavení aplikace a účtů, rozšířené údaje profilů
+  a volitelné propojení se serverem pro profilové údaje.
 
-CI infrastructure sponsored by [Depot](https://depot.dev) — fast GitHub Actions runners.
+Fork mění nejen vzhled, ale i chování aplikace. Některá [výchozí nastavení účtů][defaults]
+mění nastavení na serverech Telegramu; před přihlášením je zkontrolujte.
+Volitelný server pro profilové údaje je ve [vzorové konfiguraci][profile-example]
+vypnutý.
 
+Související forky knihoven jsou [lib_base][lib-base], [lib_ui][lib-ui],
+[lib_lottie][lib-lottie], [lib_qr][lib-qr] a [lib_webview][lib-webview].
+Jejich konkrétní revize jsou v tomto repozitáři uložené jako Git submoduly.
+
+### Sestavení
+
+[Lokální sestavovací skript][build] používá Windows x64 Debug a Qt 5.15.19.
+Vyžaduje Visual Studio 2026, MSVC 14.44 a Windows SDK 10.0.26100.0.
+Repozitář klonujte včetně submodulů. V novém sestavovacím prostředí příkaz
+`build-local.cmd Setup` připraví závislosti, nakonfiguruje a sestaví klienta.
+
+V již připraveném pracovním adresáři spusťte jeden z příkazů v kořeni repozitáře:
+
+| Příkaz | Rozsah |
+| --- | --- |
+| `.\build-local.cmd Build` | Přírůstkové sestavení Telegramu a jeho projektových závislostí. |
+| `.\build-local.cmd Rebuild` | Vyčištění a nové sestavení celé Debug solution. |
+| `.\build-local.cmd RebuildAll` | Nové sestavení existujících externích závislostí včetně Qt a potom solution. |
+
+`Build` a `Rebuild` zároveň aplikují místní úpravu písem QtGui a v případě
+potřeby tuto knihovnu přírůstkově sestaví; neprovádějí kompletní rebuild Qt.
+`Setup` a `Prepare` mohou závislosti stahovat nebo znovu vytvořit jejich zdrojové
+adresáře, proto jimi nenahrazujte rebuild závislostí obsahujících vlastní změny.
+
+Výsledný program je `out\Debug\Telegram.exe`. Příkaz `build-local.cmd Open`
+otevře solution a `run-local.cmd` spustí klienta s odděleným profilem
+v `.local-data`. I oddělený profil používá skutečné účty Telegramu.
+API údaje, data účtů, výstupy sestavení ani výpisy paměti nezveřejňujte.
+[Vzorová konfigurace API][api-example] obsahuje pouze zástupné hodnoty.
+
+### Licence
+
+GNU GPL verze 3 nebo novější s výjimkou pro propojení s OpenSSL.
+Viz [license.txt][license] a původní [oznámení o autorských právech][legal].
+Původní autorská práva zůstávají zachována; závislosti a přibalené zdroje
+mají vlastní licence uvedené v [přehledu třetích stran](#third-party).
+
+[upstream]: https://github.com/telegramdesktop/tdesktop
+[fork]: https://github.com/fortsoft-eu/tdesktop
+[lib-base]: https://github.com/fortsoft-eu/lib_base
+[lib-ui]: https://github.com/fortsoft-eu/lib_ui
+[lib-lottie]: https://github.com/fortsoft-eu/lib_lottie
+[lib-qr]: https://github.com/fortsoft-eu/lib_qr
+[lib-webview]: https://github.com/fortsoft-eu/lib_webview
+[build]: build-local.ps1
+[defaults]: Telegram/SourceFiles/core/personal_account_defaults.cpp
+[profile-example]: profile-details-server.example.json
+[api-example]: telegram-api.example.json
+[license]: license.txt
+[legal]: LEGAL
